@@ -56,25 +56,24 @@ describe('LlmGatewayFactory', () => {
     ).toThrow('Unsupported LLM provider');
   });
 
-  it('should read provider from environment variable when provider param is omitted', () => {
+  it('should read provider from config when provider param is omitted', () => {
     // Arrange
-    const previousProvider = process.env.LLM_PROVIDER;
-    process.env.LLM_PROVIDER = 'gemini';
     const geminiGateway = createGateway('gemini-env');
+    const config = {
+      get: jest.fn().mockReturnValue('gemini'),
+      getBoolean: jest.fn(),
+    };
 
-    try {
-      // Act
-      const gateway = createLlmGateway({
-        createGeminiLlmAdapter: () => geminiGateway,
-        createOllamaLlmAdapter: () => createGateway('ollama'),
-        createGroqLlmAdapter: () => createGateway('groq'),
-      });
+    // Act
+    const gateway = createLlmGateway({
+      config,
+      createGeminiLlmAdapter: () => geminiGateway,
+      createOllamaLlmAdapter: () => createGateway('ollama'),
+      createGroqLlmAdapter: () => createGateway('groq'),
+    });
 
-      // Assert
-      expect(gateway).toBe(geminiGateway);
-    } finally {
-      process.env.LLM_PROVIDER = previousProvider;
-    }
+    // Assert
+    expect(gateway).toBe(geminiGateway);
   });
 
   it('should default to ollama when provider param and env are missing', () => {

@@ -1,10 +1,13 @@
 import 'dotenv/config';
 
 import { createApp } from './app';
+import { createEnvConfig } from './shared/infrastructure/config/env-config.adapter';
 import { createEnvLogger } from './shared/infrastructure/logging/env-logger';
 
 const DEFAULT_PORT = 3000;
-const portFromEnv = process.env.PORT;
+const PORT_ENV_VAR = 'PORT';
+const config = createEnvConfig();
+const portFromEnv = config.get(PORT_ENV_VAR);
 const parsedPort = Number(portFromEnv);
 const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : DEFAULT_PORT;
 const logger = createEnvLogger();

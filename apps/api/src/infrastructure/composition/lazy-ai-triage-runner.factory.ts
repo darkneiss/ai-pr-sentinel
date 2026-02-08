@@ -1,19 +1,22 @@
 import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 import type { GovernanceGateway } from '../../features/triage/application/ports/governance-gateway.port';
 import type { RepositoryContextGateway } from '../../features/triage/application/ports/repository-context-gateway.port';
+import type { ConfigPort } from '../../shared/application/ports/config.port';
 import type { QuestionResponseMetricsPort } from '../../shared/application/ports/question-response-metrics.port';
+import { createEnvConfig } from '../../shared/infrastructure/config/env-config.adapter';
 import type { Logger } from '../../shared/infrastructure/logging/env-logger';
 
 const AI_TRIAGE_ENABLED_ENV_VAR = 'AI_TRIAGE_ENABLED';
 const GITHUB_BOT_LOGIN_ENV_VAR = 'GITHUB_BOT_LOGIN';
 
-export const isAiTriageEnabled = (): boolean =>
-  (process.env[AI_TRIAGE_ENABLED_ENV_VAR] ?? '').toLowerCase() === 'true';
+export const isAiTriageEnabled = (config: ConfigPort = createEnvConfig()): boolean =>
+  config.getBoolean(AI_TRIAGE_ENABLED_ENV_VAR) === true;
 
 export const createLazyAnalyzeIssueWithAi = (
   governanceGateway: GovernanceGateway,
   logger: Logger,
   metrics: QuestionResponseMetricsPort,
+  config: ConfigPort = createEnvConfig(),
 ): ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>) => {
   let runAnalyzeIssueWithAi:
     | ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>)
@@ -56,7 +59,7 @@ export const createLazyAnalyzeIssueWithAi = (
         repositoryContextGateway,
         governanceGateway,
         questionResponseMetrics: metrics,
-        botLogin: process.env[GITHUB_BOT_LOGIN_ENV_VAR],
+        botLogin: config.get(GITHUB_BOT_LOGIN_ENV_VAR),
         logger,
       });
     }

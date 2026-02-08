@@ -1,5 +1,7 @@
 import type { LLMGateway } from '../../shared/application/ports/llm-gateway.port';
+import type { ConfigPort } from '../../shared/application/ports/config.port';
 import { createGeminiLlmAdapter } from '../../shared/infrastructure/ai/adapters/gemini-llm.adapter';
+import { createEnvConfig } from '../../shared/infrastructure/config/env-config.adapter';
 import { createGroqLlmAdapter } from '../../shared/infrastructure/ai/adapters/groq-llm.adapter';
 import { createOllamaLlmAdapter } from '../../shared/infrastructure/ai/adapters/ollama-llm.adapter';
 
@@ -11,6 +13,7 @@ type LlmProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 interface CreateLlmGatewayParams {
   provider?: string;
+  config?: ConfigPort;
   createGeminiLlmAdapter?: () => LLMGateway;
   createOllamaLlmAdapter?: () => LLMGateway;
   createGroqLlmAdapter?: () => LLMGateway;
@@ -28,7 +31,8 @@ const parseProvider = (provider: string): LlmProvider => {
 };
 
 export const createLlmGateway = (params: CreateLlmGatewayParams = {}): LLMGateway => {
-  const providerValue = params.provider ?? process.env[LLM_PROVIDER_ENV_VAR] ?? DEFAULT_LLM_PROVIDER;
+  const config = params.config ?? createEnvConfig();
+  const providerValue = params.provider ?? config.get(LLM_PROVIDER_ENV_VAR) ?? DEFAULT_LLM_PROVIDER;
   const provider = parseProvider(providerValue);
 
   const geminiFactory = params.createGeminiLlmAdapter ?? createGeminiLlmAdapter;
