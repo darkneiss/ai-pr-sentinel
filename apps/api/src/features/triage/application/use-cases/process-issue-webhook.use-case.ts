@@ -70,6 +70,11 @@ export const processIssueWebhook =
     });
 
     if (!validationResult.isValid) {
+      const hasNeedsInfoLabel = input.issue.labels.includes(TRIAGE_NEEDS_INFO_LABEL);
+      if (hasNeedsInfoLabel) {
+        return { statusCode: 200 };
+      }
+
       await governanceGateway.addLabels({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,

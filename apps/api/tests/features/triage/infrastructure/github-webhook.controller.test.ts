@@ -130,6 +130,34 @@ describe('GithubWebhookController integration', () => {
     expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
   });
 
+  it('should accept null issue body from GitHub payloads', async () => {
+    // Arrange
+    const { app, governanceGateway } = setup();
+    const payloadWithNullBody = createPayload({
+      issue: {
+        number: 12,
+        title: 'Bug in login flow',
+        body: null,
+        user: {
+          login: 'dev_user',
+        },
+        labels: [],
+      },
+    });
+
+    // Act
+    const response = await request(app).post(WEBHOOK_ROUTE).send(payloadWithNullBody);
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: REPO_FULL_NAME,
+      issueNumber: 12,
+      labels: ['triage/needs-info'],
+    });
+    expect(governanceGateway.createComment).toHaveBeenCalledTimes(1);
+  });
+
   it('should return 400 when request body is missing', async () => {
     const governanceGateway: jest.Mocked<GovernanceGateway> = {
       addLabels: jest.fn().mockResolvedValue(undefined),

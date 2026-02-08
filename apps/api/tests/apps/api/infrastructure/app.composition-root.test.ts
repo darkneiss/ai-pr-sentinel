@@ -17,6 +17,9 @@ const createGithubIssueHistoryAdapterMock = jest.fn(() => ({
   findRecentIssues: jest.fn().mockResolvedValue([]),
   hasIssueCommentWithPrefix: jest.fn().mockResolvedValue(false),
 }));
+const createGithubRepositoryContextAdapterMock = jest.fn(() => ({
+  findRepositoryContext: jest.fn().mockResolvedValue(undefined),
+}));
 const analyzeIssueWithAiRunnerMock = jest.fn().mockResolvedValue({ status: 'completed' });
 const analyzeIssueWithAiFactoryMock = jest.fn((_dependencies: unknown) => analyzeIssueWithAiRunnerMock);
 
@@ -28,6 +31,9 @@ jest.mock('../../../../src/infrastructure/composition/llm-gateway.factory', () =
 }));
 jest.mock('../../../../src/features/triage/infrastructure/adapters/github-issue-history.adapter', () => ({
   createGithubIssueHistoryAdapter: () => createGithubIssueHistoryAdapterMock(),
+}));
+jest.mock('../../../../src/features/triage/infrastructure/adapters/github-repository-context.adapter', () => ({
+  createGithubRepositoryContextAdapter: () => createGithubRepositoryContextAdapterMock(),
 }));
 jest.mock('../../../../src/features/triage/application/use-cases/analyze-issue-with-ai.use-case', () => ({
   analyzeIssueWithAi: (dependencies: unknown) => analyzeIssueWithAiFactoryMock(dependencies),

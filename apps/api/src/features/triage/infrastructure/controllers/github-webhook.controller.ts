@@ -22,7 +22,7 @@ interface GithubIssueWebhookPayload {
   issue: {
     number: number;
     title: string;
-    body: string;
+    body: string | null;
     user: {
       login: string;
     };
@@ -49,7 +49,7 @@ const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhoo
     !!issue &&
     typeof issue.number === 'number' &&
     typeof issue.title === 'string' &&
-    typeof issue.body === 'string' &&
+    (typeof issue.body === 'string' || issue.body === null) &&
     !!user &&
     typeof user.login === 'string' &&
     Array.isArray(labels) &&
@@ -116,7 +116,7 @@ export const createGithubWebhookController = ({
         issue: {
           number: payload.issue.number,
           title: payload.issue.title,
-          body: payload.issue.body,
+          body: payload.issue.body ?? '',
           author: payload.issue.user.login,
           labels: payload.issue.labels.map((label) => label.name),
         },

@@ -17,7 +17,6 @@ const GITHUB_WEBHOOK_ROUTE = '/webhooks/github';
 const DEFAULT_APP_VERSION = '1.0.0';
 const APP_VERSION_ENV_VAR = 'APP_VERSION';
 const NPM_PACKAGE_VERSION_ENV_VAR = 'npm_package_version';
-const questionResponseMetrics = createInMemoryQuestionResponseMetrics();
 
 interface CreateAppParams {
   governanceGateway?: GovernanceGateway;
@@ -28,6 +27,7 @@ interface CreateAppParams {
 export const createApp = (params: CreateAppParams = {}) => {
   const app = express();
   const logger = params.logger ?? createEnvLogger();
+  const questionResponseMetrics = createInMemoryQuestionResponseMetrics();
   const signatureConfig = resolveWebhookSignatureConfig();
   const governanceGateway = params.governanceGateway ?? createLazyGovernanceGateway();
   const analyzeIssueWithAi =

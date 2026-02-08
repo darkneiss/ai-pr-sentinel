@@ -201,4 +201,38 @@ describe('ProcessIssueWebhookUseCase', () => {
     expect(governanceGateway.logValidatedIssue).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
+
+  it('should not repeat invalid issue actions when triage/needs-info label already exists', async () => {
+    // Arrange
+    const governanceGateway = createGatewayMock();
+    const issueIntegrityValidator: jest.MockedFunction<IssueIntegrityValidator> = jest
+      .fn()
+      .mockReturnValue({
+        isValid: false,
+        errors: ['Description is required'],
+      });
+    const run = processIssueWebhook({
+      governanceGateway,
+      issueIntegrityValidator,
+    });
+
+    // Act
+    const result = await run({
+      action: 'edited',
+      repositoryFullName: REPO_FULL_NAME,
+      issue: {
+        number: ISSUE_NUMBER,
+        title: 'Bug in login flow',
+        body: '',
+        author: 'dev_user',
+        labels: ['triage/needs-info'],
+      },
+    });
+
+    // Assert
+    expect(result).toEqual({ statusCode: 200 });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+  });
 });

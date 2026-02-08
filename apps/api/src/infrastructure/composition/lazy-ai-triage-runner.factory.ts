@@ -38,11 +38,11 @@ export const createLazyAnalyzeIssueWithAi = (
           logger?: Logger;
         }) => (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
       };
+      const { createGithubRepositoryContextAdapter } = require('../../features/triage/infrastructure/adapters/github-repository-context.adapter') as {
+        createGithubRepositoryContextAdapter: (params?: { logger?: Logger }) => RepositoryContextGateway;
+      };
       let repositoryContextGateway: RepositoryContextGateway | undefined;
       try {
-        const { createGithubRepositoryContextAdapter } = require('../../features/triage/infrastructure/adapters/github-repository-context.adapter') as {
-          createGithubRepositoryContextAdapter: (params?: { logger?: Logger }) => RepositoryContextGateway;
-        };
         repositoryContextGateway = createGithubRepositoryContextAdapter({ logger });
       } catch (error: unknown) {
         logger.info?.('App could not initialize repository context gateway. Continuing without repository context.', {
