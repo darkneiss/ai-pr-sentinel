@@ -92,3 +92,5 @@ pnpm quality
 - [Governance Rules](./docs/specs/001-issue-governance.md)
 
 - [Agent Rules & Conventions](AGENTS.md)
+
+- [Commit Template](./docs/COMMIT_TEMPLATE.md)

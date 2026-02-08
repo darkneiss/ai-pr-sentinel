@@ -98,3 +98,13 @@ Create a new Issue with a very short title (e.g., "Bug") and short description (
 Check Terminal 2: You should see logs processing the issue.
 Refresh GitHub: The issue should now have the triage/needs-info label and a comment from the bot.
 Edit the Issue with a long title and description. The label should disappear automatically.
+
+---
+
+## 6. Optional: Enable Commit Template
+
+To standardize commit messages locally:
+
+```bash
+git config commit.template docs/COMMIT_TEMPLATE.md
+```
