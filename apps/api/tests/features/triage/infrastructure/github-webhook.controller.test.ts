@@ -112,4 +112,110 @@ describe('GithubWebhookController integration', () => {
     expect(governanceGateway.createComment).not.toHaveBeenCalled();
     expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
   });
+
+  it('should return 400 when payload is not a valid GitHub issue webhook', async () => {
+    const { app, governanceGateway } = setup();
+    const response = await request(app).post(WEBHOOK_ROUTE).send({ garbage: true, nope: 123 });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid GitHub issue webhook payload' });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+  });
+
+  it('should return 400 when request body is missing', async () => {
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockResolvedValue(undefined),
+    };
+    const app = express();
+    app.post(
+      WEBHOOK_ROUTE,
+      (req, _res, next) => {
+        (req as unknown as { body: unknown }).body = undefined;
+        next();
+      },
+      createGithubWebhookController({ governanceGateway }),
+    );
+
+    const response = await request(app).post(WEBHOOK_ROUTE).send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid GitHub issue webhook payload' });
+  });
+
+  it('should return 500 when an unexpected error happens while processing the webhook', async () => {
+    const { app, governanceGateway } = setup();
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    governanceGateway.logValidatedIssue.mockRejectedValueOnce(new Error('unexpected failure'));
+
+    const response = await request(app).post(WEBHOOK_ROUTE).send(createPayload());
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Internal Server Error' });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'GithubWebhookController failed processing issue webhook',
+      expect.any(Error),
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('should log success without removing labels for a valid issue with no previous invalid label', async () => {
+    const { app, governanceGateway } = setup();
+
+    const validPayload = createPayload({
+      action: 'edited',
+      issue: {
+        number: 12,
+        title: 'Bug in login flow when network drops',
+        body: 'Steps to reproduce: open app, disable network, submit login form, and check observed crash logs.',
+        user: {
+          login: 'dev_user',
+        },
+        labels: [{ name: 'triage/needs-info' }],
+      },
+    });
+
+    const response = await request(app).post(WEBHOOK_ROUTE).send(validPayload);
+
+    expect(response.status).toBe(200);
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).toHaveBeenCalledWith({
+      repositoryFullName: REPO_FULL_NAME,
+      issueNumber: 12,
+    });
+  });
+
+  it('should pass a valid issue with no labels without trying to remove labels', async () => {
+    const { app, governanceGateway } = setup();
+
+    const validPayload = createPayload({
+      action: 'edited',
+      issue: {
+        number: 12,
+        title: 'Bug in login flow when network drops',
+        body: 'Steps to reproduce: open app, disable network, submit login form, and check observed crash logs.',
+        user: {
+          login: 'dev_user',
+        },
+        labels: [],
+      },
+    });
+
+    const response = await request(app).post(WEBHOOK_ROUTE).send(validPayload);
+
+    expect(response.status).toBe(200);
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).toHaveBeenCalledWith({
+      repositoryFullName: REPO_FULL_NAME,
+      issueNumber: 12,
+    });
+  });
 });
