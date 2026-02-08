@@ -1,0 +1,120 @@
+import { Octokit } from '@octokit/rest';
+
+import type { IssueHistoryGateway, RecentIssueSummary } from '../../application/ports/issue-history-gateway.port';
+
+const REPOSITORY_SEPARATOR = '/';
+const REPOSITORY_PARTS_COUNT = 2;
+const GITHUB_TOKEN_ENV_VAR = 'GITHUB_TOKEN';
+const LOG_CONTEXT = 'GithubIssueHistoryAdapter';
+
+interface RepositoryRef {
+  owner: string;
+  repo: string;
+}
+
+interface Logger {
+  error: (message: string, ...args: unknown[]) => void;
+}
+
+interface CreateGithubIssueHistoryAdapterParams {
+  githubToken?: string;
+  octokit?: Octokit;
+  logger?: Logger;
+}
+
+interface GithubIssueLabelObject {
+  name?: string | null;
+}
+
+interface GithubIssueListItem {
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  labels: Array<GithubIssueLabelObject | string>;
+  pull_request?: Record<string, unknown>;
+}
+
+const parseRepositoryRef = (repositoryFullName: string): RepositoryRef => {
+  const repositoryParts = repositoryFullName.split(REPOSITORY_SEPARATOR);
+  const [owner, repo] = repositoryParts;
+  const isInvalidRepository =
+    repositoryParts.length !== REPOSITORY_PARTS_COUNT || !owner || !repo;
+
+  if (isInvalidRepository) {
+    throw new Error(`Invalid repository full name: "${repositoryFullName}"`);
+  }
+
+  return { owner, repo };
+};
+
+const createOctokitClient = (params: CreateGithubIssueHistoryAdapterParams): Octokit => {
+  if (params.octokit) {
+    return params.octokit;
+  }
+
+  const githubToken = params.githubToken ?? process.env[GITHUB_TOKEN_ENV_VAR];
+  if (!githubToken) {
+    throw new Error(`Missing GitHub token. Provide "githubToken" or set ${GITHUB_TOKEN_ENV_VAR}`);
+  }
+
+  return new Octokit({ auth: githubToken });
+};
+
+const isPullRequestItem = (issue: GithubIssueListItem): boolean => !!issue.pull_request;
+
+const mapLabelName = (label: GithubIssueLabelObject | string): string | undefined => {
+  if (typeof label === 'string') {
+    return label;
+  }
+
+  if (typeof label.name === 'string' && label.name.length > 0) {
+    return label.name;
+  }
+
+  return undefined;
+};
+
+const mapIssueToRecentSummary = (issue: GithubIssueListItem): RecentIssueSummary => ({
+  number: issue.number,
+  title: issue.title,
+  state: issue.state,
+  labels: issue.labels
+    .map((label) => mapLabelName(label))
+    .filter((labelName): labelName is string => !!labelName),
+});
+
+export const createGithubIssueHistoryAdapter = (
+  params: CreateGithubIssueHistoryAdapterParams = {},
+): IssueHistoryGateway => {
+  const octokit = createOctokitClient(params);
+  const logger = params.logger ?? console;
+
+  return {
+    findRecentIssues: async ({ repositoryFullName, limit }) => {
+      const repository = parseRepositoryRef(repositoryFullName);
+
+      try {
+        const response = await octokit.issues.listForRepo({
+          owner: repository.owner,
+          repo: repository.repo,
+          state: 'open',
+          sort: 'created',
+          direction: 'desc',
+          per_page: limit,
+          page: 1,
+        });
+
+        return (response.data as unknown as GithubIssueListItem[])
+          .filter((issue) => !isPullRequestItem(issue))
+          .map((issue) => mapIssueToRecentSummary(issue));
+      } catch (error: unknown) {
+        logger.error(`${LOG_CONTEXT} failed fetching recent issues`, {
+          repositoryFullName,
+          limit,
+          error,
+        });
+        throw error;
+      }
+    },
+  };
+};
