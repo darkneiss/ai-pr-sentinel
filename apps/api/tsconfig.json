@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    /* Configuración Base de Node */
+    "target": "ES2020",              /* Generar JS moderno pero compatible */
+    "module": "commonjs",            /* Usar CommonJS (estándar para Node/Jest) */
+    "moduleResolution": "node",      /* Resolución clásica de Node */
+    "esModuleInterop": true,         /* Permite usar 'import' en lugar de 'require' */
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,                  /* Mantiene el tipado fuerte */
+    "skipLibCheck": true,            /* Acelera la compilación ignorando d.ts externos */
+    
+    /* Rutas de salida */
+    "outDir": "./dist",
+    "rootDir": ".",                  /* Importante: raíz es el directorio actual para incluir src y tests */
+    
+    /* Desactiva la regla que te está dando problemas */
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,34 @@
+# Dependencias
+node_modules
+.pnpm-store
+
+# Compilación y Distrubución
+dist
+build
+lib
+
+# Entorno y Secretos (CRITICAL - Seguridad)
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage
+.nyc_output
+junit.xml
+
+# Sistema Operativo (Basura)
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo

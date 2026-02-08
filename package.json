@@ -1,0 +1,14 @@
+{
+  "name": "ai-pr-sentinel",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "pnpm --filter \"*\" test",
+    "quality": "pnpm test && pnpm lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.18.0"
+}
