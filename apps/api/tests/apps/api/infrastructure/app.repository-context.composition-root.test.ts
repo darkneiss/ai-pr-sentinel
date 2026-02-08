@@ -29,7 +29,7 @@ const analyzeIssueWithAiFactoryMock = jest.fn((_dependencies: unknown) => analyz
 jest.mock('../../../../src/features/triage/infrastructure/adapters/github-governance.adapter', () => ({
   createGithubGovernanceAdapter: () => createGithubGovernanceAdapterMock(),
 }));
-jest.mock('../../../../src/shared/infrastructure/ai/llm-gateway.factory', () => ({
+jest.mock('../../../../src/infrastructure/composition/llm-gateway.factory', () => ({
   createLlmGateway: () => createLlmGatewayMock(),
 }));
 jest.mock('../../../../src/features/triage/infrastructure/adapters/github-issue-history.adapter', () => ({

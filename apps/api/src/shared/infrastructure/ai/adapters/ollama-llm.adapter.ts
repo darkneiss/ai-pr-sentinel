@@ -17,6 +17,8 @@ interface OllamaSuccessResponse {
   response?: string;
 }
 
+type GenerateJsonInput = Parameters<LLMGateway['generateJson']>[0];
+
 const createAbortSignal = (timeoutMs: number): AbortSignal | undefined => {
   if (typeof AbortSignal.timeout === 'function') {
     return AbortSignal.timeout(timeoutMs);
@@ -25,35 +27,64 @@ const createAbortSignal = (timeoutMs: number): AbortSignal | undefined => {
   return undefined;
 };
 
+const getOllamaBaseUrl = (params: CreateOllamaLlmAdapterParams): string =>
+  params.baseUrl ??
+  process.env[LLM_BASE_URL_ENV_VAR] ??
+  process.env[OLLAMA_BASE_URL_ENV_VAR] ??
+  DEFAULT_OLLAMA_BASE_URL;
+
+const getOllamaModel = (params: CreateOllamaLlmAdapterParams): string =>
+  params.model ?? process.env[LLM_MODEL_ENV_VAR] ?? process.env[OLLAMA_MODEL_ENV_VAR] ?? DEFAULT_OLLAMA_MODEL;
+
+const buildOllamaEndpoint = (baseUrl: string): string => `${baseUrl}/api/generate`;
+
+const buildOllamaRequestBody = ({
+  model,
+  systemPrompt,
+  userPrompt,
+  maxTokens,
+  temperature,
+}: GenerateJsonInput & { model: string }): string =>
+  JSON.stringify({
+    model,
+    system: systemPrompt,
+    prompt: userPrompt,
+    stream: false,
+    options: {
+      temperature,
+      num_predict: maxTokens,
+    },
+  });
+
+const extractOllamaRawText = (responseJson: OllamaSuccessResponse): string => {
+  const rawText = responseJson.response;
+  if (typeof rawText !== 'string' || rawText.length === 0) {
+    throw new Error('Ollama response did not include text content');
+  }
+
+  return rawText;
+};
+
 export const createOllamaLlmAdapter = (params: CreateOllamaLlmAdapterParams = {}): LLMGateway => {
-  const baseUrl =
-    params.baseUrl ??
-    process.env[LLM_BASE_URL_ENV_VAR] ??
-    process.env[OLLAMA_BASE_URL_ENV_VAR] ??
-    DEFAULT_OLLAMA_BASE_URL;
-  const model =
-    params.model ??
-    process.env[LLM_MODEL_ENV_VAR] ??
-    process.env[OLLAMA_MODEL_ENV_VAR] ??
-    DEFAULT_OLLAMA_MODEL;
+  const baseUrl = getOllamaBaseUrl(params);
+  const model = getOllamaModel(params);
+  const endpoint = buildOllamaEndpoint(baseUrl);
   const fetchFn = params.fetchFn ?? fetch;
 
   return {
     generateJson: async ({ systemPrompt, userPrompt, maxTokens, timeoutMs, temperature }) => {
-      const response = await fetchFn(`${baseUrl}/api/generate`, {
+      const response = await fetchFn(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+        body: buildOllamaRequestBody({
           model,
-          system: systemPrompt,
-          prompt: userPrompt,
-          stream: false,
-          options: {
-            temperature,
-            num_predict: maxTokens,
-          },
+          systemPrompt,
+          userPrompt,
+          maxTokens,
+          timeoutMs,
+          temperature,
         }),
         signal: createAbortSignal(timeoutMs),
       });
@@ -63,12 +94,8 @@ export const createOllamaLlmAdapter = (params: CreateOllamaLlmAdapterParams = {}
       }
 
       const responseJson = (await response.json()) as OllamaSuccessResponse;
-      const rawText = responseJson.response;
-      if (typeof rawText !== 'string' || rawText.length === 0) {
-        throw new Error('Ollama response did not include text content');
-      }
 
-      return { rawText };
+      return { rawText: extractOllamaRawText(responseJson) };
     },
   };
 };

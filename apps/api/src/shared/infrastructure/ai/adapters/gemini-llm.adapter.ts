@@ -32,6 +32,8 @@ interface GeminiErrorResponse {
   };
 }
 
+type GenerateJsonInput = Parameters<LLMGateway['generateJson']>[0];
+
 const createAbortSignal = (timeoutMs: number): AbortSignal | undefined => {
   if (typeof AbortSignal.timeout === 'function') {
     return AbortSignal.timeout(timeoutMs);
@@ -49,63 +51,101 @@ const getGeminiApiKey = (params: CreateGeminiLlmAdapterParams): string => {
   return apiKey;
 };
 
+const getGeminiModel = (params: CreateGeminiLlmAdapterParams): string =>
+  params.model ?? process.env[LLM_MODEL_ENV_VAR] ?? process.env[GEMINI_MODEL_ENV_VAR] ?? DEFAULT_GEMINI_MODEL;
+
+const getGeminiBaseUrl = (params: CreateGeminiLlmAdapterParams): string =>
+  params.baseUrl ??
+  process.env[LLM_BASE_URL_ENV_VAR] ??
+  process.env[GEMINI_BASE_URL_ENV_VAR] ??
+  DEFAULT_GEMINI_BASE_URL;
+
+const buildGeminiEndpoint = (baseUrl: string, model: string, apiKey: string): string =>
+  `${baseUrl}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+const buildGeminiRequestBody = ({
+  systemPrompt,
+  userPrompt,
+  maxTokens,
+  temperature,
+}: GenerateJsonInput): string =>
+  JSON.stringify({
+    systemInstruction: {
+      parts: [{ text: systemPrompt }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: userPrompt }],
+      },
+    ],
+    generationConfig: {
+      maxOutputTokens: maxTokens,
+      temperature,
+      responseMimeType: 'application/json',
+    },
+  });
+
+const buildGeminiRequestError = ({
+  status,
+  model,
+  responseJson,
+}: {
+  status: number;
+  model: string;
+  responseJson?: GeminiErrorResponse;
+}): Error => {
+  const errorMessage = responseJson?.error?.message;
+  const details = errorMessage ? `: ${errorMessage}` : '';
+
+  return new Error(`Gemini request failed with status ${status} for model ${model}${details}`);
+};
+
+const extractGeminiRawText = (responseJson: GeminiSuccessResponse): string => {
+  const rawText = responseJson.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof rawText !== 'string' || rawText.length === 0) {
+    throw new Error('Gemini response did not include text content');
+  }
+
+  return rawText;
+};
+
 export const createGeminiLlmAdapter = (params: CreateGeminiLlmAdapterParams = {}): LLMGateway => {
   const apiKey = getGeminiApiKey(params);
-  const model =
-    params.model ??
-    process.env[LLM_MODEL_ENV_VAR] ??
-    process.env[GEMINI_MODEL_ENV_VAR] ??
-    DEFAULT_GEMINI_MODEL;
-  const baseUrl =
-    params.baseUrl ??
-    process.env[LLM_BASE_URL_ENV_VAR] ??
-    process.env[GEMINI_BASE_URL_ENV_VAR] ??
-    DEFAULT_GEMINI_BASE_URL;
+  const model = getGeminiModel(params);
+  const baseUrl = getGeminiBaseUrl(params);
+  const endpoint = buildGeminiEndpoint(baseUrl, model, apiKey);
   const fetchFn = params.fetchFn ?? fetch;
 
   return {
     generateJson: async ({ systemPrompt, userPrompt, maxTokens, timeoutMs, temperature }) => {
-      const endpoint = `${baseUrl}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const response = await fetchFn(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: systemPrompt }],
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: userPrompt }],
-            },
-          ],
-          generationConfig: {
-            maxOutputTokens: maxTokens,
-            temperature,
-            responseMimeType: 'application/json',
-          },
+        body: buildGeminiRequestBody({
+          systemPrompt,
+          userPrompt,
+          maxTokens,
+          timeoutMs,
+          temperature,
         }),
         signal: createAbortSignal(timeoutMs),
       });
 
       if (!response.ok) {
-        const responseJson = (await response.json().catch(() => undefined)) as
-          | GeminiErrorResponse
-          | undefined;
-        const errorMessage = responseJson?.error?.message;
-        const details = errorMessage ? `: ${errorMessage}` : '';
-        throw new Error(`Gemini request failed with status ${response.status} for model ${model}${details}`);
+        const responseJson = (await response.json().catch(() => undefined)) as GeminiErrorResponse | undefined;
+        throw buildGeminiRequestError({
+          status: response.status,
+          model,
+          responseJson,
+        });
       }
 
       const responseJson = (await response.json()) as GeminiSuccessResponse;
-      const rawText = responseJson.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof rawText !== 'string' || rawText.length === 0) {
-        throw new Error('Gemini response did not include text content');
-      }
 
-      return { rawText };
+      return { rawText: extractGeminiRawText(responseJson) };
     },
   };
 };

@@ -6,105 +6,96 @@ interface MockFetchResponse {
   json: () => Promise<unknown>;
 }
 
+type GenerateJsonInput = Parameters<ReturnType<typeof createOllamaLlmAdapter>['generateJson']>[0];
+
+const DEFAULT_JSON_TEXT = '{"classification":{}}';
+
+const DEFAULT_GENERATE_JSON_INPUT: GenerateJsonInput = {
+  systemPrompt: 'system',
+  userPrompt: 'user',
+  maxTokens: 80,
+  timeoutMs: 5000,
+  temperature: 0.3,
+};
+
+const createFetchFnMock = (response: MockFetchResponse): jest.MockedFunction<typeof fetch> =>
+  jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue(response) as unknown as
+    jest.MockedFunction<typeof fetch>;
+
+const createAdapterWithFetch = (fetchFn: typeof fetch) =>
+  createOllamaLlmAdapter({
+    baseUrl: 'http://localhost:11434',
+    model: 'llama3.1',
+    fetchFn,
+  });
+
+const runGenerateJson = (
+  adapter: ReturnType<typeof createOllamaLlmAdapter>,
+  overrides: Partial<GenerateJsonInput> = {},
+) =>
+  adapter.generateJson({
+    ...DEFAULT_GENERATE_JSON_INPUT,
+    ...overrides,
+  });
+
 describe('OllamaLlmAdapter', () => {
   it('should call Ollama generate endpoint and return raw text', async () => {
     // Arrange
-    const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
+    const fetchFn = createFetchFnMock({
       ok: true,
       status: 200,
-      json: async () => ({ response: '{"classification":{}}' }),
+      json: async () => ({ response: DEFAULT_JSON_TEXT }),
     });
-    const adapter = createOllamaLlmAdapter({
-      baseUrl: 'http://localhost:11434',
-      model: 'llama3.1',
-      fetchFn: fetchFn as unknown as typeof fetch,
-    });
+    const adapter = createAdapterWithFetch(fetchFn);
 
     // Act
-    const result = await adapter.generateJson({
-      systemPrompt: 'system',
-      userPrompt: 'user',
-      maxTokens: 80,
-      timeoutMs: 5000,
-      temperature: 0.3,
-    });
+    const result = await runGenerateJson(adapter);
 
     // Assert
-    expect(result).toEqual({ rawText: '{"classification":{}}' });
+    expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
   it('should throw when Ollama returns non-ok response', async () => {
     // Arrange
-    const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
+    const fetchFn = createFetchFnMock({
       ok: false,
       status: 500,
       json: async () => ({ error: 'internal error' }),
     });
-    const adapter = createOllamaLlmAdapter({
-      baseUrl: 'http://localhost:11434',
-      model: 'llama3.1',
-      fetchFn: fetchFn as unknown as typeof fetch,
-    });
+    const adapter = createAdapterWithFetch(fetchFn);
 
     // Act + Assert
-    await expect(
-      adapter.generateJson({
-        systemPrompt: 'system',
-        userPrompt: 'user',
-        maxTokens: 80,
-        timeoutMs: 5000,
-      }),
-    ).rejects.toThrow('Ollama request failed');
+    await expect(runGenerateJson(adapter)).rejects.toThrow('Ollama request failed');
   });
 
   it('should throw when Ollama response does not include text content', async () => {
     // Arrange
-    const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
+    const fetchFn = createFetchFnMock({
       ok: true,
       status: 200,
       json: async () => ({ response: '' }),
     });
-    const adapter = createOllamaLlmAdapter({
-      baseUrl: 'http://localhost:11434',
-      model: 'llama3.1',
-      fetchFn: fetchFn as unknown as typeof fetch,
-    });
+    const adapter = createAdapterWithFetch(fetchFn);
 
     // Act + Assert
-    await expect(
-      adapter.generateJson({
-        systemPrompt: 'system',
-        userPrompt: 'user',
-        maxTokens: 80,
-        timeoutMs: 5000,
-      }),
-    ).rejects.toThrow('Ollama response did not include text content');
+    await expect(runGenerateJson(adapter)).rejects.toThrow('Ollama response did not include text content');
   });
 
   it('should call fetch without signal when AbortSignal.timeout is unavailable', async () => {
     // Arrange
-    const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
+    const fetchFn = createFetchFnMock({
       ok: true,
       status: 200,
-      json: async () => ({ response: '{\"classification\":{}}' }),
+      json: async () => ({ response: DEFAULT_JSON_TEXT }),
     });
     const originalAbortSignalTimeout = AbortSignal.timeout;
     (AbortSignal as unknown as { timeout?: unknown }).timeout = undefined;
-    const adapter = createOllamaLlmAdapter({
-      baseUrl: 'http://localhost:11434',
-      model: 'llama3.1',
-      fetchFn: fetchFn as unknown as typeof fetch,
-    });
+    const adapter = createAdapterWithFetch(fetchFn);
 
     try {
       // Act
-      await adapter.generateJson({
-        systemPrompt: 'system',
-        userPrompt: 'user',
-        maxTokens: 80,
-        timeoutMs: 5000,
-      });
+      await runGenerateJson(adapter);
     } finally {
       (AbortSignal as unknown as { timeout?: typeof AbortSignal.timeout }).timeout =
         originalAbortSignalTimeout;
@@ -137,23 +128,16 @@ describe('OllamaLlmAdapter', () => {
     process.env.LLM_BASE_URL = 'http://generic-ollama-base.test';
     process.env.OLLAMA_MODEL = 'provider-model';
     process.env.OLLAMA_BASE_URL = 'http://provider-ollama-base.test';
-    const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
+    const fetchFn = createFetchFnMock({
       ok: true,
       status: 200,
-      json: async () => ({ response: '{\"classification\":{}}' }),
+      json: async () => ({ response: DEFAULT_JSON_TEXT }),
     });
-    const adapter = createOllamaLlmAdapter({
-      fetchFn: fetchFn as unknown as typeof fetch,
-    });
+    const adapter = createOllamaLlmAdapter({ fetchFn });
 
     try {
       // Act
-      await adapter.generateJson({
-        systemPrompt: 'system',
-        userPrompt: 'user',
-        maxTokens: 80,
-        timeoutMs: 5000,
-      });
+      await runGenerateJson(adapter);
     } finally {
       process.env.LLM_MODEL = previousLlmModel;
       process.env.LLM_BASE_URL = previousLlmBaseUrl;

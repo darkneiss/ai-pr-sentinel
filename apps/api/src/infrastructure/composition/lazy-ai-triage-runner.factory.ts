@@ -21,7 +21,7 @@ export const createLazyAnalyzeIssueWithAi = (
 
   const getAnalyzeIssueWithAi = (): ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>) => {
     if (!runAnalyzeIssueWithAi) {
-      const { createLlmGateway } = require('../../shared/infrastructure/ai/llm-gateway.factory') as {
+      const { createLlmGateway } = require('./llm-gateway.factory') as {
         createLlmGateway: () => import('../../shared/application/ports/llm-gateway.port').LLMGateway;
       };
       const { createGithubIssueHistoryAdapter } = require('../../features/triage/infrastructure/adapters/github-issue-history.adapter') as {
