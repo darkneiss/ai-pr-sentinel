@@ -65,6 +65,17 @@ export const normalizeStructuredAiAnalysis = (
     parseIssueNumberFromReference(value.similarIssueId) ??
     parseIssueNumberFromReference(value.original_issue_number) ??
     parseFirstValidDuplicateIssue(value.duplicate_of, currentIssueNumber);
+  const hasExplicitOriginalIssueReference =
+    duplicateDetectionRaw?.originalIssueNumber !== undefined ||
+    duplicateDetectionRaw?.duplicateIssueId !== undefined ||
+    duplicateDetectionRaw?.similarIssueId !== undefined ||
+    duplicateDetectionRaw?.original_issue_number !== undefined ||
+    duplicateDetectionRaw?.duplicate_of !== undefined ||
+    value.originalIssueNumber !== undefined ||
+    value.duplicateIssueId !== undefined ||
+    value.similarIssueId !== undefined ||
+    value.original_issue_number !== undefined ||
+    value.duplicate_of !== undefined;
   const isDuplicate = duplicateDetectionRaw?.isDuplicate === true || rootLevelIsDuplicate === true;
   const normalizedSimilarityScore = isConfidence(duplicateDetectionRaw?.similarityScore)
     ? duplicateDetectionRaw.similarityScore
@@ -93,6 +104,7 @@ export const normalizeStructuredAiAnalysis = (
       isDuplicate,
       originalIssueNumber: normalizedOriginalIssueNumber,
       similarityScore: normalizedSimilarityScore,
+      hasExplicitOriginalIssueReference,
     },
     sentiment: {
       tone: normalizedTone,

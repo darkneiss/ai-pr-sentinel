@@ -26,6 +26,11 @@ export const normalizeLegacyAiAnalysis = (
     explicitLegacyOriginalIssue ?? duplicateDetectionRaw?.duplicate_of,
     currentIssueNumber,
   );
+  const hasExplicitOriginalIssueReference =
+    !!duplicateDetectionRaw &&
+    (duplicateDetectionRaw.original_issue_number !== undefined ||
+      duplicateDetectionRaw.originalIssueNumber !== undefined ||
+      duplicateDetectionRaw.duplicate_of !== undefined);
   const isLegacyDuplicate = duplicateDetectionRaw?.is_duplicate === true;
   const hasLegacyShape = typeof value.tone === 'string' || !!duplicateDetectionRaw;
 
@@ -43,6 +48,7 @@ export const normalizeLegacyAiAnalysis = (
       isDuplicate: isLegacyDuplicate,
       originalIssueNumber: legacyDuplicateIssueNumber,
       similarityScore: isLegacyDuplicate ? 1 : 0,
+      hasExplicitOriginalIssueReference,
     },
     sentiment: {
       tone: legacyTone ?? 'neutral',

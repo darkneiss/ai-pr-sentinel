@@ -28,7 +28,9 @@ export const isAiAnalysis = (value: unknown): value is AiAnalysis => {
     typeof duplicateDetection.isDuplicate === 'boolean' &&
     (duplicateDetection.originalIssueNumber === null ||
       typeof duplicateDetection.originalIssueNumber === 'number') &&
-    isConfidence(duplicateDetection.similarityScore);
+    isConfidence(duplicateDetection.similarityScore) &&
+    (duplicateDetection.hasExplicitOriginalIssueReference === undefined ||
+      typeof duplicateDetection.hasExplicitOriginalIssueReference === 'boolean');
 
   const isValidSentiment =
     isAiTone(sentiment.tone) &&

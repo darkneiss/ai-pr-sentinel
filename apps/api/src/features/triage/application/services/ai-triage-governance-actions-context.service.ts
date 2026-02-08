@@ -1,5 +1,5 @@
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
-import type { IssueHistoryGateway } from '../ports/issue-history-gateway.port';
+import type { IssueHistoryGateway, RecentIssueSummary } from '../ports/issue-history-gateway.port';
 import type { AiAnalysis, AiTone } from './ai-analysis-normalizer.service';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
 
@@ -23,6 +23,7 @@ export interface ApplyAiTriageGovernanceActionsInput {
   repositoryReadme?: string;
   governanceGateway: GovernanceGateway;
   issueHistoryGateway: IssueHistoryGateway;
+  recentIssues: RecentIssueSummary[];
   questionResponseMetrics?: QuestionResponseMetricsPort;
   botLogin?: string;
   logger?: Logger;
@@ -41,6 +42,7 @@ export interface AiTriageGovernanceActionsExecutionContext {
   repositoryReadme?: string;
   governanceGateway: GovernanceGateway;
   issueHistoryGateway: IssueHistoryGateway;
+  recentIssues: RecentIssueSummary[];
   questionResponseMetrics?: QuestionResponseMetricsPort;
   botLogin?: string;
   logger?: Logger;

@@ -11,6 +11,7 @@ export interface AiAnalysis {
     isDuplicate: boolean;
     originalIssueNumber: number | null;
     similarityScore: number;
+    hasExplicitOriginalIssueReference?: boolean;
   };
   sentiment: {
     tone: AiTone;

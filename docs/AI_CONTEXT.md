@@ -21,7 +21,12 @@
 - Status: DONE (MVP)
 - Behavior implemented:
   - Semantic classification (`kind/bug`, `kind/feature`, `kind/question`) with confidence threshold.
+  - Hostile-priority guard:
+    - When tone is hostile with enough confidence, `kind/*` labels are suppressed/removed.
   - Duplicate detection (`triage/duplicate` + comment).
+  - Duplicate fallback behavior:
+    - If AI flags duplicate with high similarity but omits an original issue reference, the system can fallback to a recent issue number.
+    - Fallback is disabled when AI explicitly provides a reference field (even if invalid), to avoid masking malformed provider output.
   - Tone check (`triage/monitor` for hostile tone).
   - Suggested setup reply for questions:
     - AI-provided response preferred.
@@ -31,7 +36,7 @@
 
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).
-- Factory: `src/shared/infrastructure/ai/llm-gateway.factory.ts`.
+- Factory: `src/infrastructure/composition/llm-gateway.factory.ts`.
 - Adapters implemented:
   - Gemini
   - Groq
@@ -50,6 +55,7 @@
 
 ## 5. Observability & Metrics
 - Environment-based logger active (debug/info/warn/error behavior by level).
+- Duplicate detection logs include whether fallback original issue resolution was used.
 - Question response source metric:
   - `aiSuggestedResponse`
   - `fallbackChecklist`
@@ -76,6 +82,7 @@
 ## 8. Immediate Next Focus
 - Continue feature development using ports-first approach.
 - Keep provider behavior normalized in adapters + use-case normalization.
+- Evaluate whether duplicate fallback should prefer semantic nearest recent issue (instead of first recent non-current issue) in a future iteration.
 - Document significant design decisions in ADRs and keep this file synchronized with shipped behavior.
 
 ## 9. ADR References

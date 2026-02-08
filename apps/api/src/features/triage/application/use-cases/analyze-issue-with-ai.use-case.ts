@@ -145,6 +145,7 @@ export const analyzeIssueWithAi =
         repositoryFullName: input.repositoryFullName,
         issue: input.issue,
         aiAnalysis,
+        recentIssues,
         repositoryReadme,
         governanceGateway,
         issueHistoryGateway,

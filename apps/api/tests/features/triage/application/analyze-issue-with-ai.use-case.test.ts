@@ -28,6 +28,7 @@ const createLlmGatewayMock = (): jest.Mocked<LLMGateway> => ({
         isDuplicate: false,
         originalIssueNumber: null,
         similarityScore: 0.1,
+        hasExplicitOriginalIssueReference: false,
       },
       sentiment: {
         tone: 'neutral',
@@ -425,6 +426,47 @@ describe('AnalyzeIssueWithAiUseCase', () => {
     // Assert
     expect(result).toEqual({ status: 'completed' });
     expect(governanceGateway.createComment).not.toHaveBeenCalled();
+  });
+
+  it('should use recent issue as duplicate fallback when AI marks duplicate with high similarity but no originalIssueNumber', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'bug',
+          confidence: 0.95,
+          reasoning: 'The issue reports a reproducible software failure.',
+        },
+        duplicateDetection: {
+          isDuplicate: true,
+          similarityScore: 0.91,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Tone is neutral.',
+        },
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: ['kind/bug'] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_TRIAGE_DUPLICATE_LABEL],
+    });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}10`),
+    });
   });
 
   it('should add monitor label when sentiment is hostile', async () => {
