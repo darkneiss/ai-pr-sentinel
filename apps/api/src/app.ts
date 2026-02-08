@@ -2,6 +2,7 @@ import express from 'express';
 
 import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from './features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 import type { GovernanceGateway } from './features/triage/application/ports/governance-gateway.port';
+import type { RepositoryContextGateway } from './features/triage/application/ports/repository-context-gateway.port';
 import { createGithubWebhookController } from './features/triage/infrastructure/controllers/github-webhook.controller';
 import type { QuestionResponseMetricsPort } from './shared/application/ports/question-response-metrics.port';
 import { createEnvLogger, type Logger } from './shared/infrastructure/logging/env-logger';
@@ -68,16 +69,29 @@ const createLazyAnalyzeIssueWithAi = (
         analyzeIssueWithAi: (dependencies: {
           llmGateway: import('./shared/application/ports/llm-gateway.port').LLMGateway;
           issueHistoryGateway: import('./features/triage/application/ports/issue-history-gateway.port').IssueHistoryGateway;
+          repositoryContextGateway?: RepositoryContextGateway;
           governanceGateway: GovernanceGateway;
           questionResponseMetrics?: QuestionResponseMetricsPort;
           botLogin?: string;
           logger?: Logger;
         }) => (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
       };
+      let repositoryContextGateway: RepositoryContextGateway | undefined;
+      try {
+        const { createGithubRepositoryContextAdapter } = require('./features/triage/infrastructure/adapters/github-repository-context.adapter') as {
+          createGithubRepositoryContextAdapter: (params?: { logger?: Logger }) => RepositoryContextGateway;
+        };
+        repositoryContextGateway = createGithubRepositoryContextAdapter({ logger });
+      } catch (error: unknown) {
+        logger.info?.('App could not initialize repository context gateway. Continuing without repository context.', {
+          error,
+        });
+      }
 
       runAnalyzeIssueWithAi = analyzeIssueWithAi({
         llmGateway: createLlmGateway(),
         issueHistoryGateway: createGithubIssueHistoryAdapter(),
+        repositoryContextGateway,
         governanceGateway,
         questionResponseMetrics: metrics,
         botLogin: process.env[GITHUB_BOT_LOGIN_ENV_VAR],

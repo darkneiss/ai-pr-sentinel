@@ -19,6 +19,7 @@ import {
 } from '../constants/ai-triage.constants';
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import type { IssueHistoryGateway } from '../ports/issue-history-gateway.port';
+import type { RepositoryContextGateway } from '../ports/repository-context-gateway.port';
 import type { LLMGateway } from '../../../../shared/application/ports/llm-gateway.port';
 import type {
   QuestionResponseMetricsPort,
@@ -56,6 +57,7 @@ interface Logger {
 interface Dependencies {
   llmGateway: LLMGateway;
   issueHistoryGateway: IssueHistoryGateway;
+  repositoryContextGateway?: RepositoryContextGateway;
   governanceGateway: GovernanceGateway;
   questionResponseMetrics?: QuestionResponseMetricsPort;
   botLogin?: string;
@@ -403,6 +405,7 @@ export const analyzeIssueWithAi =
   ({
     llmGateway,
     issueHistoryGateway,
+    repositoryContextGateway,
     governanceGateway,
     questionResponseMetrics,
     botLogin,
@@ -418,12 +421,28 @@ export const analyzeIssueWithAi =
         repositoryFullName: input.repositoryFullName,
         limit: AI_RECENT_ISSUES_LIMIT,
       });
+      let repositoryReadme: string | undefined;
+      if (repositoryContextGateway) {
+        try {
+          const repositoryContext = await repositoryContextGateway.findRepositoryContext({
+            repositoryFullName: input.repositoryFullName,
+          });
+          repositoryReadme = repositoryContext.readme;
+        } catch (error: unknown) {
+          logger.info?.('AnalyzeIssueWithAiUseCase failed loading repository context. Continuing without it.', {
+            repositoryFullName: input.repositoryFullName,
+            issueNumber: input.issue.number,
+            error,
+          });
+        }
+      }
 
       const llmResult = await llmGateway.generateJson({
         systemPrompt: ISSUE_TRIAGE_SYSTEM_PROMPT,
         userPrompt: buildIssueTriageUserPrompt({
           issueTitle: input.issue.title,
           issueBody: input.issue.body,
+          repositoryReadme,
           recentIssues: recentIssues.map((recentIssue) => ({
             number: recentIssue.number,
             title: recentIssue.title,

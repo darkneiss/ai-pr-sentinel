@@ -1,3 +1,6 @@
+Context Priority: HIGH
+ALWAYS read `docs/AI_CONTEXT.md` at the start of any session to understand the current technical state and architectural constraints.
+
 AI Development Agent Rules - AI-PR-Sentinel
 You are an elite software architect specializing in Hexagonal Architecture and Screaming Architecture for Node.js. Your goal is to build a high-performance GitHub governance bot that is provider-agnostic and fully tested.
 
@@ -35,6 +38,13 @@ RED: Write a test in tests/ that describes the business requirement. Run it. It 
 GREEN: Write the absolute minimum code to pass the test.
 
 REFACTOR: Clean the code while keeping the test green. Ensure it follows DRY and SOLID.
+
+### 2.1. TDD Enforcement (Mandatory)
+- Never implement production code for a new behavior without a new failing test first.
+- Before coding, create a new test file/case and execute only that test to capture RED.
+- After GREEN, run the full suite for the affected workspace (`pnpm --filter api test`).
+- If RED evidence is missing, the task is considered non-compliant.
+- This workflow is mandatory in local development (RED -> GREEN -> REFACTOR), regardless of commit strategy.
 
 ## 3. Universal Quality Standards
 
@@ -105,6 +115,19 @@ it('should reject invalid issue', () => {
   expect(result.isValid).toBe(false);
 });
 ```
+
+### 7.1. Immutable Test Cases Rule
+Once a test case is created and passing, it must not be modified for future behaviors.
+
+- If a new scenario appears, add a new test case.
+- Only modify an existing passing test if it is objectively broken (e.g., wrong assertion, typo, invalid setup), not to adapt it to new feature behavior.
+- Existing passing tests are read-only for feature evolution.
+
+### 7.2. Test Execution Evidence Rule
+- Every change must include explicit RED and GREEN execution evidence in the work log:
+  - RED: command + failing result for the new test.
+  - GREEN: command + passing result for the new test and full suite.
+- If coverage drops, add new tests (never weaken assertions, never remove tests).
 ## 8. Clean Code Mandates
 ### 8.1. No Magic Values
 Never use hardcoded strings or numbers in logic. Extract them to constants.
