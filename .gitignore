@@ -32,3 +32,6 @@ Thumbs.db
 .idea
 *.swp
 *.swo
+
+# Local helper scripts (not part of product code)
+check_models.js
