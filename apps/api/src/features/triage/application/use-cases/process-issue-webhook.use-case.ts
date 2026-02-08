@@ -2,7 +2,8 @@ import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import { validateIssueIntegrity } from './validate-issue-integrity.use-case';
 
 const ISSUE_NEEDS_INFO_LABEL = 'triage/needs-info';
-const INVALID_LABEL = 'invalid';
+const LEGACY_INVALID_LABEL = 'invalid';
+const ERROR_LABELS = [ISSUE_NEEDS_INFO_LABEL, LEGACY_INVALID_LABEL] as const;
 const SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
 
 type SupportedAction = (typeof SUPPORTED_ACTIONS)[number];
@@ -65,11 +66,12 @@ export const processIssueWebhook =
       return { statusCode: 200 };
     }
 
-    if (input.issue.labels.includes(INVALID_LABEL)) {
+    const labelsToRemove = ERROR_LABELS.filter((label) => input.issue.labels.includes(label));
+    for (const label of labelsToRemove) {
       await governanceGateway.removeLabel({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
-        label: INVALID_LABEL,
+        label,
       });
     }
 
