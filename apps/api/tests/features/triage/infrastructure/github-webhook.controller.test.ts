@@ -1,6 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 
+import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../../../src/features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 import { createGithubWebhookController } from '../../../../src/features/triage/infrastructure/controllers/github-webhook.controller';
 import type { GovernanceGateway } from '../../../../src/features/triage/application/ports/governance-gateway.port';
 
@@ -38,6 +39,10 @@ const setup = () => {
 
   return { app, governanceGateway };
 };
+
+const createAiAnalyzerMock = (): jest.MockedFunction<
+  (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>
+> => jest.fn().mockResolvedValue({ status: 'completed' });
 
 describe('GithubWebhookController integration', () => {
   it('should label and comment when receiving an invalid issue on issues.opened', async () => {
@@ -220,6 +225,43 @@ describe('GithubWebhookController integration', () => {
     expect(governanceGateway.logValidatedIssue).toHaveBeenCalledWith({
       repositoryFullName: REPO_FULL_NAME,
       issueNumber: 12,
+    });
+  });
+
+  it('should execute ai analysis for valid issue when analyzer dependency is provided', async () => {
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockResolvedValue(undefined),
+    };
+    const analyzeIssueWithAi = createAiAnalyzerMock();
+    const app = express();
+    app.use(express.json());
+    app.post(
+      WEBHOOK_ROUTE,
+      createGithubWebhookController({
+        governanceGateway,
+        analyzeIssueWithAi,
+      }),
+    );
+
+    const response = await request(app).post(WEBHOOK_ROUTE).send(
+      createPayload({
+        action: 'opened',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(analyzeIssueWithAi).toHaveBeenCalledWith({
+      action: 'opened',
+      repositoryFullName: REPO_FULL_NAME,
+      issue: {
+        number: 12,
+        title: 'Bug in login flow',
+        body: 'The app crashes when the user logs in from Safari in private mode.',
+        labels: [],
+      },
     });
   });
 });

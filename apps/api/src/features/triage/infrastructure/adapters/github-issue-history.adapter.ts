@@ -34,6 +34,13 @@ interface GithubIssueListItem {
   pull_request?: Record<string, unknown>;
 }
 
+interface GithubIssueCommentItem {
+  body?: string | null;
+  user?: {
+    login?: string | null;
+  };
+}
+
 const parseRepositoryRef = (repositoryFullName: string): RepositoryRef => {
   const repositoryParts = repositoryFullName.split(REPOSITORY_SEPARATOR);
   const [owner, repo] = repositoryParts;
@@ -111,6 +118,43 @@ export const createGithubIssueHistoryAdapter = (
         logger.error(`${LOG_CONTEXT} failed fetching recent issues`, {
           repositoryFullName,
           limit,
+          error,
+        });
+        throw error;
+      }
+    },
+    hasIssueCommentWithPrefix: async ({ repositoryFullName, issueNumber, bodyPrefix, authorLogin }) => {
+      const repository = parseRepositoryRef(repositoryFullName);
+
+      try {
+        const response = await octokit.issues.listComments({
+          owner: repository.owner,
+          repo: repository.repo,
+          issue_number: issueNumber,
+          per_page: 100,
+          page: 1,
+        });
+
+        const comments = response.data as unknown as GithubIssueCommentItem[];
+        return comments.some((comment) => {
+          const commentBody = comment.body ?? '';
+          const hasPrefix = commentBody.startsWith(bodyPrefix);
+          if (!hasPrefix) {
+            return false;
+          }
+
+          if (!authorLogin) {
+            return true;
+          }
+
+          return comment.user?.login === authorLogin;
+        });
+      } catch (error: unknown) {
+        logger.error(`${LOG_CONTEXT} failed fetching issue comments`, {
+          repositoryFullName,
+          issueNumber,
+          bodyPrefix,
+          authorLogin,
           error,
         });
         throw error;

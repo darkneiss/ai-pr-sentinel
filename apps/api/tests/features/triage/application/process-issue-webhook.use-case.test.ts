@@ -1,6 +1,7 @@
 import { processIssueWebhook } from '../../../../src/features/triage/application/use-cases/process-issue-webhook.use-case';
 import type { GovernanceGateway } from '../../../../src/features/triage/application/ports/governance-gateway.port';
 import type { IssueIntegrityValidator } from '../../../../src/features/triage/domain/services/issue-validation.service';
+import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../../../src/features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 
 const REPO_FULL_NAME = 'org/repo';
 const ISSUE_NUMBER = 42;
@@ -12,10 +13,15 @@ const createGatewayMock = (): jest.Mocked<GovernanceGateway> => ({
   logValidatedIssue: jest.fn().mockResolvedValue(undefined),
 });
 
+const createAiAnalyzerMock = (): jest.MockedFunction<
+  (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>
+> => jest.fn().mockResolvedValue({ status: 'completed' });
+
 describe('ProcessIssueWebhookUseCase', () => {
   it('should apply invalid issue governance actions when validator returns invalid', async () => {
     // Arrange
     const governanceGateway = createGatewayMock();
+    const analyzeIssueWithAi = createAiAnalyzerMock();
     const issueIntegrityValidator: jest.MockedFunction<IssueIntegrityValidator> = jest
       .fn()
       .mockReturnValue({
@@ -26,6 +32,7 @@ describe('ProcessIssueWebhookUseCase', () => {
     const run = processIssueWebhook({
       governanceGateway,
       issueIntegrityValidator,
+      analyzeIssueWithAi,
     });
 
     // Act
@@ -50,6 +57,7 @@ describe('ProcessIssueWebhookUseCase', () => {
     });
     expect(governanceGateway.createComment).toHaveBeenCalledTimes(1);
     expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+    expect(analyzeIssueWithAi).not.toHaveBeenCalled();
     expect(issueIntegrityValidator).toHaveBeenCalledWith({
       id: `${REPO_FULL_NAME}#${ISSUE_NUMBER}`,
       title: 'bug',
@@ -62,6 +70,7 @@ describe('ProcessIssueWebhookUseCase', () => {
   it('should apply valid issue governance actions when validator returns valid', async () => {
     // Arrange
     const governanceGateway = createGatewayMock();
+    const analyzeIssueWithAi = createAiAnalyzerMock();
     const issueIntegrityValidator: jest.MockedFunction<IssueIntegrityValidator> = jest
       .fn()
       .mockReturnValue({
@@ -72,6 +81,7 @@ describe('ProcessIssueWebhookUseCase', () => {
     const run = processIssueWebhook({
       governanceGateway,
       issueIntegrityValidator,
+      analyzeIssueWithAi,
     });
 
     // Act
@@ -100,11 +110,22 @@ describe('ProcessIssueWebhookUseCase', () => {
     });
     expect(governanceGateway.addLabels).not.toHaveBeenCalled();
     expect(issueIntegrityValidator).toHaveBeenCalledTimes(1);
+    expect(analyzeIssueWithAi).toHaveBeenCalledWith({
+      action: 'edited',
+      repositoryFullName: REPO_FULL_NAME,
+      issue: {
+        number: ISSUE_NUMBER,
+        title: 'Bug in login flow when network drops',
+        body: 'Steps to reproduce: open app, disable network, submit login form, and check observed crash logs.',
+        labels: ['invalid'],
+      },
+    });
   });
 
   it('should ignore non-supported actions without running validation or governance actions', async () => {
     // Arrange
     const governanceGateway = createGatewayMock();
+    const analyzeIssueWithAi = createAiAnalyzerMock();
     const issueIntegrityValidator: jest.MockedFunction<IssueIntegrityValidator> = jest
       .fn()
       .mockReturnValue({
@@ -114,6 +135,7 @@ describe('ProcessIssueWebhookUseCase', () => {
     const run = processIssueWebhook({
       governanceGateway,
       issueIntegrityValidator,
+      analyzeIssueWithAi,
     });
 
     // Act
@@ -136,5 +158,47 @@ describe('ProcessIssueWebhookUseCase', () => {
     expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
     expect(governanceGateway.createComment).not.toHaveBeenCalled();
     expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+    expect(analyzeIssueWithAi).not.toHaveBeenCalled();
+  });
+
+  it('should continue and return 200 when ai analyzer throws unexpectedly', async () => {
+    // Arrange
+    const governanceGateway = createGatewayMock();
+    const issueIntegrityValidator: jest.MockedFunction<IssueIntegrityValidator> = jest
+      .fn()
+      .mockReturnValue({
+        isValid: true,
+        errors: [],
+      });
+    const analyzeIssueWithAi = jest
+      .fn<Promise<AnalyzeIssueWithAiResult>, [AnalyzeIssueWithAiInput]>()
+      .mockRejectedValue(new Error('ai-step-crashed'));
+    const logger = {
+      error: jest.fn(),
+    };
+    const run = processIssueWebhook({
+      governanceGateway,
+      issueIntegrityValidator,
+      analyzeIssueWithAi,
+      logger,
+    });
+
+    // Act
+    const result = await run({
+      action: 'opened',
+      repositoryFullName: REPO_FULL_NAME,
+      issue: {
+        number: ISSUE_NUMBER,
+        title: 'Bug in login flow when network drops',
+        body: 'Steps to reproduce: open app, disable network, submit login form, and check observed crash logs.',
+        author: 'dev_user',
+        labels: [],
+      },
+    });
+
+    // Assert
+    expect(result).toEqual({ statusCode: 200 });
+    expect(governanceGateway.logValidatedIssue).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,8 @@
 import {
   AI_DUPLICATE_COMMENT_PREFIX,
+  AI_QUESTION_FALLBACK_CHECKLIST,
   AI_KIND_QUESTION_LABEL,
+  AI_QUESTION_REPLY_COMMENT_PREFIX,
   AI_RECENT_ISSUES_LIMIT,
   AI_TRIAGE_DUPLICATE_LABEL,
   AI_TRIAGE_MONITOR_LABEL,
@@ -43,6 +45,7 @@ const createIssueHistoryGatewayMock = (): jest.Mocked<IssueHistoryGateway> => ({
       state: 'open',
     },
   ]),
+  hasIssueCommentWithPrefix: jest.fn().mockResolvedValue(false),
 });
 
 const createGovernanceGatewayMock = (): jest.Mocked<GovernanceGateway> => ({
@@ -455,5 +458,932 @@ describe('AnalyzeIssueWithAiUseCase', () => {
       issueNumber: 42,
       labels: [AI_TRIAGE_MONITOR_LABEL],
     });
+  });
+
+  it('should fail open when governance actions fail', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    governanceGateway.addLabels.mockRejectedValueOnce(new Error('github api error'));
+    const logger = {
+      error: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+    });
+    const input = createInput({
+      issue: {
+        ...createInput().issue,
+        labels: [],
+      },
+    });
+
+    // Act
+    const result = await run(input);
+
+    // Assert
+    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
+    expect(logger.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('should normalize legacy Gemini-like response format and execute governance actions', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Question',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: ['#123'],
+        },
+        tone: 'Aggressive',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_KIND_QUESTION_LABEL],
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_TRIAGE_DUPLICATE_LABEL],
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_TRIAGE_MONITOR_LABEL],
+    });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}123`),
+    });
+  });
+
+  it('should select a duplicate reference different from current issue in legacy format', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Bug',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: ['#42', '#123'],
+        },
+        tone: 'neutral',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}123`),
+    });
+  });
+
+  it('should log info and skip duplicate action when duplicate points to current issue only', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Bug',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: ['#42'],
+        },
+        tone: 'neutral',
+      }),
+    });
+    const logger = {
+      error: jest.fn(),
+      info: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+    });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledTimes(1);
+  });
+
+  it('should normalize legacy feature/positive response and parse numeric duplicate reference', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'FEATURE',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: [200],
+        },
+        tone: 'positive',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['kind/feature'],
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_TRIAGE_DUPLICATE_LABEL],
+    });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}200`),
+    });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_TRIAGE_MONITOR_LABEL],
+    });
+  });
+
+  it('should skip labels when legacy classification is unknown and confidence becomes zero', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'incident',
+        tone: 'neutral',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+  });
+
+  it('should skip duplicate action for invalid legacy references and non-string classification', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: { kind: 'bug' },
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: ['not-an-issue-number'],
+        },
+        tone: 'sarcastic',
+      }),
+    });
+    const logger = {
+      error: jest.fn(),
+      info: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+    });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledTimes(1);
+  });
+
+  it('should preserve legacy reasoning string when normalizing response', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Question',
+        reasoning: 'Legacy provider reasoning payload.',
+        tone: 'neutral',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_KIND_QUESTION_LABEL],
+    });
+  });
+
+  it('should skip duplicate action when legacy duplicate reference is not number or string', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Bug',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: [{ issue: 123 }],
+        },
+        tone: 'neutral',
+      }),
+    });
+    const logger = {
+      error: jest.fn(),
+      info: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+    });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledTimes(1);
+  });
+
+  it('should parse legacy duplicate_of as string with text and add duplicate actions', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Bug',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: 'Possible duplicate: issue #6',
+        },
+        tone: 'neutral',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: [AI_TRIAGE_DUPLICATE_LABEL],
+    });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}6`),
+    });
+  });
+
+  it('should parse legacy original_issue_number field and add duplicate actions', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Bug',
+        duplicate_detection: {
+          is_duplicate: true,
+          original_issue_number: 8,
+        },
+        tone: 'neutral',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}8`),
+    });
+  });
+
+  it('should parse legacy duplicate_of object reference and add duplicate actions', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Bug',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: [{ number: 9 }],
+        },
+        tone: 'neutral',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}9`),
+    });
+  });
+
+  it('should skip duplicate action when legacy duplicate reference is integer but not positive', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Bug',
+        duplicate_detection: {
+          is_duplicate: true,
+          duplicate_of: [0],
+        },
+        tone: 'neutral',
+      }),
+    });
+    const logger = {
+      error: jest.fn(),
+      info: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+    });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledTimes(1);
+  });
+
+  it('should create setup checklist comment for opened question issues with high confidence', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+          reasoning: 'The user asks how to configure providers locally.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Neutral request.',
+        },
+        suggestedResponse: '- Set AI_TRIAGE_ENABLED=true\n- Configure LLM_PROVIDER and LLM_MODEL',
+      }),
+    });
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      botLogin: 'ai-pr-sentinel[bot]',
+    });
+
+    // Act
+    const result = await run(createInput({ action: 'opened', issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(issueHistoryGateway.hasIssueCommentWithPrefix).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      bodyPrefix: AI_QUESTION_REPLY_COMMENT_PREFIX,
+      authorLogin: 'ai-pr-sentinel[bot]',
+    });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining(AI_QUESTION_REPLY_COMMENT_PREFIX),
+    });
+  });
+
+  it('should skip setup checklist comment when same bot comment already exists', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    issueHistoryGateway.hasIssueCommentWithPrefix.mockResolvedValueOnce(true);
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+          reasoning: 'The user asks how to configure providers locally.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Neutral request.',
+        },
+        suggestedResponse: '- Set AI_TRIAGE_ENABLED=true',
+      }),
+    });
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      botLogin: 'ai-pr-sentinel[bot]',
+    });
+
+    // Act
+    const result = await run(createInput({ action: 'opened', issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(AI_QUESTION_REPLY_COMMENT_PREFIX),
+      }),
+    );
+  });
+
+  it('should not create setup checklist comment when action is edited', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+          reasoning: 'Question issue.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Neutral request.',
+        },
+        suggestedResponse: '- Example checklist',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ action: 'edited', issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(issueHistoryGateway.hasIssueCommentWithPrefix).not.toHaveBeenCalled();
+  });
+
+  it('should normalize legacy suggested_response and create setup checklist comment', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Question',
+        duplicate_detection: {
+          is_duplicate: false,
+        },
+        tone: 'neutral',
+        suggested_response: '- Run pnpm install\n- Set LLM_PROVIDER=gemini',
+      }),
+    });
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+    });
+
+    // Act
+    const result = await run(createInput({ action: 'opened', issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining('- Run pnpm install'),
+    });
+  });
+
+  it('should normalize legacy suggestedResponse and create setup checklist comment', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: 'Question',
+        duplicate_detection: {
+          is_duplicate: false,
+        },
+        tone: 'neutral',
+        suggestedResponse: '- Export API key\n- Start dev server',
+      }),
+    });
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+    });
+
+    // Act
+    const result = await run(createInput({ action: 'opened', issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining('- Export API key'),
+    });
+  });
+
+  it('should create fallback checklist when issue looks like question and ai does not provide suggestedResponse', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'bug',
+          confidence: 0.95,
+          reasoning: 'Model classified as bug.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Neutral tone.',
+        },
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(
+      createInput({
+        action: 'opened',
+        issue: {
+          ...createInput().issue,
+          title: 'How can I configure Gemini locally?',
+          body: 'I need help to run this project in local environment.',
+          labels: [],
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: `${AI_QUESTION_REPLY_COMMENT_PREFIX}\n\n${AI_QUESTION_FALLBACK_CHECKLIST.join('\n')}`,
+    });
+  });
+
+  it('should prioritize ai suggestedResponse over fallback checklist', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+          reasoning: 'Question issue.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Neutral tone.',
+        },
+        suggestedResponse: '- Use LLM_PROVIDER=gemini\n- Start with pnpm --filter api dev',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(
+      createInput({
+        action: 'opened',
+        issue: {
+          ...createInput().issue,
+          title: 'How can I configure Gemini locally?',
+          body: 'I need help to run this project in local environment.',
+          labels: [],
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: expect.stringContaining('- Use LLM_PROVIDER=gemini'),
+    });
+    expect(governanceGateway.createComment).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(AI_QUESTION_FALLBACK_CHECKLIST[0]),
+      }),
+    );
+  });
+
+  it('should normalize structured provider response with duplicateIssueId and suggestedResponse array', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+        },
+        sentiment: {
+          tone: 'neutral',
+          confidence: 0.8,
+        },
+        duplicateDetection: {
+          isDuplicate: true,
+          similarityScore: 0.98,
+          duplicateIssueId: 12,
+        },
+        suggestedResponse: [
+          'Set up your local environment with dependencies.',
+          'Configure environment variables for Gemini.',
+          'Run local server and verify logs.',
+        ],
+      }),
+    });
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      botLogin: 'ai-pr-sentinel[bot]',
+    });
+
+    // Act
+    const result = await run(
+      createInput({
+        action: 'opened',
+        issue: {
+          ...createInput().issue,
+          number: 12,
+          labels: [],
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 12,
+      labels: [AI_KIND_QUESTION_LABEL],
+    });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 12,
+      labels: [AI_TRIAGE_DUPLICATE_LABEL],
+    });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 12,
+      body: expect.stringContaining('Set up your local environment with dependencies.'),
+    });
+  });
+
+  it('should ignore empty-string suggestedResponse after trim', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+          reasoning: 'Question issue.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Neutral tone.',
+        },
+        suggestedResponse: '   ',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(
+      createInput({
+        action: 'opened',
+        issue: {
+          ...createInput().issue,
+          title: 'General inquiry',
+          body: 'Need guidance with setup details.',
+          labels: [],
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(AI_QUESTION_REPLY_COMMENT_PREFIX),
+      }),
+    );
+  });
+
+  it('should ignore non-string and non-array suggestedResponse values', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+          reasoning: 'Question issue.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Neutral tone.',
+        },
+        suggestedResponse: 123,
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(
+      createInput({
+        action: 'opened',
+        issue: {
+          ...createInput().issue,
+          title: 'General inquiry',
+          body: 'Need guidance with setup details.',
+          labels: [],
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(AI_QUESTION_REPLY_COMMENT_PREFIX),
+      }),
+    );
+  });
+
+  it('should normalize structured empty suggested_response string as undefined', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.95,
+        },
+        sentiment: {
+          tone: 'neutral',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          similarityScore: 0.1,
+        },
+        suggested_response: '   ',
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(
+      createInput({
+        action: 'opened',
+        issue: {
+          ...createInput().issue,
+          title: 'General inquiry',
+          body: 'Need guidance with setup details.',
+          labels: [],
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.createComment).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(AI_QUESTION_REPLY_COMMENT_PREFIX),
+      }),
+    );
   });
 });

@@ -10,4 +10,10 @@ export interface IssueHistoryGateway {
     repositoryFullName: string;
     limit: number;
   }): Promise<RecentIssueSummary[]>;
+  hasIssueCommentWithPrefix(input: {
+    repositoryFullName: string;
+    issueNumber: number;
+    bodyPrefix: string;
+    authorLogin?: string;
+  }): Promise<boolean>;
 }

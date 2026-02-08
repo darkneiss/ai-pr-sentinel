@@ -21,6 +21,7 @@ interface MockListIssue {
 interface MockOctokit {
   issues: {
     listForRepo: jest.Mock<Promise<{ data: MockListIssue[] }>, [unknown]>;
+    listComments: jest.Mock<Promise<{ data: Array<{ body?: string; user?: { login?: string } }> }>, [unknown]>;
   };
 }
 
@@ -33,6 +34,14 @@ const createMockOctokit = (): MockOctokit => ({
           title: 'Cannot login in Safari',
           state: 'open',
           labels: [{ name: 'kind/bug' }, { name: 'triage/needs-info' }],
+        },
+      ],
+    }),
+    listComments: jest.fn().mockResolvedValue({
+      data: [
+        {
+          body: 'AI Triage: Suggested setup checklist\n\n- Step 1',
+          user: { login: 'ai-pr-sentinel[bot]' },
         },
       ],
     }),
@@ -225,6 +234,142 @@ describe('GithubIssueHistoryAdapter', () => {
         limit: 10,
       }),
     ).rejects.toThrow('github-unavailable');
+
+    expect(logger.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('should detect existing comment by prefix and author login', async () => {
+    // Arrange
+    const octokit = createMockOctokit();
+    const adapter = createGithubIssueHistoryAdapter({
+      octokit: octokit as unknown as Octokit,
+    });
+
+    // Act
+    const result = await adapter.hasIssueCommentWithPrefix({
+      repositoryFullName: 'org/repo',
+      issueNumber: 10,
+      bodyPrefix: 'AI Triage: Suggested setup checklist',
+      authorLogin: 'ai-pr-sentinel[bot]',
+    });
+
+    // Assert
+    expect(result).toBe(true);
+    expect(octokit.issues.listComments).toHaveBeenCalledWith({
+      owner: 'org',
+      repo: 'repo',
+      issue_number: 10,
+      per_page: 100,
+      page: 1,
+    });
+  });
+
+  it('should return false when comment prefix exists but author does not match', async () => {
+    // Arrange
+    const octokit = createMockOctokit();
+    const adapter = createGithubIssueHistoryAdapter({
+      octokit: octokit as unknown as Octokit,
+    });
+
+    // Act
+    const result = await adapter.hasIssueCommentWithPrefix({
+      repositoryFullName: 'org/repo',
+      issueNumber: 10,
+      bodyPrefix: 'AI Triage: Suggested setup checklist',
+      authorLogin: 'different-bot',
+    });
+
+    // Assert
+    expect(result).toBe(false);
+  });
+
+  it('should return true when comment prefix exists and author is not provided', async () => {
+    // Arrange
+    const octokit = createMockOctokit();
+    const adapter = createGithubIssueHistoryAdapter({
+      octokit: octokit as unknown as Octokit,
+    });
+
+    // Act
+    const result = await adapter.hasIssueCommentWithPrefix({
+      repositoryFullName: 'org/repo',
+      issueNumber: 10,
+      bodyPrefix: 'AI Triage: Suggested setup checklist',
+    });
+
+    // Assert
+    expect(result).toBe(true);
+  });
+
+  it('should return false when no comment has the requested prefix', async () => {
+    // Arrange
+    const octokit = createMockOctokit();
+    octokit.issues.listComments.mockResolvedValueOnce({
+      data: [
+        {
+          body: 'Unrelated message',
+          user: { login: 'ai-pr-sentinel[bot]' },
+        },
+      ],
+    });
+    const adapter = createGithubIssueHistoryAdapter({
+      octokit: octokit as unknown as Octokit,
+    });
+
+    // Act
+    const result = await adapter.hasIssueCommentWithPrefix({
+      repositoryFullName: 'org/repo',
+      issueNumber: 10,
+      bodyPrefix: 'AI Triage: Suggested setup checklist',
+    });
+
+    // Assert
+    expect(result).toBe(false);
+  });
+
+  it('should handle comments without body safely and return false', async () => {
+    // Arrange
+    const octokit = createMockOctokit();
+    octokit.issues.listComments.mockResolvedValueOnce({
+      data: [
+        {
+          user: { login: 'ai-pr-sentinel[bot]' },
+        },
+      ],
+    });
+    const adapter = createGithubIssueHistoryAdapter({
+      octokit: octokit as unknown as Octokit,
+    });
+
+    // Act
+    const result = await adapter.hasIssueCommentWithPrefix({
+      repositoryFullName: 'org/repo',
+      issueNumber: 10,
+      bodyPrefix: 'AI Triage: Suggested setup checklist',
+    });
+
+    // Assert
+    expect(result).toBe(false);
+  });
+
+  it('should log and throw when GitHub listComments fails', async () => {
+    // Arrange
+    const octokit = createMockOctokit();
+    const logger = createMockLogger();
+    octokit.issues.listComments.mockRejectedValueOnce(new Error('comments-unavailable'));
+    const adapter = createGithubIssueHistoryAdapter({
+      octokit: octokit as unknown as Octokit,
+      logger,
+    });
+
+    // Act + Assert
+    await expect(
+      adapter.hasIssueCommentWithPrefix({
+        repositoryFullName: 'org/repo',
+        issueNumber: 10,
+        bodyPrefix: 'AI Triage: Suggested setup checklist',
+      }),
+    ).rejects.toThrow('comments-unavailable');
 
     expect(logger.error).toHaveBeenCalledTimes(1);
   });

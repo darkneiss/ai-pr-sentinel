@@ -6,7 +6,11 @@ const REPOSITORY_SEPARATOR = '/';
 const REPOSITORY_PARTS_COUNT = 2;
 const GITHUB_TOKEN_ENV_VAR = 'GITHUB_TOKEN';
 const LABEL_NOT_FOUND_STATUS = 404;
+const FORBIDDEN_STATUS = 403;
+const UNPROCESSABLE_ENTITY_STATUS = 422;
 const LOG_CONTEXT = 'GithubGovernanceAdapter';
+const GITHUB_WRITE_PERMISSION_HINT =
+  'Check GITHUB_TOKEN permissions. Required scopes: repo (classic) or Issues: write (fine-grained).';
 
 interface RepositoryRef {
   owner: string;
@@ -30,6 +34,45 @@ interface ErrorWithStatus {
 
 const isErrorWithStatus = (error: unknown): error is ErrorWithStatus =>
   !!error && typeof error === 'object' && 'status' in error;
+
+const getErrorMessage = (error: unknown): string | undefined => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return undefined;
+};
+
+const getResponseMessage = (error: unknown): string | undefined => {
+  if (!error || typeof error !== 'object' || !('response' in error)) {
+    return undefined;
+  }
+
+  const response = (error as { response?: unknown }).response;
+  if (!response || typeof response !== 'object' || !('data' in response)) {
+    return undefined;
+  }
+
+  const data = (response as { data?: unknown }).data;
+  if (!data || typeof data !== 'object' || !('message' in data)) {
+    return undefined;
+  }
+
+  const message = (data as { message?: unknown }).message;
+  return typeof message === 'string' ? message : undefined;
+};
+
+const getErrorSuggestion = (status: number | undefined): string | undefined => {
+  if (status === FORBIDDEN_STATUS) {
+    return GITHUB_WRITE_PERMISSION_HINT;
+  }
+
+  if (status === UNPROCESSABLE_ENTITY_STATUS) {
+    return 'GitHub rejected the label payload. Confirm labels are valid and token can manage labels in this repository.';
+  }
+
+  return undefined;
+};
 
 const parseRepositoryRef = (repositoryFullName: string): RepositoryRef => {
   const repositoryParts = repositoryFullName.split(REPOSITORY_SEPARATOR);
@@ -75,10 +118,19 @@ export const createGithubGovernanceAdapter = (
           labels,
         });
       } catch (error: unknown) {
+        const githubStatus = isErrorWithStatus(error) ? error.status : undefined;
+        const errorMessage = getErrorMessage(error);
+        const githubResponseMessage = getResponseMessage(error);
+        const suggestion = getErrorSuggestion(githubStatus);
+
         logger.error(`${LOG_CONTEXT} failed adding labels`, {
           repositoryFullName,
           issueNumber,
           labels,
+          githubStatus,
+          errorMessage,
+          githubResponseMessage,
+          suggestion,
           error,
         });
         throw error;

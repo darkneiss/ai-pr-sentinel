@@ -1,10 +1,14 @@
 import type { RequestHandler } from 'express';
 
+import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../application/use-cases/analyze-issue-with-ai.use-case';
 import type { GovernanceGateway } from '../../application/ports/governance-gateway.port';
 import { processIssueWebhook } from '../../application/use-cases/process-issue-webhook.use-case';
+import { createEnvLogger, type Logger } from '../../../../shared/infrastructure/logging/env-logger';
 
 interface Dependencies {
   governanceGateway: GovernanceGateway;
+  analyzeIssueWithAi?: (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
+  logger?: Logger;
 }
 
 interface GithubIssueLabel {
@@ -60,8 +64,10 @@ const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhoo
 
 export const createGithubWebhookController = ({
   governanceGateway,
+  analyzeIssueWithAi,
+  logger = createEnvLogger(),
 }: Dependencies): RequestHandler => {
-  const run = processIssueWebhook({ governanceGateway });
+  const run = processIssueWebhook({ governanceGateway, analyzeIssueWithAi, logger });
 
   return async (req, res) => {
     try {
@@ -90,7 +96,7 @@ export const createGithubWebhookController = ({
 
       res.status(200).json({ status: 'ok' });
     } catch (error: unknown) {
-      console.error('GithubWebhookController failed processing issue webhook', error);
+      logger.error('GithubWebhookController failed processing issue webhook', error);
       res.status(500).json({ error: 'Internal Server Error' });
     }
   };

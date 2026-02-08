@@ -10,9 +10,27 @@ const adapterGatewayMock: jest.Mocked<GovernanceGateway> = {
 };
 
 const createGithubGovernanceAdapterMock = jest.fn(() => adapterGatewayMock);
+const createLlmGatewayMock = jest.fn(() => ({
+  generateJson: jest.fn().mockResolvedValue({ rawText: '{}' }),
+}));
+const createGithubIssueHistoryAdapterMock = jest.fn(() => ({
+  findRecentIssues: jest.fn().mockResolvedValue([]),
+  hasIssueCommentWithPrefix: jest.fn().mockResolvedValue(false),
+}));
+const analyzeIssueWithAiRunnerMock = jest.fn().mockResolvedValue({ status: 'completed' });
+const analyzeIssueWithAiFactoryMock = jest.fn((_dependencies: unknown) => analyzeIssueWithAiRunnerMock);
 
 jest.mock('../../../../src/features/triage/infrastructure/adapters/github-governance.adapter', () => ({
   createGithubGovernanceAdapter: () => createGithubGovernanceAdapterMock(),
+}));
+jest.mock('../../../../src/shared/infrastructure/ai/llm-gateway.factory', () => ({
+  createLlmGateway: () => createLlmGatewayMock(),
+}));
+jest.mock('../../../../src/features/triage/infrastructure/adapters/github-issue-history.adapter', () => ({
+  createGithubIssueHistoryAdapter: () => createGithubIssueHistoryAdapterMock(),
+}));
+jest.mock('../../../../src/features/triage/application/use-cases/analyze-issue-with-ai.use-case', () => ({
+  analyzeIssueWithAi: (dependencies: unknown) => analyzeIssueWithAiFactoryMock(dependencies),
 }));
 
 const createValidIssuePayload = (overrides: Record<string, unknown> = {}) => ({
@@ -131,6 +149,26 @@ describe('App (Composition Root)', () => {
     } finally {
       process.env.APP_VERSION = currentAppVersion;
       process.env.npm_package_version = currentNpmVersion;
+    }
+  });
+
+  it('should lazy-load and run AI triage when AI_TRIAGE_ENABLED is true', async () => {
+    const currentAiTriageEnabled = process.env.AI_TRIAGE_ENABLED;
+    process.env.AI_TRIAGE_ENABLED = 'true';
+    const app = createApp();
+
+    try {
+      const firstResponse = await request(app).post('/webhooks/github').send(createValidIssuePayload());
+      const secondResponse = await request(app).post('/webhooks/github').send(createValidIssuePayload());
+
+      expect(firstResponse.status).toBe(200);
+      expect(secondResponse.status).toBe(200);
+      expect(createLlmGatewayMock).toHaveBeenCalledTimes(1);
+      expect(createGithubIssueHistoryAdapterMock).toHaveBeenCalledTimes(1);
+      expect(analyzeIssueWithAiFactoryMock).toHaveBeenCalledTimes(1);
+      expect(analyzeIssueWithAiRunnerMock).toHaveBeenCalledTimes(2);
+    } finally {
+      process.env.AI_TRIAGE_ENABLED = currentAiTriageEnabled;
     }
   });
 });

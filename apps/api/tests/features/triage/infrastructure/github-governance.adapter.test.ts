@@ -77,6 +77,57 @@ describe('GithubGovernanceAdapter', () => {
     expect(logger.error).toHaveBeenCalled();
   });
 
+  it('should log actionable permission hint when addLabels fails with 403', async () => {
+    // Arrange
+    const octokit = createMockOctokit();
+    const logger = createMockLogger();
+    const apiError = new Error('Resource not accessible by integration');
+    (
+      apiError as unknown as {
+        status?: number;
+        response?: { data?: { message?: string } };
+      }
+    ).status = 403;
+    (
+      apiError as unknown as {
+        status?: number;
+        response?: { data?: { message?: string } };
+      }
+    ).response = {
+      data: {
+        message: 'Resource not accessible by integration',
+      },
+    };
+    octokit.issues.addLabels.mockRejectedValue(apiError);
+    const adapter = createGithubGovernanceAdapter({
+      octokit: octokit as unknown as Octokit,
+      logger,
+    });
+
+    // Act
+    await expect(
+      adapter.addLabels({
+        repositoryFullName: 'org/repo',
+        issueNumber: 12,
+        labels: ['triage/needs-info'],
+      }),
+    ).rejects.toThrow('Resource not accessible by integration');
+
+    // Assert
+    expect(logger.error).toHaveBeenCalledWith(
+      'GithubGovernanceAdapter failed adding labels',
+      expect.objectContaining({
+        repositoryFullName: 'org/repo',
+        issueNumber: 12,
+        labels: ['triage/needs-info'],
+        githubStatus: 403,
+        errorMessage: 'Resource not accessible by integration',
+        githubResponseMessage: 'Resource not accessible by integration',
+        suggestion: expect.stringContaining('Check GITHUB_TOKEN permissions'),
+      }),
+    );
+  });
+
   it('should create a comment using GitHub API', async () => {
     const octokit = createMockOctokit();
     const adapter = createGithubGovernanceAdapter({

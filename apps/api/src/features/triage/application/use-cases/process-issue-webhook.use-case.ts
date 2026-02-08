@@ -3,6 +3,7 @@ import {
   GOVERNANCE_ERROR_LABELS,
   TRIAGE_NEEDS_INFO_LABEL,
 } from '../constants/governance-labels.constants';
+import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from './analyze-issue-with-ai.use-case';
 import {
   validateIssueIntegrity,
   type IssueIntegrityValidator,
@@ -31,6 +32,13 @@ export interface ProcessIssueWebhookResult {
 interface Dependencies {
   governanceGateway: GovernanceGateway;
   issueIntegrityValidator?: IssueIntegrityValidator;
+  analyzeIssueWithAi?: (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
+  logger?: {
+    debug?: (message: string, ...args: unknown[]) => void;
+    info?: (message: string, ...args: unknown[]) => void;
+    warn?: (message: string, ...args: unknown[]) => void;
+    error: (message: string, ...args: unknown[]) => void;
+  };
 }
 
 const isSupportedAction = (action: string): action is SupportedAction =>
@@ -42,7 +50,12 @@ const buildValidationComment = (errors: string[]): string => {
 };
 
 export const processIssueWebhook =
-  ({ governanceGateway, issueIntegrityValidator = validateIssueIntegrity }: Dependencies) =>
+  ({
+    governanceGateway,
+    issueIntegrityValidator = validateIssueIntegrity,
+    analyzeIssueWithAi,
+    logger = console,
+  }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
     if (!isSupportedAction(input.action)) {
       return { statusCode: 204 };
@@ -84,6 +97,39 @@ export const processIssueWebhook =
       repositoryFullName: input.repositoryFullName,
       issueNumber: input.issue.number,
     });
+
+    if (analyzeIssueWithAi) {
+      try {
+        logger.debug?.('ProcessIssueWebhookUseCase AI triage started.', {
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          action: input.action,
+        });
+
+        const aiResult = await analyzeIssueWithAi({
+          action: input.action,
+          repositoryFullName: input.repositoryFullName,
+          issue: {
+            number: input.issue.number,
+            title: input.issue.title,
+            body: input.issue.body,
+            labels: input.issue.labels,
+          },
+        });
+
+        logger.info?.('ProcessIssueWebhookUseCase AI triage completed.', {
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          result: aiResult,
+        });
+      } catch (error: unknown) {
+        logger.error('ProcessIssueWebhookUseCase failed running AI analysis. Applying fail-open policy.', {
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          error,
+        });
+      }
+    }
 
     return { statusCode: 200 };
   };
