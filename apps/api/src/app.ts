@@ -1,10 +1,14 @@
 import express from 'express';
 
-import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from './features/triage/application/use-cases/analyze-issue-with-ai.use-case';
+import type {
+  AnalyzeIssueWithAiInput,
+  AnalyzeIssueWithAiResult,
+} from './features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 import type { GovernanceGateway } from './features/triage/application/ports/governance-gateway.port';
-import type { RepositoryContextGateway } from './features/triage/application/ports/repository-context-gateway.port';
 import { createGithubWebhookController } from './features/triage/infrastructure/controllers/github-webhook.controller';
-import type { QuestionResponseMetricsPort } from './shared/application/ports/question-response-metrics.port';
+import { createLazyAnalyzeIssueWithAi, isAiTriageEnabled } from './infrastructure/composition/lazy-ai-triage-runner.factory';
+import { createLazyGovernanceGateway } from './infrastructure/composition/lazy-governance-gateway.factory';
+import { resolveWebhookSignatureConfig } from './infrastructure/composition/webhook-signature-config.service';
 import { createEnvLogger, type Logger } from './shared/infrastructure/logging/env-logger';
 import { createInMemoryQuestionResponseMetrics } from './shared/infrastructure/metrics/in-memory-question-response.metrics';
 
@@ -13,12 +17,6 @@ const GITHUB_WEBHOOK_ROUTE = '/webhooks/github';
 const DEFAULT_APP_VERSION = '1.0.0';
 const APP_VERSION_ENV_VAR = 'APP_VERSION';
 const NPM_PACKAGE_VERSION_ENV_VAR = 'npm_package_version';
-const AI_TRIAGE_ENABLED_ENV_VAR = 'AI_TRIAGE_ENABLED';
-const GITHUB_BOT_LOGIN_ENV_VAR = 'GITHUB_BOT_LOGIN';
-const GITHUB_WEBHOOK_SECRET_ENV_VAR = 'GITHUB_WEBHOOK_SECRET';
-const GITHUB_WEBHOOK_VERIFY_SIGNATURE_ENV_VAR = 'GITHUB_WEBHOOK_VERIFY_SIGNATURE';
-const NODE_ENV_ENV_VAR = 'NODE_ENV';
-const PRODUCTION_NODE_ENV = 'production';
 const questionResponseMetrics = createInMemoryQuestionResponseMetrics();
 
 interface CreateAppParams {
@@ -27,130 +25,10 @@ interface CreateAppParams {
   logger?: Logger;
 }
 
-const createLazyGovernanceGateway = (): GovernanceGateway => {
-  let gateway: GovernanceGateway | undefined;
-
-  const getGateway = (): GovernanceGateway => {
-    if (!gateway) {
-      // Lazy-load adapter to keep app composition testable without loading Octokit at module import time.
-      const { createGithubGovernanceAdapter } = require('./features/triage/infrastructure/adapters/github-governance.adapter') as {
-        createGithubGovernanceAdapter: () => GovernanceGateway;
-      };
-      gateway = createGithubGovernanceAdapter();
-    }
-    return gateway;
-  };
-
-  return {
-    addLabels: async (input) => getGateway().addLabels(input),
-    removeLabel: async (input) => getGateway().removeLabel(input),
-    createComment: async (input) => getGateway().createComment(input),
-    logValidatedIssue: async (input) => getGateway().logValidatedIssue(input),
-  };
-};
-
-const isAiTriageEnabled = (): boolean =>
-  (process.env[AI_TRIAGE_ENABLED_ENV_VAR] ?? '').toLowerCase() === 'true';
-
-const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalizedValue = value.trim().toLowerCase();
-  if (normalizedValue === 'true') {
-    return true;
-  }
-
-  if (normalizedValue === 'false') {
-    return false;
-  }
-
-  return undefined;
-};
-
-const shouldVerifyWebhookSignature = (): boolean => {
-  const explicitVerifySignature = parseBooleanEnv(process.env[GITHUB_WEBHOOK_VERIFY_SIGNATURE_ENV_VAR]);
-  if (explicitVerifySignature !== undefined) {
-    return explicitVerifySignature;
-  }
-
-  if (process.env[NODE_ENV_ENV_VAR] === PRODUCTION_NODE_ENV) {
-    return true;
-  }
-
-  const webhookSecret = process.env[GITHUB_WEBHOOK_SECRET_ENV_VAR];
-  return typeof webhookSecret === 'string' && webhookSecret.length > 0;
-};
-
-const createLazyAnalyzeIssueWithAi = (
-  governanceGateway: GovernanceGateway,
-  logger: Logger,
-  metrics: QuestionResponseMetricsPort,
-): ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>) => {
-  let runAnalyzeIssueWithAi:
-    | ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>)
-    | undefined;
-
-  const getAnalyzeIssueWithAi = (): ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>) => {
-    if (!runAnalyzeIssueWithAi) {
-      const { createLlmGateway } = require('./shared/infrastructure/ai/llm-gateway.factory') as {
-        createLlmGateway: () => import('./shared/application/ports/llm-gateway.port').LLMGateway;
-      };
-      const { createGithubIssueHistoryAdapter } = require('./features/triage/infrastructure/adapters/github-issue-history.adapter') as {
-        createGithubIssueHistoryAdapter: () => import('./features/triage/application/ports/issue-history-gateway.port').IssueHistoryGateway;
-      };
-      const { analyzeIssueWithAi } = require('./features/triage/application/use-cases/analyze-issue-with-ai.use-case') as {
-        analyzeIssueWithAi: (dependencies: {
-          llmGateway: import('./shared/application/ports/llm-gateway.port').LLMGateway;
-          issueHistoryGateway: import('./features/triage/application/ports/issue-history-gateway.port').IssueHistoryGateway;
-          repositoryContextGateway?: RepositoryContextGateway;
-          governanceGateway: GovernanceGateway;
-          questionResponseMetrics?: QuestionResponseMetricsPort;
-          botLogin?: string;
-          logger?: Logger;
-        }) => (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
-      };
-      let repositoryContextGateway: RepositoryContextGateway | undefined;
-      try {
-        const { createGithubRepositoryContextAdapter } = require('./features/triage/infrastructure/adapters/github-repository-context.adapter') as {
-          createGithubRepositoryContextAdapter: (params?: { logger?: Logger }) => RepositoryContextGateway;
-        };
-        repositoryContextGateway = createGithubRepositoryContextAdapter({ logger });
-      } catch (error: unknown) {
-        logger.info?.('App could not initialize repository context gateway. Continuing without repository context.', {
-          error,
-        });
-      }
-
-      runAnalyzeIssueWithAi = analyzeIssueWithAi({
-        llmGateway: createLlmGateway(),
-        issueHistoryGateway: createGithubIssueHistoryAdapter(),
-        repositoryContextGateway,
-        governanceGateway,
-        questionResponseMetrics: metrics,
-        botLogin: process.env[GITHUB_BOT_LOGIN_ENV_VAR],
-        logger,
-      });
-    }
-
-    return runAnalyzeIssueWithAi;
-  };
-
-  return async (input: AnalyzeIssueWithAiInput): Promise<AnalyzeIssueWithAiResult> =>
-    getAnalyzeIssueWithAi()(input);
-};
-
 export const createApp = (params: CreateAppParams = {}) => {
   const app = express();
   const logger = params.logger ?? createEnvLogger();
-  const verifyWebhookSignature = shouldVerifyWebhookSignature();
-  const webhookSecret = process.env[GITHUB_WEBHOOK_SECRET_ENV_VAR];
-  if (verifyWebhookSignature && (!webhookSecret || webhookSecret.length === 0)) {
-    throw new Error(
-      `Missing ${GITHUB_WEBHOOK_SECRET_ENV_VAR} while ${GITHUB_WEBHOOK_VERIFY_SIGNATURE_ENV_VAR}=true`,
-    );
-  }
+  const signatureConfig = resolveWebhookSignatureConfig();
   const governanceGateway = params.governanceGateway ?? createLazyGovernanceGateway();
   const analyzeIssueWithAi =
     params.analyzeIssueWithAi ??
@@ -184,7 +62,7 @@ export const createApp = (params: CreateAppParams = {}) => {
       governanceGateway,
       analyzeIssueWithAi,
       logger,
-      webhookSecret: verifyWebhookSignature ? webhookSecret : undefined,
+      webhookSecret: signatureConfig.verifyWebhookSignature ? signatureConfig.webhookSecret : undefined,
     }),
   );
 

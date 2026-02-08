@@ -80,7 +80,7 @@ describe('AnalyzeIssueWithAiUseCase (Duplicate Alias Normalization)', () => {
       expect.objectContaining({
         repositoryFullName: 'org/repo',
         issueNumber: 14,
-        body: expect.stringContaining('AI Triage: Suggested setup checklist'),
+        body: expect.stringContaining('AI Triage: Suggested guidance'),
       }),
     );
   });

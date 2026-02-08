@@ -1,18 +1,12 @@
 import { Octokit } from '@octokit/rest';
 
 import type { RepositoryContextGateway } from '../../application/ports/repository-context-gateway.port';
+import { parseRepositoryRef } from './github-repository-ref.util';
 
-const REPOSITORY_SEPARATOR = '/';
-const REPOSITORY_PARTS_COUNT = 2;
 const GITHUB_TOKEN_ENV_VAR = 'GITHUB_TOKEN';
 const README_NOT_FOUND_STATUS = 404;
 const README_FORBIDDEN_STATUS = 403;
 const LOG_CONTEXT = 'GithubRepositoryContextAdapter';
-
-interface RepositoryRef {
-  owner: string;
-  repo: string;
-}
 
 interface Logger {
   debug?: (message: string, ...args: unknown[]) => void;
@@ -37,19 +31,6 @@ interface ReadmeResponseData {
 
 const isErrorWithStatus = (error: unknown): error is ErrorWithStatus =>
   !!error && typeof error === 'object' && 'status' in error;
-
-const parseRepositoryRef = (repositoryFullName: string): RepositoryRef => {
-  const repositoryParts = repositoryFullName.split(REPOSITORY_SEPARATOR);
-  const [owner, repo] = repositoryParts;
-  const isInvalidRepository =
-    repositoryParts.length !== REPOSITORY_PARTS_COUNT || !owner || !repo;
-
-  if (isInvalidRepository) {
-    throw new Error(`Invalid repository full name: "${repositoryFullName}"`);
-  }
-
-  return { owner, repo };
-};
 
 const createOctokitClient = (params: CreateGithubRepositoryContextAdapterParams): Octokit => {
   if (params.octokit) {

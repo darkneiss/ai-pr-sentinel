@@ -1,16 +1,10 @@
 import { Octokit } from '@octokit/rest';
 
 import type { IssueHistoryGateway, RecentIssueSummary } from '../../application/ports/issue-history-gateway.port';
+import { parseRepositoryRef } from './github-repository-ref.util';
 
-const REPOSITORY_SEPARATOR = '/';
-const REPOSITORY_PARTS_COUNT = 2;
 const GITHUB_TOKEN_ENV_VAR = 'GITHUB_TOKEN';
 const LOG_CONTEXT = 'GithubIssueHistoryAdapter';
-
-interface RepositoryRef {
-  owner: string;
-  repo: string;
-}
 
 interface Logger {
   error: (message: string, ...args: unknown[]) => void;
@@ -40,19 +34,6 @@ interface GithubIssueCommentItem {
     login?: string | null;
   };
 }
-
-const parseRepositoryRef = (repositoryFullName: string): RepositoryRef => {
-  const repositoryParts = repositoryFullName.split(REPOSITORY_SEPARATOR);
-  const [owner, repo] = repositoryParts;
-  const isInvalidRepository =
-    repositoryParts.length !== REPOSITORY_PARTS_COUNT || !owner || !repo;
-
-  if (isInvalidRepository) {
-    throw new Error(`Invalid repository full name: "${repositoryFullName}"`);
-  }
-
-  return { owner, repo };
-};
 
 const createOctokitClient = (params: CreateGithubIssueHistoryAdapterParams): Octokit => {
   if (params.octokit) {
