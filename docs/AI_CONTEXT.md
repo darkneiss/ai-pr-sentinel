@@ -77,3 +77,7 @@
 - Continue feature development using ports-first approach.
 - Keep provider behavior normalized in adapters + use-case normalization.
 - Document significant design decisions in ADRs and keep this file synchronized with shipped behavior.
+
+## 9. ADR References
+- `docs/adr/ADR-001-llm-integration-strategy.md`
+  - Justifies the MVP decision to avoid LangChain and provider SDKs in core AI triage flow.
