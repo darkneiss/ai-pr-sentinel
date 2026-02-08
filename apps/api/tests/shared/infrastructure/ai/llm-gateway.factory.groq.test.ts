@@ -13,7 +13,6 @@ describe('LlmGatewayFactory (Groq)', () => {
     // Act
     const gateway = createLlmGateway({
       provider: 'groq',
-      createOpenAiLlmAdapter: () => createGateway('openai'),
       createGeminiLlmAdapter: () => createGateway('gemini'),
       createOllamaLlmAdapter: () => createGateway('ollama'),
       createGroqLlmAdapter: () => groqGateway,

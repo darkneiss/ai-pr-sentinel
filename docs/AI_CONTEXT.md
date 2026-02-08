@@ -33,8 +33,8 @@
 - Port: `LLMGateway` (provider-agnostic).
 - Factory: `src/shared/infrastructure/ai/llm-gateway.factory.ts`.
 - Adapters implemented:
-  - OpenAI
   - Gemini
+  - Groq
   - Ollama
 - Prompting:
   - Centralized in `src/shared/application/prompts/issue-triage.prompt.ts`.

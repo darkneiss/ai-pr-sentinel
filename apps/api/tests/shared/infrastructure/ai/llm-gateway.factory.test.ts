@@ -6,20 +6,13 @@ const createGateway = (name: string): LLMGateway => ({
 });
 
 describe('LlmGatewayFactory', () => {
-  it('should create OpenAI gateway when provider is openai', () => {
-    // Arrange
-    const openAiGateway = createGateway('openai');
-
-    // Act
-    const gateway = createLlmGateway({
-      provider: 'openai',
-      createOpenAiLlmAdapter: () => openAiGateway,
-      createGeminiLlmAdapter: () => createGateway('gemini'),
-      createOllamaLlmAdapter: () => createGateway('ollama'),
-    });
-
-    // Assert
-    expect(gateway).toBe(openAiGateway);
+  it('should throw when provider is openai', () => {
+    // Act + Assert
+    expect(() =>
+      createLlmGateway({
+        provider: 'openai',
+      }),
+    ).toThrow('Unsupported LLM provider');
   });
 
   it('should create Gemini gateway when provider is gemini', () => {
@@ -29,9 +22,9 @@ describe('LlmGatewayFactory', () => {
     // Act
     const gateway = createLlmGateway({
       provider: 'gemini',
-      createOpenAiLlmAdapter: () => createGateway('openai'),
       createGeminiLlmAdapter: () => geminiGateway,
       createOllamaLlmAdapter: () => createGateway('ollama'),
+      createGroqLlmAdapter: () => createGateway('groq'),
     });
 
     // Assert
@@ -45,9 +38,9 @@ describe('LlmGatewayFactory', () => {
     // Act
     const gateway = createLlmGateway({
       provider: 'ollama',
-      createOpenAiLlmAdapter: () => createGateway('openai'),
       createGeminiLlmAdapter: () => createGateway('gemini'),
       createOllamaLlmAdapter: () => ollamaGateway,
+      createGroqLlmAdapter: () => createGateway('groq'),
     });
 
     // Assert
@@ -73,8 +66,8 @@ describe('LlmGatewayFactory', () => {
       // Act
       const gateway = createLlmGateway({
         createGeminiLlmAdapter: () => geminiGateway,
-        createOpenAiLlmAdapter: () => createGateway('openai'),
         createOllamaLlmAdapter: () => createGateway('ollama'),
+        createGroqLlmAdapter: () => createGateway('groq'),
       });
 
       // Assert
@@ -93,9 +86,9 @@ describe('LlmGatewayFactory', () => {
     try {
       // Act
       const gateway = createLlmGateway({
-        createOpenAiLlmAdapter: () => createGateway('openai'),
         createGeminiLlmAdapter: () => createGateway('gemini'),
         createOllamaLlmAdapter: () => ollamaGateway,
+        createGroqLlmAdapter: () => createGateway('groq'),
       });
 
       // Assert
