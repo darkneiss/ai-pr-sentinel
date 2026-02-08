@@ -1,15 +1,20 @@
 {
   "name": "ai-pr-sentinel",
   "version": "1.0.0",
-  "description": "",
+  "license": "AGPL-3.0-or-later",
+  "description": "App for AI-enhanced issue triage and PR review",
   "main": "index.js",
   "scripts": {
     "test": "pnpm --filter \"*\" test",
     "lint": "pnpm --filter \"*\" lint",
     "quality": "pnpm test && pnpm lint"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "github-app",
+    "ai",
+    "triage",
+    "probot"
+  ],
+  "author": "Jordi Rosado <darkneiss76@gmail.com>",
   "packageManager": "pnpm@10.18.0"
 }
