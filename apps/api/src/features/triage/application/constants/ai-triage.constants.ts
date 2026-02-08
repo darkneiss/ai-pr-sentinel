@@ -24,17 +24,6 @@ export const AI_QUESTION_SIGNAL_KEYWORDS = [
   'cómo',
   'ayuda',
 ] as const;
-export const AI_HOSTILE_SIGNAL_KEYWORDS = [
-  'hecho con el culo',
-  'no tienes ni idea',
-  'eres inutil',
-  'idiota',
-  'gilipollas',
-  'mierda',
-  'fuck',
-  'shit',
-  'stupid',
-] as const;
 export const AI_QUESTION_FALLBACK_CHECKLIST = [
   '- Share your current `.env` values (without secrets).',
   '- Share exact commands you already ran and their output.',

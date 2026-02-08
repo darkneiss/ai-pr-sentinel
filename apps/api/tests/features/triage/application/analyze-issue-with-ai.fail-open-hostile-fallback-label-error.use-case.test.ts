@@ -35,7 +35,7 @@ const createInput = (overrides: Partial<AnalyzeIssueWithAiInput> = {}): AnalyzeI
 });
 
 describe('AnalyzeIssueWithAiUseCase (Fail-open Hostile Fallback Label Error)', () => {
-  it('should keep fail-open skipped when fallback hostile label write also fails', async () => {
+  it('should keep fail-open skipped and not try fallback labels after AI failure', async () => {
     // Arrange
     const llmGateway = createLlmGatewayMock();
     const issueHistoryGateway = createIssueHistoryGatewayMock();
@@ -56,12 +56,7 @@ describe('AnalyzeIssueWithAiUseCase (Fail-open Hostile Fallback Label Error)', (
 
     // Assert
     expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
-    expect(logger.error).toHaveBeenCalledWith(
-      'AnalyzeIssueWithAiUseCase failed applying fallback hostile label.',
-      expect.objectContaining({
-        repositoryFullName: 'org/repo',
-        issueNumber: 89,
-      }),
-    );
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledTimes(1);
   });
 });

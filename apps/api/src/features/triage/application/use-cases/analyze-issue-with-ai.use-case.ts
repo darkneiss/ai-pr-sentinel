@@ -7,7 +7,6 @@ import {
   AI_KIND_FEATURE_LABEL,
   AI_KIND_LABELS,
   AI_KIND_QUESTION_LABEL,
-  AI_HOSTILE_SIGNAL_KEYWORDS,
   AI_MAX_TOKENS,
   AI_QUESTION_REPLY_COMMENT_PREFIX,
   AI_QUESTION_FALLBACK_CHECKLIST,
@@ -281,7 +280,11 @@ const normalizeStructuredAiAnalysis = (
     : isObjectRecord(value.duplicate)
       ? value.duplicate
       : undefined;
-  const sentimentRaw = isObjectRecord(value.sentiment) ? value.sentiment : undefined;
+  const sentimentRaw = isObjectRecord(value.sentiment)
+    ? value.sentiment
+    : isObjectRecord(value.tone)
+      ? value.tone
+      : undefined;
   const rootLevelIsDuplicate =
     typeof value.duplicate === 'boolean'
       ? value.duplicate
@@ -313,10 +316,12 @@ const normalizeStructuredAiAnalysis = (
   const normalizedOriginalIssueNumber =
     parseIssueNumberFromReference(duplicateDetectionRaw?.originalIssueNumber) ??
     parseIssueNumberFromReference(duplicateDetectionRaw?.duplicateIssueId) ??
+    parseIssueNumberFromReference(duplicateDetectionRaw?.similarIssueId) ??
     parseIssueNumberFromReference(duplicateDetectionRaw?.original_issue_number) ??
     parseFirstValidDuplicateIssue(duplicateDetectionRaw?.duplicate_of, currentIssueNumber) ??
     parseIssueNumberFromReference(value.originalIssueNumber) ??
     parseIssueNumberFromReference(value.duplicateIssueId) ??
+    parseIssueNumberFromReference(value.similarIssueId) ??
     parseIssueNumberFromReference(value.original_issue_number) ??
     parseFirstValidDuplicateIssue(value.duplicate_of, currentIssueNumber);
   const isDuplicate = duplicateDetectionRaw?.isDuplicate === true || rootLevelIsDuplicate === true;
@@ -329,7 +334,7 @@ const normalizeStructuredAiAnalysis = (
     : isDuplicate
       ? 1
       : 0;
-  const normalizedTone = normalizeAiTone(sentimentRaw.tone) ?? 'neutral';
+  const normalizedTone = normalizeAiTone(sentimentRaw.tone) ?? normalizeAiTone(sentimentRaw.sentiment) ?? 'neutral';
   const normalizedSentimentConfidence = isConfidence(sentimentRaw.confidence)
     ? sentimentRaw.confidence
     : 0.5;
@@ -435,11 +440,6 @@ const isLikelyQuestionIssue = (title: string, body: string): boolean => {
   }
 
   return AI_QUESTION_SIGNAL_KEYWORDS.some((keyword) => normalizedText.includes(keyword));
-};
-
-const isLikelyHostileIssue = (title: string, body: string): boolean => {
-  const normalizedText = `${title}\n${body}`.toLowerCase();
-  return AI_HOSTILE_SIGNAL_KEYWORDS.some((keyword) => normalizedText.includes(keyword));
 };
 
 const buildFallbackQuestionResponse = (): string => AI_QUESTION_FALLBACK_CHECKLIST.join('\n');
@@ -587,13 +587,7 @@ export const analyzeIssueWithAi =
       });
 
       const issueLabels = new Set(input.issue.labels);
-      const hasReliableSentimentSignal =
-        aiAnalysis.sentiment.confidence >= AI_SENTIMENT_CONFIDENCE_THRESHOLD;
-      const effectiveTone: AiTone =
-        aiAnalysis.sentiment.tone === 'hostile' ||
-        (!hasReliableSentimentSignal && isLikelyHostileIssue(input.issue.title, input.issue.body))
-          ? 'hostile'
-          : aiAnalysis.sentiment.tone;
+      const effectiveTone: AiTone = aiAnalysis.sentiment.tone;
       let actionsAppliedCount = 0;
       const addLabelIfMissing = async (label: string): Promise<boolean> => {
         if (issueLabels.has(label)) {
@@ -635,7 +629,14 @@ export const analyzeIssueWithAi =
         });
       };
 
-      if (aiAnalysis.classification.confidence >= AI_CLASSIFICATION_CONFIDENCE_THRESHOLD) {
+      const shouldSuppressKindLabels =
+        aiAnalysis.sentiment.tone === 'hostile' &&
+        aiAnalysis.sentiment.confidence >= AI_SENTIMENT_CONFIDENCE_THRESHOLD;
+
+      if (
+        aiAnalysis.classification.confidence >= AI_CLASSIFICATION_CONFIDENCE_THRESHOLD &&
+        !shouldSuppressKindLabels
+      ) {
         const targetKindLabel = mapKindToLabel(aiAnalysis.classification.type);
         const labelsToRemove = AI_KIND_LABELS.filter(
           (label) => label !== targetKindLabel && issueLabels.has(label),
@@ -646,6 +647,16 @@ export const analyzeIssueWithAi =
         }
 
         await addLabelIfMissing(targetKindLabel);
+      } else if (shouldSuppressKindLabels) {
+        const labelsToRemove = AI_KIND_LABELS.filter((label) => issueLabels.has(label));
+        for (const labelToRemove of labelsToRemove) {
+          await removeLabelIfPresent(labelToRemove);
+        }
+        logger.info?.('AnalyzeIssueWithAiUseCase kind labels suppressed due to hostile sentiment.', {
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          sentiment: aiAnalysis.sentiment,
+        });
       }
 
       if (aiAnalysis.duplicateDetection.isDuplicate) {
@@ -766,31 +777,6 @@ export const analyzeIssueWithAi =
         issueNumber: input.issue.number,
         error,
       });
-
-      const shouldApplyHostileFallbackLabel =
-        !input.issue.labels.includes(AI_TRIAGE_MONITOR_LABEL) &&
-        isLikelyHostileIssue(input.issue.title, input.issue.body);
-      if (shouldApplyHostileFallbackLabel) {
-        try {
-          await governanceGateway.addLabels({
-            repositoryFullName: input.repositoryFullName,
-            issueNumber: input.issue.number,
-            labels: [AI_TRIAGE_MONITOR_LABEL],
-          });
-          logger.info?.('AnalyzeIssueWithAiUseCase fallback hostile label applied after AI failure.', {
-            repositoryFullName: input.repositoryFullName,
-            issueNumber: input.issue.number,
-            label: AI_TRIAGE_MONITOR_LABEL,
-          });
-          return { status: 'completed' };
-        } catch (fallbackError: unknown) {
-          logger.error('AnalyzeIssueWithAiUseCase failed applying fallback hostile label.', {
-            repositoryFullName: input.repositoryFullName,
-            issueNumber: input.issue.number,
-            fallbackError,
-          });
-        }
-      }
 
       return { status: 'skipped', reason: 'ai_unavailable' };
     }

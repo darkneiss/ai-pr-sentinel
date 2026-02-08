@@ -22,31 +22,34 @@ const createInput = (overrides: Partial<AnalyzeIssueWithAiInput> = {}): AnalyzeI
   action: 'opened',
   repositoryFullName: 'org/repo',
   issue: {
-    number: 19,
-    title: 'No entiendo este repo',
-    body: 'Sigo sin entender por qué este repo parece hecho con el culo, no tienes ni idea.',
+    number: 34,
+    title: 'Esto funciona fatal',
+    body: 'Parece que esto funciona como el culo así que espabila.',
     labels: [],
   },
   ...overrides,
 });
 
-describe('AnalyzeIssueWithAiUseCase (Hostile Fallback Detection)', () => {
-  it('should not add triage/monitor when AI tone is neutral even if issue text is hostile', async () => {
+describe('AnalyzeIssueWithAiUseCase (Hostile Bug Classification Guard)', () => {
+  it('should skip kind/bug label when issue has hostile sentiment with high confidence', async () => {
     // Arrange
     const llmGateway: jest.Mocked<LLMGateway> = {
       generateJson: jest.fn().mockResolvedValue({
         rawText: JSON.stringify({
           classification: {
             type: 'bug',
-            confidence: 0,
+            confidence: 0.95,
+            reasoning: 'The user says it does not work.',
           },
           duplicateDetection: {
             isDuplicate: false,
             originalIssueNumber: null,
-            similarityScore: 0,
+            similarityScore: 0.1,
           },
           sentiment: {
-            tone: 'neutral',
+            tone: 'hostile',
+            confidence: 0.95,
+            reasoning: 'Insulting language.',
           },
         }),
       }),
@@ -66,27 +69,35 @@ describe('AnalyzeIssueWithAiUseCase (Hostile Fallback Detection)', () => {
     expect(result).toEqual({ status: 'completed' });
     expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
       repositoryFullName: 'org/repo',
-      issueNumber: 19,
+      issueNumber: 34,
+      labels: ['kind/bug'],
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 34,
       labels: ['triage/monitor'],
     });
   });
 
-  it('should not add triage/monitor when AI tone is neutral and text is non-hostile', async () => {
+  it('should remove existing kind label when issue has hostile sentiment with high confidence', async () => {
     // Arrange
     const llmGateway: jest.Mocked<LLMGateway> = {
       generateJson: jest.fn().mockResolvedValue({
         rawText: JSON.stringify({
           classification: {
             type: 'bug',
-            confidence: 0,
+            confidence: 0.95,
+            reasoning: 'Hostile content should prevail over classification labels.',
           },
           duplicateDetection: {
             isDuplicate: false,
             originalIssueNumber: null,
-            similarityScore: 0,
+            similarityScore: 0.1,
           },
           sentiment: {
-            tone: 'neutral',
+            tone: 'hostile',
+            confidence: 0.95,
+            reasoning: 'Hostile tone.',
           },
         }),
       }),
@@ -103,19 +114,24 @@ describe('AnalyzeIssueWithAiUseCase (Hostile Fallback Detection)', () => {
     const result = await run(
       createInput({
         issue: {
-          number: 20,
-          title: 'No entiendo el setup',
-          body: 'Podríais explicar cómo levantarlo en local paso a paso?',
-          labels: [],
+          number: 35,
+          title: 'Esto va fatal y me cabrea',
+          body: 'Fails with error 500. Steps to reproduce: open login, submit form, crash.',
+          labels: ['kind/bug'],
         },
       }),
     );
 
     // Assert
     expect(result).toEqual({ status: 'completed' });
-    expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
+    expect(governanceGateway.removeLabel).toHaveBeenCalledWith({
       repositoryFullName: 'org/repo',
-      issueNumber: 20,
+      issueNumber: 35,
+      label: 'kind/bug',
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 35,
       labels: ['triage/monitor'],
     });
   });

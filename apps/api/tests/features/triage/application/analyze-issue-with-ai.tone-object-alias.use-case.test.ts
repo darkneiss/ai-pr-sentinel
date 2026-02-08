@@ -7,7 +7,10 @@ import {
 import type { LLMGateway } from '../../../../src/shared/application/ports/llm-gateway.port';
 
 const createLlmGatewayMock = (): jest.Mocked<LLMGateway> => ({
-  generateJson: jest.fn().mockRejectedValue(new Error('provider blocked response')),
+  generateJson: jest.fn().mockResolvedValue({
+    rawText:
+      '{"classification":{"type":"bug","confidence":0.9},"duplicateDetection":{"isDuplicate":true,"similarIssueId":32,"similarityScore":0.95},"tone":{"sentiment":"hostile","confidence":0.95},"suggestedResponse":""}',
+  }),
 });
 
 const createIssueHistoryGatewayMock = (): jest.Mocked<IssueHistoryGateway> => ({
@@ -26,16 +29,16 @@ const createInput = (overrides: Partial<AnalyzeIssueWithAiInput> = {}): AnalyzeI
   action: 'opened',
   repositoryFullName: 'org/repo',
   issue: {
-    number: 88,
-    title: 'Esto es una mierda',
-    body: 'No tienes ni idea de lo que haces.',
+    number: 32,
+    title: 'offensive title',
+    body: 'insult without explicit profanity',
     labels: [],
   },
   ...overrides,
 });
 
-describe('AnalyzeIssueWithAiUseCase (Fail-open Hostile Fallback)', () => {
-  it('should keep fail-open skipped when AI fails', async () => {
+describe('AnalyzeIssueWithAiUseCase (Tone Object Alias)', () => {
+  it('should accept tone.sentiment and similarIssueId aliases and suppress kind labels on hostile sentiment', async () => {
     // Arrange
     const llmGateway = createLlmGatewayMock();
     const issueHistoryGateway = createIssueHistoryGatewayMock();
@@ -43,6 +46,7 @@ describe('AnalyzeIssueWithAiUseCase (Fail-open Hostile Fallback)', () => {
     const logger = {
       error: jest.fn(),
       info: jest.fn(),
+      debug: jest.fn(),
     };
     const run = analyzeIssueWithAi({
       llmGateway,
@@ -55,8 +59,12 @@ describe('AnalyzeIssueWithAiUseCase (Fail-open Hostile Fallback)', () => {
     const result = await run(createInput());
 
     // Assert
-    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
-    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
-    expect(logger.info).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 32,
+      labels: ['triage/monitor'],
+    });
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });
