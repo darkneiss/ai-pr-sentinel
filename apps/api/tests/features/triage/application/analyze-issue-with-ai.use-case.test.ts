@@ -1,6 +1,7 @@
 import {
   AI_DUPLICATE_COMMENT_PREFIX,
   AI_QUESTION_FALLBACK_CHECKLIST,
+  AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX,
   AI_KIND_QUESTION_LABEL,
   AI_QUESTION_REPLY_COMMENT_PREFIX,
   AI_RECENT_ISSUES_LIMIT,
@@ -174,6 +175,9 @@ describe('AnalyzeIssueWithAiUseCase', () => {
     // Assert
     expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
     expect(logger.error).toHaveBeenCalledTimes(1);
+    const loggerCallContext = logger.error.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(loggerCallContext.rawTextLength).toBe('{invalid-json'.length);
+    expect(loggerCallContext.rawText).toBeUndefined();
     expect(governanceGateway.addLabels).not.toHaveBeenCalled();
     expect(governanceGateway.createComment).not.toHaveBeenCalled();
   });
@@ -1124,7 +1128,7 @@ describe('AnalyzeIssueWithAiUseCase', () => {
     expect(governanceGateway.createComment).toHaveBeenCalledWith({
       repositoryFullName: 'org/repo',
       issueNumber: 42,
-      body: `${AI_QUESTION_REPLY_COMMENT_PREFIX}\n\n${AI_QUESTION_FALLBACK_CHECKLIST.join('\n')}`,
+      body: `${AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX}\n\n${AI_QUESTION_FALLBACK_CHECKLIST.join('\n')}`,
     });
   });
 

@@ -1,4 +1,6 @@
 import type { LLMGateway } from '../../../application/ports/llm-gateway.port';
+import type { ConfigPort } from '../../../application/ports/config.port';
+import { createEnvConfig } from '../../config/env-config.adapter';
 
 const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
 const DEFAULT_OLLAMA_MODEL = 'llama3.1';
@@ -11,6 +13,7 @@ interface CreateOllamaLlmAdapterParams {
   baseUrl?: string;
   model?: string;
   fetchFn?: typeof fetch;
+  config?: ConfigPort;
 }
 
 interface OllamaSuccessResponse {
@@ -27,14 +30,14 @@ const createAbortSignal = (timeoutMs: number): AbortSignal | undefined => {
   return undefined;
 };
 
-const getOllamaBaseUrl = (params: CreateOllamaLlmAdapterParams): string =>
+const getOllamaBaseUrl = (params: CreateOllamaLlmAdapterParams, config: ConfigPort): string =>
   params.baseUrl ??
-  process.env[LLM_BASE_URL_ENV_VAR] ??
-  process.env[OLLAMA_BASE_URL_ENV_VAR] ??
+  config.get(LLM_BASE_URL_ENV_VAR) ??
+  config.get(OLLAMA_BASE_URL_ENV_VAR) ??
   DEFAULT_OLLAMA_BASE_URL;
 
-const getOllamaModel = (params: CreateOllamaLlmAdapterParams): string =>
-  params.model ?? process.env[LLM_MODEL_ENV_VAR] ?? process.env[OLLAMA_MODEL_ENV_VAR] ?? DEFAULT_OLLAMA_MODEL;
+const getOllamaModel = (params: CreateOllamaLlmAdapterParams, config: ConfigPort): string =>
+  params.model ?? config.get(LLM_MODEL_ENV_VAR) ?? config.get(OLLAMA_MODEL_ENV_VAR) ?? DEFAULT_OLLAMA_MODEL;
 
 const buildOllamaEndpoint = (baseUrl: string): string => `${baseUrl}/api/generate`;
 
@@ -66,8 +69,9 @@ const extractOllamaRawText = (responseJson: OllamaSuccessResponse): string => {
 };
 
 export const createOllamaLlmAdapter = (params: CreateOllamaLlmAdapterParams = {}): LLMGateway => {
-  const baseUrl = getOllamaBaseUrl(params);
-  const model = getOllamaModel(params);
+  const config = params.config ?? createEnvConfig();
+  const baseUrl = getOllamaBaseUrl(params, config);
+  const model = getOllamaModel(params, config);
   const endpoint = buildOllamaEndpoint(baseUrl);
   const fetchFn = params.fetchFn ?? fetch;
 

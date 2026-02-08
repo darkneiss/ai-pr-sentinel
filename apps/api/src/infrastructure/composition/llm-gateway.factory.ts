@@ -35,9 +35,9 @@ export const createLlmGateway = (params: CreateLlmGatewayParams = {}): LLMGatewa
   const providerValue = params.provider ?? config.get(LLM_PROVIDER_ENV_VAR) ?? DEFAULT_LLM_PROVIDER;
   const provider = parseProvider(providerValue);
 
-  const geminiFactory = params.createGeminiLlmAdapter ?? createGeminiLlmAdapter;
-  const ollamaFactory = params.createOllamaLlmAdapter ?? createOllamaLlmAdapter;
-  const groqFactory = params.createGroqLlmAdapter ?? createGroqLlmAdapter;
+  const geminiFactory = params.createGeminiLlmAdapter ?? (() => createGeminiLlmAdapter({ config }));
+  const ollamaFactory = params.createOllamaLlmAdapter ?? (() => createOllamaLlmAdapter({ config }));
+  const groqFactory = params.createGroqLlmAdapter ?? (() => createGroqLlmAdapter({ config }));
   const factoriesByProvider: Record<LlmProvider, () => LLMGateway> = {
     gemini: geminiFactory,
     ollama: ollamaFactory,

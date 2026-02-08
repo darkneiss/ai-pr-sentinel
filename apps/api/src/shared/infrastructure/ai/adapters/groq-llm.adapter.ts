@@ -1,4 +1,6 @@
 import type { LLMGateway } from '../../../application/ports/llm-gateway.port';
+import type { ConfigPort } from '../../../application/ports/config.port';
+import { createEnvConfig } from '../../config/env-config.adapter';
 import {
   DEFAULT_GROQ_BASE_URL,
   DEFAULT_GROQ_MODEL,
@@ -21,7 +23,8 @@ import {
 import { buildGroqRequestBody } from './groq-request-body-builder.service';
 
 const getGroqApiKey = (params: CreateGroqLlmAdapterParams): string => {
-  const apiKey = params.apiKey ?? process.env[LLM_API_KEY_ENV_VAR] ?? process.env[GROQ_API_KEY_ENV_VAR];
+  const config = params.config ?? createEnvConfig();
+  const apiKey = params.apiKey ?? config.get(LLM_API_KEY_ENV_VAR) ?? config.get(GROQ_API_KEY_ENV_VAR);
   if (!apiKey) {
     throw new Error(`Missing Groq API key. Provide "apiKey" or set ${GROQ_API_KEY_ENV_VAR}`);
   }
@@ -30,11 +33,15 @@ const getGroqApiKey = (params: CreateGroqLlmAdapterParams): string => {
 };
 
 export const createGroqLlmAdapter = (params: CreateGroqLlmAdapterParams = {}): LLMGateway => {
+  const config = params.config ?? createEnvConfig();
   const apiKey = getGroqApiKey(params);
   const model =
-    params.model ?? process.env[LLM_MODEL_ENV_VAR] ?? process.env[GROQ_MODEL_ENV_VAR] ?? DEFAULT_GROQ_MODEL;
+    params.model ?? config.get(LLM_MODEL_ENV_VAR) ?? config.get(GROQ_MODEL_ENV_VAR) ?? DEFAULT_GROQ_MODEL;
   const baseUrl =
-    params.baseUrl ?? process.env[LLM_BASE_URL_ENV_VAR] ?? process.env[GROQ_BASE_URL_ENV_VAR] ?? DEFAULT_GROQ_BASE_URL;
+    params.baseUrl ??
+    config.get(LLM_BASE_URL_ENV_VAR) ??
+    config.get(GROQ_BASE_URL_ENV_VAR) ??
+    DEFAULT_GROQ_BASE_URL;
   const endpoint = buildGroqEndpoint(baseUrl);
   const fetchFn = params.fetchFn ?? fetch;
 

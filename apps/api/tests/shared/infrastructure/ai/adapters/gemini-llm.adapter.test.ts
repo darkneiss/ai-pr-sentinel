@@ -1,4 +1,5 @@
 import { createGeminiLlmAdapter } from '../../../../../src/shared/infrastructure/ai/adapters/gemini-llm.adapter';
+import type { ConfigPort } from '../../../../../src/shared/application/ports/config.port';
 
 interface MockFetchResponse {
   ok: boolean;
@@ -263,6 +264,63 @@ describe('GeminiLlmAdapter', () => {
     // Assert
     expect(fetchFn).toHaveBeenCalledWith(
       'https://generic-gemini-base.test/models/generic-model:generateContent?key=generic-key',
+      expect.any(Object),
+    );
+  });
+
+  it('should prioritize config values over environment variables', async () => {
+    // Arrange
+    const previousLlmApiKey = process.env.LLM_API_KEY;
+    const previousLlmModel = process.env.LLM_MODEL;
+    const previousLlmBaseUrl = process.env.LLM_BASE_URL;
+    process.env.LLM_API_KEY = 'env-key';
+    process.env.LLM_MODEL = 'env-model';
+    process.env.LLM_BASE_URL = 'https://env-gemini-base.test';
+    const config: ConfigPort = {
+      get: (key: string): string | undefined => {
+        if (key === 'LLM_API_KEY') {
+          return 'config-key';
+        }
+
+        if (key === 'LLM_MODEL') {
+          return 'config-model';
+        }
+
+        if (key === 'LLM_BASE_URL') {
+          return 'https://config-gemini-base.test';
+        }
+
+        return undefined;
+      },
+      getBoolean: (_key: string): boolean | undefined => undefined,
+    };
+    const fetchFn = createFetchFnMock({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: DEFAULT_JSON_TEXT }],
+            },
+          },
+        ],
+      }),
+    });
+    const adapter = createGeminiLlmAdapter({ config, fetchFn });
+
+    try {
+      // Act
+      await runGenerateJson(adapter);
+    } finally {
+      process.env.LLM_API_KEY = previousLlmApiKey;
+      process.env.LLM_MODEL = previousLlmModel;
+      process.env.LLM_BASE_URL = previousLlmBaseUrl;
+    }
+
+    // Assert
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://config-gemini-base.test/models/config-model:generateContent?key=config-key',
       expect.any(Object),
     );
   });

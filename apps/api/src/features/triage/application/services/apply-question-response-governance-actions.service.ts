@@ -1,4 +1,9 @@
-import { AI_CLASSIFICATION_CONFIDENCE_THRESHOLD, AI_QUESTION_REPLY_COMMENT_PREFIX } from '../constants/ai-triage.constants';
+import {
+  AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
+  AI_QUESTION_AI_REPLY_COMMENT_PREFIX,
+  AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX,
+  AI_QUESTION_REPLY_COMMENT_PREFIX,
+} from '../constants/ai-triage.constants';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import {
   buildFallbackQuestionResponse,
@@ -31,6 +36,10 @@ export const applyQuestionResponseGovernanceActions = async (
 
   const responseSource: QuestionResponseSource =
     normalizedSuggestedResponse.length > 0 ? 'ai_suggested_response' : 'fallback_checklist';
+  const questionReplyCommentPrefix =
+    responseSource === 'ai_suggested_response'
+      ? AI_QUESTION_AI_REPLY_COMMENT_PREFIX
+      : AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX;
   const usedRepositoryContext = detectRepositoryContextUsage(effectiveQuestionResponse, context.repositoryReadme);
   context.questionResponseMetrics?.increment(responseSource);
   const responseSourceMetricsSnapshot = context.questionResponseMetrics?.snapshot();
@@ -61,13 +70,13 @@ export const applyQuestionResponseGovernanceActions = async (
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: `${AI_QUESTION_REPLY_COMMENT_PREFIX}\n\n${effectiveQuestionResponse}`,
+    body: `${questionReplyCommentPrefix}\n\n${effectiveQuestionResponse}`,
   });
   context.incrementActionsAppliedCount();
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment created.', {
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    bodyPrefix: AI_QUESTION_REPLY_COMMENT_PREFIX,
+    bodyPrefix: questionReplyCommentPrefix,
     responseSource,
   });
 };

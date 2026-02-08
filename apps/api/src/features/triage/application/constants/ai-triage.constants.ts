@@ -16,7 +16,9 @@ export const AI_KIND_QUESTION_LABEL = 'kind/question';
 export const AI_KIND_LABELS = [AI_KIND_BUG_LABEL, AI_KIND_FEATURE_LABEL, AI_KIND_QUESTION_LABEL] as const;
 
 export const AI_DUPLICATE_COMMENT_PREFIX = 'AI Triage: Possible duplicate of #';
-export const AI_QUESTION_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested guidance';
+export const AI_QUESTION_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested';
+export const AI_QUESTION_AI_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested guidance';
+export const AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested setup checklist';
 export const AI_QUESTION_SIGNAL_KEYWORDS = [
   'how',
   'can i',

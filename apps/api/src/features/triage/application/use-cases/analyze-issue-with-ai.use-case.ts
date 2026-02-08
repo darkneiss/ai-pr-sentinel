@@ -54,6 +54,10 @@ interface Dependencies {
 const isSupportedAction = (action: string): action is AiSupportedAction =>
   AI_SUPPORTED_ACTIONS.includes(action as AiSupportedAction);
 
+const buildSafeRawTextLogContext = (rawText: string): { rawTextLength: number } => ({
+  rawTextLength: rawText.length,
+});
+
 export const analyzeIssueWithAi =
   ({
     llmGateway,
@@ -111,7 +115,7 @@ export const analyzeIssueWithAi =
         logger.error('AnalyzeIssueWithAiUseCase failed parsing AI response. Applying fail-open policy.', {
           repositoryFullName: input.repositoryFullName,
           issueNumber: input.issue.number,
-          rawText: llmResult.rawText,
+          ...buildSafeRawTextLogContext(llmResult.rawText),
         });
         return { status: 'skipped', reason: 'ai_unavailable' };
       }

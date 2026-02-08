@@ -112,4 +112,52 @@ describe('LlmGatewayFactory', () => {
       process.env.LLM_PROVIDER = previousProvider;
     }
   });
+
+  it('should build default Gemini adapter when no custom factory is injected', () => {
+    // Arrange
+    const config = {
+      get: jest.fn((key: string) => {
+        if (key === 'LLM_PROVIDER') {
+          return 'gemini';
+        }
+
+        if (key === 'LLM_API_KEY') {
+          return 'test-gemini-key';
+        }
+
+        return undefined;
+      }),
+      getBoolean: jest.fn(),
+    };
+
+    // Act
+    const gateway = createLlmGateway({ config });
+
+    // Assert
+    expect(gateway).toBeDefined();
+  });
+
+  it('should build default Groq adapter when no custom factory is injected', () => {
+    // Arrange
+    const config = {
+      get: jest.fn((key: string) => {
+        if (key === 'LLM_PROVIDER') {
+          return 'groq';
+        }
+
+        if (key === 'LLM_API_KEY') {
+          return 'test-groq-key';
+        }
+
+        return undefined;
+      }),
+      getBoolean: jest.fn(),
+    };
+
+    // Act
+    const gateway = createLlmGateway({ config });
+
+    // Assert
+    expect(gateway).toBeDefined();
+  });
 });

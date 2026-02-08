@@ -2,6 +2,8 @@ import { Octokit } from '@octokit/rest';
 
 import type { IssueHistoryGateway, RecentIssueSummary } from '../../application/ports/issue-history-gateway.port';
 import { parseRepositoryRef } from './github-repository-ref.util';
+import type { ConfigPort } from '../../../../shared/application/ports/config.port';
+import { createEnvConfig } from '../../../../shared/infrastructure/config/env-config.adapter';
 
 const GITHUB_TOKEN_ENV_VAR = 'GITHUB_TOKEN';
 const LOG_CONTEXT = 'GithubIssueHistoryAdapter';
@@ -14,6 +16,7 @@ interface CreateGithubIssueHistoryAdapterParams {
   githubToken?: string;
   octokit?: Octokit;
   logger?: Logger;
+  config?: ConfigPort;
 }
 
 interface GithubIssueLabelObject {
@@ -40,7 +43,8 @@ const createOctokitClient = (params: CreateGithubIssueHistoryAdapterParams): Oct
     return params.octokit;
   }
 
-  const githubToken = params.githubToken ?? process.env[GITHUB_TOKEN_ENV_VAR];
+  const config = params.config ?? createEnvConfig();
+  const githubToken = params.githubToken ?? config.get(GITHUB_TOKEN_ENV_VAR);
   if (!githubToken) {
     throw new Error(`Missing GitHub token. Provide "githubToken" or set ${GITHUB_TOKEN_ENV_VAR}`);
   }

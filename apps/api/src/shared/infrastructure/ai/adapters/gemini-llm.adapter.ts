@@ -1,4 +1,6 @@
 import type { LLMGateway } from '../../../application/ports/llm-gateway.port';
+import type { ConfigPort } from '../../../application/ports/config.port';
+import { createEnvConfig } from '../../config/env-config.adapter';
 
 const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash';
@@ -14,6 +16,7 @@ interface CreateGeminiLlmAdapterParams {
   model?: string;
   baseUrl?: string;
   fetchFn?: typeof fetch;
+  config?: ConfigPort;
 }
 
 interface GeminiSuccessResponse {
@@ -42,8 +45,8 @@ const createAbortSignal = (timeoutMs: number): AbortSignal | undefined => {
   return undefined;
 };
 
-const getGeminiApiKey = (params: CreateGeminiLlmAdapterParams): string => {
-  const apiKey = params.apiKey ?? process.env[LLM_API_KEY_ENV_VAR] ?? process.env[GEMINI_API_KEY_ENV_VAR];
+const getGeminiApiKey = (params: CreateGeminiLlmAdapterParams, config: ConfigPort): string => {
+  const apiKey = params.apiKey ?? config.get(LLM_API_KEY_ENV_VAR) ?? config.get(GEMINI_API_KEY_ENV_VAR);
   if (!apiKey) {
     throw new Error(`Missing Gemini API key. Provide "apiKey" or set ${GEMINI_API_KEY_ENV_VAR}`);
   }
@@ -51,13 +54,13 @@ const getGeminiApiKey = (params: CreateGeminiLlmAdapterParams): string => {
   return apiKey;
 };
 
-const getGeminiModel = (params: CreateGeminiLlmAdapterParams): string =>
-  params.model ?? process.env[LLM_MODEL_ENV_VAR] ?? process.env[GEMINI_MODEL_ENV_VAR] ?? DEFAULT_GEMINI_MODEL;
+const getGeminiModel = (params: CreateGeminiLlmAdapterParams, config: ConfigPort): string =>
+  params.model ?? config.get(LLM_MODEL_ENV_VAR) ?? config.get(GEMINI_MODEL_ENV_VAR) ?? DEFAULT_GEMINI_MODEL;
 
-const getGeminiBaseUrl = (params: CreateGeminiLlmAdapterParams): string =>
+const getGeminiBaseUrl = (params: CreateGeminiLlmAdapterParams, config: ConfigPort): string =>
   params.baseUrl ??
-  process.env[LLM_BASE_URL_ENV_VAR] ??
-  process.env[GEMINI_BASE_URL_ENV_VAR] ??
+  config.get(LLM_BASE_URL_ENV_VAR) ??
+  config.get(GEMINI_BASE_URL_ENV_VAR) ??
   DEFAULT_GEMINI_BASE_URL;
 
 const buildGeminiEndpoint = (baseUrl: string, model: string, apiKey: string): string =>
@@ -111,9 +114,10 @@ const extractGeminiRawText = (responseJson: GeminiSuccessResponse): string => {
 };
 
 export const createGeminiLlmAdapter = (params: CreateGeminiLlmAdapterParams = {}): LLMGateway => {
-  const apiKey = getGeminiApiKey(params);
-  const model = getGeminiModel(params);
-  const baseUrl = getGeminiBaseUrl(params);
+  const config = params.config ?? createEnvConfig();
+  const apiKey = getGeminiApiKey(params, config);
+  const model = getGeminiModel(params, config);
+  const baseUrl = getGeminiBaseUrl(params, config);
   const endpoint = buildGeminiEndpoint(baseUrl, model, apiKey);
   const fetchFn = params.fetchFn ?? fetch;
 
