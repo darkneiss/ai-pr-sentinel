@@ -1,12 +1,13 @@
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import {
+  GOVERNANCE_ERROR_LABELS,
+  TRIAGE_NEEDS_INFO_LABEL,
+} from '../constants/governance-labels.constants';
+import {
   validateIssueIntegrity,
   type IssueIntegrityValidator,
 } from '../../domain/services/issue-validation.service';
 
-const ISSUE_NEEDS_INFO_LABEL = 'triage/needs-info';
-const LEGACY_INVALID_LABEL = 'invalid';
-const ERROR_LABELS = [ISSUE_NEEDS_INFO_LABEL, LEGACY_INVALID_LABEL] as const;
 const SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
 
 type SupportedAction = (typeof SUPPORTED_ACTIONS)[number];
@@ -59,7 +60,7 @@ export const processIssueWebhook =
       await governanceGateway.addLabels({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
-        labels: [ISSUE_NEEDS_INFO_LABEL],
+        labels: [TRIAGE_NEEDS_INFO_LABEL],
       });
       await governanceGateway.createComment({
         repositoryFullName: input.repositoryFullName,
@@ -70,7 +71,7 @@ export const processIssueWebhook =
       return { statusCode: 200 };
     }
 
-    const labelsToRemove = ERROR_LABELS.filter((label) => input.issue.labels.includes(label));
+    const labelsToRemove = GOVERNANCE_ERROR_LABELS.filter((label) => input.issue.labels.includes(label));
     for (const label of labelsToRemove) {
       await governanceGateway.removeLabel({
         repositoryFullName: input.repositoryFullName,

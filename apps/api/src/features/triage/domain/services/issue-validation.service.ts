@@ -1,7 +1,15 @@
 import type { Issue } from '../entities/issue.entity';
-
-const MIN_TITLE_LENGTH = 10;
-const MIN_DESCRIPTION_LENGTH = 30;
+import {
+  AUTHOR_REQUIRED_ERROR,
+  DESCRIPTION_REQUIRED_ERROR,
+  DESCRIPTION_TOO_SHORT_ERROR,
+  MIN_DESCRIPTION_LENGTH,
+  MIN_TITLE_LENGTH,
+  SPAM_ERROR_MESSAGE,
+  SPAM_PATTERNS,
+  TITLE_REQUIRED_ERROR,
+  TITLE_TOO_SHORT_ERROR,
+} from '../constants/issue-validation.constants';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -10,26 +18,34 @@ export interface ValidationResult {
 
 export type IssueIntegrityValidator = (issue: Issue) => ValidationResult;
 
+const containsSpamContent = (content: string): boolean =>
+  SPAM_PATTERNS.some((spamPattern) => spamPattern.test(content));
+
 export const validateIssueIntegrity: IssueIntegrityValidator = (issue) => {
   const errors: string[] = [];
   const title = issue.title.trim();
   const description = issue.description.trim();
   const author = issue.author.trim();
+  const issueContent = `${title}\n${description}`;
 
   if (!title) {
-    errors.push('Title is required');
+    errors.push(TITLE_REQUIRED_ERROR);
   } else if (title.length < MIN_TITLE_LENGTH) {
-    errors.push('Title is too short (min 10 chars)');
+    errors.push(TITLE_TOO_SHORT_ERROR);
   }
 
   if (!description) {
-    errors.push('Description is required');
+    errors.push(DESCRIPTION_REQUIRED_ERROR);
   } else if (description.length < MIN_DESCRIPTION_LENGTH) {
-    errors.push('Description is too short (min 30 chars) to be useful');
+    errors.push(DESCRIPTION_TOO_SHORT_ERROR);
   }
 
   if (!author) {
-    errors.push('Author is required');
+    errors.push(AUTHOR_REQUIRED_ERROR);
+  }
+
+  if (containsSpamContent(issueContent)) {
+    errors.push(SPAM_ERROR_MESSAGE);
   }
 
   return {

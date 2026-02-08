@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "pnpm --filter \"*\" test",
+    "lint": "pnpm --filter \"*\" lint",
     "quality": "pnpm test && pnpm lint"
   },
   "keywords": [],
