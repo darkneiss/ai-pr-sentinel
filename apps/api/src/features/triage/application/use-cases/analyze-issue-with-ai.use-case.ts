@@ -1,11 +1,13 @@
 import {
   AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
+  AI_SENTIMENT_CONFIDENCE_THRESHOLD,
   AI_DUPLICATE_COMMENT_PREFIX,
   AI_DUPLICATE_SIMILARITY_THRESHOLD,
   AI_KIND_BUG_LABEL,
   AI_KIND_FEATURE_LABEL,
   AI_KIND_LABELS,
   AI_KIND_QUESTION_LABEL,
+  AI_HOSTILE_SIGNAL_KEYWORDS,
   AI_MAX_TOKENS,
   AI_QUESTION_REPLY_COMMENT_PREFIX,
   AI_QUESTION_FALLBACK_CHECKLIST,
@@ -80,6 +82,7 @@ interface AiAnalysis {
   };
   sentiment: {
     tone: AiTone;
+    confidence: number;
     reasoning: string;
   };
   suggestedResponse?: string;
@@ -249,6 +252,7 @@ const normalizeAiAnalysis = (value: unknown, currentIssueNumber: number): AiAnal
       },
       sentiment: {
         tone: legacyTone ?? 'neutral',
+        confidence: isConfidence(value.confidence) ? value.confidence : 0.5,
         reasoning: 'Legacy-format AI response',
       },
       suggestedResponse:
@@ -274,31 +278,61 @@ const normalizeStructuredAiAnalysis = (
   const classificationRaw = isObjectRecord(value.classification) ? value.classification : undefined;
   const duplicateDetectionRaw = isObjectRecord(value.duplicateDetection)
     ? value.duplicateDetection
-    : undefined;
+    : isObjectRecord(value.duplicate)
+      ? value.duplicate
+      : undefined;
   const sentimentRaw = isObjectRecord(value.sentiment) ? value.sentiment : undefined;
+  const rootLevelIsDuplicate =
+    typeof value.duplicate === 'boolean'
+      ? value.duplicate
+      : typeof value.isDuplicate === 'boolean'
+        ? value.isDuplicate
+        : undefined;
+  const hasDuplicateSignals =
+    !!duplicateDetectionRaw ||
+    rootLevelIsDuplicate !== undefined ||
+    value.similarityScore !== undefined ||
+    (classificationRaw && classificationRaw.similarityScore !== undefined) ||
+    value.originalIssueNumber !== undefined ||
+    value.duplicateIssueId !== undefined ||
+    value.original_issue_number !== undefined ||
+    value.duplicate_of !== undefined;
 
-  if (!classificationRaw || !duplicateDetectionRaw || !sentimentRaw) {
+  if (!classificationRaw || !sentimentRaw || !hasDuplicateSignals) {
     return undefined;
   }
 
   const normalizedClassificationType = normalizeAiIssueKind(classificationRaw.type);
   const normalizedClassificationConfidence = isConfidence(classificationRaw.confidence)
     ? classificationRaw.confidence
+    : isConfidence(value.confidence)
+      ? value.confidence
     : normalizedClassificationType
       ? 1
       : 0;
   const normalizedOriginalIssueNumber =
-    parseIssueNumberFromReference(duplicateDetectionRaw.originalIssueNumber) ??
-    parseIssueNumberFromReference(duplicateDetectionRaw.duplicateIssueId) ??
-    parseIssueNumberFromReference(duplicateDetectionRaw.original_issue_number) ??
-    parseFirstValidDuplicateIssue(duplicateDetectionRaw.duplicate_of, currentIssueNumber);
-  const isDuplicate = duplicateDetectionRaw.isDuplicate === true;
-  const normalizedSimilarityScore = isConfidence(duplicateDetectionRaw.similarityScore)
+    parseIssueNumberFromReference(duplicateDetectionRaw?.originalIssueNumber) ??
+    parseIssueNumberFromReference(duplicateDetectionRaw?.duplicateIssueId) ??
+    parseIssueNumberFromReference(duplicateDetectionRaw?.original_issue_number) ??
+    parseFirstValidDuplicateIssue(duplicateDetectionRaw?.duplicate_of, currentIssueNumber) ??
+    parseIssueNumberFromReference(value.originalIssueNumber) ??
+    parseIssueNumberFromReference(value.duplicateIssueId) ??
+    parseIssueNumberFromReference(value.original_issue_number) ??
+    parseFirstValidDuplicateIssue(value.duplicate_of, currentIssueNumber);
+  const isDuplicate = duplicateDetectionRaw?.isDuplicate === true || rootLevelIsDuplicate === true;
+  const normalizedSimilarityScore = isConfidence(duplicateDetectionRaw?.similarityScore)
     ? duplicateDetectionRaw.similarityScore
+    : isConfidence(value.similarityScore)
+      ? value.similarityScore
+    : isConfidence(classificationRaw.similarityScore)
+      ? classificationRaw.similarityScore
     : isDuplicate
       ? 1
       : 0;
   const normalizedTone = normalizeAiTone(sentimentRaw.tone) ?? 'neutral';
+  const normalizedSentimentConfidence = isConfidence(sentimentRaw.confidence)
+    ? sentimentRaw.confidence
+    : 0.5;
 
   return {
     classification: {
@@ -316,6 +350,7 @@ const normalizeStructuredAiAnalysis = (
     },
     sentiment: {
       tone: normalizedTone,
+      confidence: normalizedSentimentConfidence,
       reasoning:
         typeof sentimentRaw.reasoning === 'string' ? sentimentRaw.reasoning : 'Structured-format AI response',
     },
@@ -348,7 +383,10 @@ const isAiAnalysis = (value: unknown): value is AiAnalysis => {
       typeof duplicateDetection.originalIssueNumber === 'number') &&
     isConfidence(duplicateDetection.similarityScore);
 
-  const isValidSentiment = isAiTone(sentiment.tone) && typeof sentiment.reasoning === 'string';
+  const isValidSentiment =
+    isAiTone(sentiment.tone) &&
+    isConfidence(sentiment.confidence) &&
+    typeof sentiment.reasoning === 'string';
   const isValidSuggestedResponse =
     value.suggestedResponse === undefined ||
     value.suggestedResponse === null ||
@@ -399,7 +437,72 @@ const isLikelyQuestionIssue = (title: string, body: string): boolean => {
   return AI_QUESTION_SIGNAL_KEYWORDS.some((keyword) => normalizedText.includes(keyword));
 };
 
+const isLikelyHostileIssue = (title: string, body: string): boolean => {
+  const normalizedText = `${title}\n${body}`.toLowerCase();
+  return AI_HOSTILE_SIGNAL_KEYWORDS.some((keyword) => normalizedText.includes(keyword));
+};
+
 const buildFallbackQuestionResponse = (): string => AI_QUESTION_FALLBACK_CHECKLIST.join('\n');
+
+const CONTEXT_STOP_WORDS = new Set([
+  'this',
+  'that',
+  'with',
+  'from',
+  'have',
+  'your',
+  'about',
+  'into',
+  'there',
+  'which',
+  'when',
+  'where',
+  'what',
+  'how',
+  'for',
+  'and',
+  'the',
+  'are',
+  'you',
+  'repo',
+  'readme',
+  'issue',
+  'setup',
+  'checklist',
+]);
+
+const extractMeaningfulTokens = (value: string): string[] =>
+  value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 5 && !CONTEXT_STOP_WORDS.has(token));
+
+const detectRepositoryContextUsage = (
+  suggestedResponse: string,
+  repositoryReadme: string | undefined,
+): boolean => {
+  if (!repositoryReadme || repositoryReadme.trim().length === 0) {
+    return false;
+  }
+
+  const contextTokens = new Set(extractMeaningfulTokens(repositoryReadme));
+  if (contextTokens.size === 0) {
+    return false;
+  }
+
+  let overlapCount = 0;
+  for (const responseToken of extractMeaningfulTokens(suggestedResponse)) {
+    if (contextTokens.has(responseToken)) {
+      overlapCount += 1;
+      if (overlapCount >= 2) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
 
 export const analyzeIssueWithAi =
   ({
@@ -477,12 +580,20 @@ export const analyzeIssueWithAi =
         },
         sentiment: {
           tone: aiAnalysis.sentiment.tone,
+          confidence: aiAnalysis.sentiment.confidence,
         },
         hasSuggestedResponse:
           typeof aiAnalysis.suggestedResponse === 'string' && aiAnalysis.suggestedResponse.trim().length > 0,
       });
 
       const issueLabels = new Set(input.issue.labels);
+      const hasReliableSentimentSignal =
+        aiAnalysis.sentiment.confidence >= AI_SENTIMENT_CONFIDENCE_THRESHOLD;
+      const effectiveTone: AiTone =
+        aiAnalysis.sentiment.tone === 'hostile' ||
+        (!hasReliableSentimentSignal && isLikelyHostileIssue(input.issue.title, input.issue.body))
+          ? 'hostile'
+          : aiAnalysis.sentiment.tone;
       let actionsAppliedCount = 0;
       const addLabelIfMissing = async (label: string): Promise<boolean> => {
         if (issueLabels.has(label)) {
@@ -578,7 +689,7 @@ export const analyzeIssueWithAi =
         }
       }
 
-      if (aiAnalysis.sentiment.tone === 'hostile') {
+      if (effectiveTone === 'hostile') {
         await addLabelIfMissing(AI_TRIAGE_MONITOR_LABEL);
       }
 
@@ -590,20 +701,24 @@ export const analyzeIssueWithAi =
       const looksLikeQuestionIssue = isLikelyQuestionIssue(input.issue.title, input.issue.body);
       const fallbackQuestionResponse = looksLikeQuestionIssue ? buildFallbackQuestionResponse() : '';
       const effectiveQuestionResponse = normalizedSuggestedResponse || fallbackQuestionResponse;
+      const isHostileTone = effectiveTone === 'hostile';
       const shouldCreateQuestionResponseComment =
         input.action === 'opened' &&
+        !isHostileTone &&
         (hasHighConfidenceQuestionClassification || looksLikeQuestionIssue) &&
         effectiveQuestionResponse.length > 0;
 
       if (shouldCreateQuestionResponseComment) {
         const responseSource: QuestionResponseSource =
           normalizedSuggestedResponse.length > 0 ? 'ai_suggested_response' : 'fallback_checklist';
+        const usedRepositoryContext = detectRepositoryContextUsage(effectiveQuestionResponse, repositoryReadme);
         questionResponseMetrics?.increment(responseSource);
         const responseSourceMetricsSnapshot = questionResponseMetrics?.snapshot();
         logger.info?.('AnalyzeIssueWithAiUseCase question response source selected.', {
           repositoryFullName: input.repositoryFullName,
           issueNumber: input.issue.number,
           responseSource,
+          usedRepositoryContext,
           metrics: responseSourceMetricsSnapshot,
         });
         const hasExistingQuestionReplyComment = await issueHistoryGateway.hasIssueCommentWithPrefix({
@@ -651,6 +766,31 @@ export const analyzeIssueWithAi =
         issueNumber: input.issue.number,
         error,
       });
+
+      const shouldApplyHostileFallbackLabel =
+        !input.issue.labels.includes(AI_TRIAGE_MONITOR_LABEL) &&
+        isLikelyHostileIssue(input.issue.title, input.issue.body);
+      if (shouldApplyHostileFallbackLabel) {
+        try {
+          await governanceGateway.addLabels({
+            repositoryFullName: input.repositoryFullName,
+            issueNumber: input.issue.number,
+            labels: [AI_TRIAGE_MONITOR_LABEL],
+          });
+          logger.info?.('AnalyzeIssueWithAiUseCase fallback hostile label applied after AI failure.', {
+            repositoryFullName: input.repositoryFullName,
+            issueNumber: input.issue.number,
+            label: AI_TRIAGE_MONITOR_LABEL,
+          });
+          return { status: 'completed' };
+        } catch (fallbackError: unknown) {
+          logger.error('AnalyzeIssueWithAiUseCase failed applying fallback hostile label.', {
+            repositoryFullName: input.repositoryFullName,
+            issueNumber: input.issue.number,
+            fallbackError,
+          });
+        }
+      }
 
       return { status: 'skipped', reason: 'ai_unavailable' };
     }

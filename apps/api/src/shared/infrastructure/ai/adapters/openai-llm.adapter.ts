@@ -18,15 +18,45 @@ interface CreateOpenAiLlmAdapterParams {
 
 interface OpenAiSuccessResponse {
   choices?: Array<{
+    text?: string | null;
     message?: {
-      content?: string | null;
+      content?:
+        | string
+        | { type?: string; text?: string }
+        | Array<{ type?: string; text?: string }>
+        | null;
     };
   }>;
+}
+
+interface OpenAiErrorResponse {
+  error?: {
+    message?: string;
+  };
+  message?: string;
 }
 
 const createAbortSignal = (timeoutMs: number): AbortSignal | undefined => {
   if (typeof AbortSignal.timeout === 'function') {
     return AbortSignal.timeout(timeoutMs);
+  }
+
+  return undefined;
+};
+
+const parseProviderErrorMessage = (value: unknown): string | undefined => {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const errorResponse = value as OpenAiErrorResponse;
+  const nestedErrorMessage = errorResponse.error?.message;
+  if (typeof nestedErrorMessage === 'string' && nestedErrorMessage.length > 0) {
+    return nestedErrorMessage;
+  }
+
+  if (typeof errorResponse.message === 'string' && errorResponse.message.length > 0) {
+    return errorResponse.message;
   }
 
   return undefined;
@@ -39,6 +69,53 @@ const getOpenAiApiKey = (params: CreateOpenAiLlmAdapterParams): string => {
   }
 
   return apiKey;
+};
+
+const extractRawText = (responseJson: OpenAiSuccessResponse): string | undefined => {
+  const firstChoice = responseJson.choices?.[0];
+  const messageContent = firstChoice?.message?.content;
+  if (typeof messageContent === 'string' && messageContent.length > 0) {
+    return messageContent;
+  }
+
+  if (
+    !!messageContent &&
+    typeof messageContent === 'object' &&
+    !Array.isArray(messageContent) &&
+    typeof messageContent.text === 'string' &&
+    messageContent.text.trim().length > 0
+  ) {
+    return messageContent.text.trim();
+  }
+
+  if (Array.isArray(messageContent)) {
+    const combinedText = messageContent
+      .map((part) => (typeof part.text === 'string' ? part.text : ''))
+      .join('')
+      .trim();
+    if (combinedText.length > 0) {
+      return combinedText;
+    }
+  }
+
+  const fallbackText = firstChoice?.text;
+  if (typeof fallbackText === 'string' && fallbackText.length > 0) {
+    return fallbackText;
+  }
+
+  return undefined;
+};
+
+const getResponseShapeSummary = (responseJson: OpenAiSuccessResponse): string => {
+  const firstChoice = responseJson.choices?.[0];
+  const messageContent = firstChoice?.message?.content;
+  const contentType = Array.isArray(messageContent)
+    ? 'array'
+    : messageContent === null
+      ? 'null'
+      : typeof messageContent;
+  const choiceKeys = firstChoice && typeof firstChoice === 'object' ? Object.keys(firstChoice).join(',') : 'none';
+  return `choices=${Array.isArray(responseJson.choices) ? responseJson.choices.length : 0}; first_choice_keys=${choiceKeys}; content_type=${contentType}`;
 };
 
 export const createOpenAiLlmAdapter = (params: CreateOpenAiLlmAdapterParams = {}): LLMGateway => {
@@ -57,7 +134,8 @@ export const createOpenAiLlmAdapter = (params: CreateOpenAiLlmAdapterParams = {}
 
   return {
     generateJson: async ({ systemPrompt, userPrompt, maxTokens, timeoutMs, temperature }) => {
-      const response = await fetchFn(`${baseUrl}/v1/chat/completions`, {
+      const endpoint = `${baseUrl}/v1/chat/completions`;
+      const response = await fetchFn(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -76,13 +154,27 @@ export const createOpenAiLlmAdapter = (params: CreateOpenAiLlmAdapterParams = {}
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI request failed with status ${response.status}`);
+        let providerErrorMessage: string | undefined;
+        try {
+          const errorPayload = (await response.json()) as unknown;
+          providerErrorMessage = parseProviderErrorMessage(errorPayload);
+        } catch (_error: unknown) {
+          providerErrorMessage = undefined;
+        }
+
+        const providerMessageSuffix = providerErrorMessage ? `: ${providerErrorMessage}` : '';
+        throw new Error(
+          `OpenAI request failed with status ${response.status} for model ${model} at ${endpoint}${providerMessageSuffix}`,
+        );
       }
 
       const responseJson = (await response.json()) as OpenAiSuccessResponse;
-      const rawText = responseJson.choices?.[0]?.message?.content;
-      if (typeof rawText !== 'string' || rawText.length === 0) {
-        throw new Error('OpenAI response did not include text content');
+      const rawText = extractRawText(responseJson);
+      if (!rawText) {
+        const responseShapeSummary = getResponseShapeSummary(responseJson);
+        throw new Error(
+          `OpenAI response did not include text content for model ${model} at ${endpoint}. response_shape=${responseShapeSummary}`,
+        );
       }
 
       return { rawText };

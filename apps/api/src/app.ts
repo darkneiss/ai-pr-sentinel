@@ -15,6 +15,10 @@ const APP_VERSION_ENV_VAR = 'APP_VERSION';
 const NPM_PACKAGE_VERSION_ENV_VAR = 'npm_package_version';
 const AI_TRIAGE_ENABLED_ENV_VAR = 'AI_TRIAGE_ENABLED';
 const GITHUB_BOT_LOGIN_ENV_VAR = 'GITHUB_BOT_LOGIN';
+const GITHUB_WEBHOOK_SECRET_ENV_VAR = 'GITHUB_WEBHOOK_SECRET';
+const GITHUB_WEBHOOK_VERIFY_SIGNATURE_ENV_VAR = 'GITHUB_WEBHOOK_VERIFY_SIGNATURE';
+const NODE_ENV_ENV_VAR = 'NODE_ENV';
+const PRODUCTION_NODE_ENV = 'production';
 const questionResponseMetrics = createInMemoryQuestionResponseMetrics();
 
 interface CreateAppParams {
@@ -47,6 +51,37 @@ const createLazyGovernanceGateway = (): GovernanceGateway => {
 
 const isAiTriageEnabled = (): boolean =>
   (process.env[AI_TRIAGE_ENABLED_ENV_VAR] ?? '').toLowerCase() === 'true';
+
+const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  if (normalizedValue === 'true') {
+    return true;
+  }
+
+  if (normalizedValue === 'false') {
+    return false;
+  }
+
+  return undefined;
+};
+
+const shouldVerifyWebhookSignature = (): boolean => {
+  const explicitVerifySignature = parseBooleanEnv(process.env[GITHUB_WEBHOOK_VERIFY_SIGNATURE_ENV_VAR]);
+  if (explicitVerifySignature !== undefined) {
+    return explicitVerifySignature;
+  }
+
+  if (process.env[NODE_ENV_ENV_VAR] === PRODUCTION_NODE_ENV) {
+    return true;
+  }
+
+  const webhookSecret = process.env[GITHUB_WEBHOOK_SECRET_ENV_VAR];
+  return typeof webhookSecret === 'string' && webhookSecret.length > 0;
+};
 
 const createLazyAnalyzeIssueWithAi = (
   governanceGateway: GovernanceGateway,
@@ -109,6 +144,13 @@ const createLazyAnalyzeIssueWithAi = (
 export const createApp = (params: CreateAppParams = {}) => {
   const app = express();
   const logger = params.logger ?? createEnvLogger();
+  const verifyWebhookSignature = shouldVerifyWebhookSignature();
+  const webhookSecret = process.env[GITHUB_WEBHOOK_SECRET_ENV_VAR];
+  if (verifyWebhookSignature && (!webhookSecret || webhookSecret.length === 0)) {
+    throw new Error(
+      `Missing ${GITHUB_WEBHOOK_SECRET_ENV_VAR} while ${GITHUB_WEBHOOK_VERIFY_SIGNATURE_ENV_VAR}=true`,
+    );
+  }
   const governanceGateway = params.governanceGateway ?? createLazyGovernanceGateway();
   const analyzeIssueWithAi =
     params.analyzeIssueWithAi ??
@@ -120,7 +162,14 @@ export const createApp = (params: CreateAppParams = {}) => {
     process.env[NPM_PACKAGE_VERSION_ENV_VAR] ??
     DEFAULT_APP_VERSION;
 
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        const requestWithRawBody = req as typeof req & { rawBody?: Buffer };
+        requestWithRawBody.rawBody = Buffer.from(buf);
+      },
+    }),
+  );
 
   app.get(HEALTH_ROUTE, (_req, res) => {
     res.status(200).json({
@@ -135,6 +184,7 @@ export const createApp = (params: CreateAppParams = {}) => {
       governanceGateway,
       analyzeIssueWithAi,
       logger,
+      webhookSecret: verifyWebhookSignature ? webhookSecret : undefined,
     }),
   );
 

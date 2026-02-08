@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import crypto from 'node:crypto';
 
 import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../application/use-cases/analyze-issue-with-ai.use-case';
 import type { GovernanceGateway } from '../../application/ports/governance-gateway.port';
@@ -9,6 +10,7 @@ interface Dependencies {
   governanceGateway: GovernanceGateway;
   analyzeIssueWithAi?: (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
   logger?: Logger;
+  webhookSecret?: string;
 }
 
 interface GithubIssueLabel {
@@ -66,11 +68,42 @@ export const createGithubWebhookController = ({
   governanceGateway,
   analyzeIssueWithAi,
   logger = createEnvLogger(),
+  webhookSecret,
 }: Dependencies): RequestHandler => {
   const run = processIssueWebhook({ governanceGateway, analyzeIssueWithAi, logger });
+  const hasWebhookSecret = typeof webhookSecret === 'string' && webhookSecret.length > 0;
+
+  const hasValidWebhookSignature = (rawBody: Buffer, signatureHeader: string): boolean => {
+    const expectedSignature = `sha256=${crypto
+      .createHmac('sha256', webhookSecret as string)
+      .update(rawBody)
+      .digest('hex')}`;
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+    const providedBuffer = Buffer.from(signatureHeader, 'utf8');
+    if (expectedBuffer.length !== providedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+  };
 
   return async (req, res) => {
     try {
+      if (hasWebhookSecret) {
+        const signatureHeader = req.header('x-hub-signature-256');
+        const requestWithRawBody = req as typeof req & { rawBody?: Buffer };
+        const rawBody = requestWithRawBody.rawBody;
+        const hasValidSignature =
+          typeof signatureHeader === 'string' &&
+          rawBody instanceof Buffer &&
+          hasValidWebhookSignature(rawBody, signatureHeader);
+
+        if (!hasValidSignature) {
+          res.status(401).json({ error: 'Invalid webhook signature' });
+          return;
+        }
+      }
+
       const payload: unknown = req.body;
       if (!isGithubIssueWebhookPayload(payload)) {
         res.status(400).json({ error: 'Invalid GitHub issue webhook payload' });

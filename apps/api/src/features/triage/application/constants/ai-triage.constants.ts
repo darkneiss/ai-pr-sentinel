@@ -1,4 +1,5 @@
 export const AI_CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.8;
+export const AI_SENTIMENT_CONFIDENCE_THRESHOLD = 0.75;
 export const AI_DUPLICATE_SIMILARITY_THRESHOLD = 0.85;
 export const AI_RECENT_ISSUES_LIMIT = 15;
 export const AI_TIMEOUT_MS = 7000;
@@ -22,6 +23,17 @@ export const AI_QUESTION_SIGNAL_KEYWORDS = [
   'como',
   'cómo',
   'ayuda',
+] as const;
+export const AI_HOSTILE_SIGNAL_KEYWORDS = [
+  'hecho con el culo',
+  'no tienes ni idea',
+  'eres inutil',
+  'idiota',
+  'gilipollas',
+  'mierda',
+  'fuck',
+  'shit',
+  'stupid',
 ] as const;
 export const AI_QUESTION_FALLBACK_CHECKLIST = [
   '- Share your current `.env` values (without secrets).',

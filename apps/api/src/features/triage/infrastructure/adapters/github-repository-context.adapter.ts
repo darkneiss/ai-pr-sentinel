@@ -6,6 +6,7 @@ const REPOSITORY_SEPARATOR = '/';
 const REPOSITORY_PARTS_COUNT = 2;
 const GITHUB_TOKEN_ENV_VAR = 'GITHUB_TOKEN';
 const README_NOT_FOUND_STATUS = 404;
+const README_FORBIDDEN_STATUS = 403;
 const LOG_CONTEXT = 'GithubRepositoryContextAdapter';
 
 interface RepositoryRef {
@@ -98,6 +99,13 @@ export const createGithubRepositoryContextAdapter = (
       } catch (error: unknown) {
         if (isErrorWithStatus(error) && error.status === README_NOT_FOUND_STATUS) {
           logger.info?.(`${LOG_CONTEXT} README not found`, {
+            repositoryFullName,
+          });
+          return {};
+        }
+
+        if (isErrorWithStatus(error) && error.status === README_FORBIDDEN_STATUS) {
+          logger.info?.(`${LOG_CONTEXT} README access forbidden. Continuing without repository context.`, {
             repositoryFullName,
           });
           return {};
