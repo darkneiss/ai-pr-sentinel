@@ -1,5 +1,8 @@
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
-import { validateIssueIntegrity } from './validate-issue-integrity.use-case';
+import {
+  validateIssueIntegrity,
+  type IssueIntegrityValidator,
+} from '../../domain/services/issue-validation.service';
 
 const ISSUE_NEEDS_INFO_LABEL = 'triage/needs-info';
 const LEGACY_INVALID_LABEL = 'invalid';
@@ -26,6 +29,7 @@ export interface ProcessIssueWebhookResult {
 
 interface Dependencies {
   governanceGateway: GovernanceGateway;
+  issueIntegrityValidator?: IssueIntegrityValidator;
 }
 
 const isSupportedAction = (action: string): action is SupportedAction =>
@@ -37,13 +41,13 @@ const buildValidationComment = (errors: string[]): string => {
 };
 
 export const processIssueWebhook =
-  ({ governanceGateway }: Dependencies) =>
+  ({ governanceGateway, issueIntegrityValidator = validateIssueIntegrity }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
     if (!isSupportedAction(input.action)) {
       return { statusCode: 204 };
     }
 
-    const validationResult = validateIssueIntegrity({
+    const validationResult = issueIntegrityValidator({
       id: `${input.repositoryFullName}#${input.issue.number}`,
       title: input.issue.title,
       description: input.issue.body,
