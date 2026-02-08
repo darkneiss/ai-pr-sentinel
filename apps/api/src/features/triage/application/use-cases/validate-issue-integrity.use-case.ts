@@ -7,26 +7,26 @@ export const validateIssueIntegrity = (issue: Issue): ValidationResult => {
   const description = issue.description.trim();
   const author = issue.author.trim();
 
-  // 1. Validar Título
+  // 1. Validate title
   if (!title) {
     errors.push('Title is required');
   } else if (title.length < 10) {
     errors.push('Title is too short (min 10 chars)');
   }
 
-  // 2. Validar Descripción
+  // 2. Validate description
   if (!description) {
     errors.push('Description is required');
   } else if (description.length < 30) {
     errors.push('Description is too short (min 30 chars) to be useful');
   }
 
-  // 3. Validar Autor
+  // 3. Validate author
   if (!author) {
     errors.push('Author is required');
   }
 
-  // Resultado
+  // Result
   return {
     isValid: errors.length === 0,
     errors,

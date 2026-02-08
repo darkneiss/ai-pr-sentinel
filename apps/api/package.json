@@ -8,7 +8,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "dev": "tsx watch src/index.ts",
+    "dev": "nodemon --watch src --ext ts,json,env --signal SIGTERM --exec \"tsx src/index.ts\"",
     "build": "tsc"
   },
   "keywords": [],
@@ -27,6 +27,7 @@
     "@types/node": "^25.2.1",
     "@types/supertest": "^6.0.3",
     "jest": "^30.2.0",
+    "nodemon": "^3.1.10",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",

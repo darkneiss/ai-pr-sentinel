@@ -1,19 +1,18 @@
 import type { Issue } from '../../../../src/features/triage/domain/entities/issue.entity';
 import { validateIssueIntegrity } from '../../../../src/features/triage/application/use-cases/validate-issue-integrity.use-case';
 
-// 1. Un Factory Helper para crear issues rápidamente en los tests
+// Helper factory to quickly create issues in tests
 const createIssue = (overrides: Partial<Issue> = {}): Issue => ({
   id: 'ISSUE-123',
-  title: 'Bug: Application crashes on startup', // Título válido (>10 chars)
-  description: 'The application fails to load when the .env file is missing variables.', // Descripción válida (>30 chars)
+  title: 'Bug: Application crashes on startup', // Valid title (>10 chars)
+  description: 'The application fails to load when the .env file is missing variables.', // Valid description (>30 chars)
   author: 'senior_dev',
   createdAt: new Date(),
   ...overrides,
 });
 
 describe('ValidateIssueIntegrity Use Case', () => {
-  
-  // Casos Felices (Happy Path)
+  // Happy path
   it('should accept a fully valid issue', () => {
     const validIssue = createIssue();
     const result = validateIssueIntegrity(validIssue);
@@ -22,7 +21,7 @@ describe('ValidateIssueIntegrity Use Case', () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  // Casos de Título
+  // Title validation cases
   describe('Rule: Title Validation', () => {
     it('should reject when title is empty', () => {
       const result = validateIssueIntegrity(createIssue({ title: '' }));
@@ -46,7 +45,7 @@ describe('ValidateIssueIntegrity Use Case', () => {
     });
   });
 
-  // Casos de Descripción
+  // Description validation cases
   describe('Rule: Description Validation', () => {
     it('should reject when description is empty', () => {
       const result = validateIssueIntegrity(createIssue({ description: '' }));
@@ -70,7 +69,7 @@ describe('ValidateIssueIntegrity Use Case', () => {
     });
   });
 
-  // Casos de Autor
+  // Author validation cases
   describe('Rule: Author Validation', () => {
     it('should reject when author is missing', () => {
       const result = validateIssueIntegrity(createIssue({ author: '' }));

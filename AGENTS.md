@@ -38,12 +38,12 @@ REFACTOR: Clean the code while keeping the test green. Ensure it follows DRY and
 
 ## 3. Universal Quality Standards
 
-**Requisitos de Calidad Obligatorios**:
-✅ Extraer strings/configuraciones a constantes (>2 usos)
-✅ Usar type assertions seguras: `unknown` en vez de `any`
-✅ Manejar errores con bloques try/catch y logging descriptivo
-✅ Ejecutar `pnpm lint` y `pnpm test` antes de dar por finalizada una tarea
-✅ Documentar decisiones arquitectónicas en el código (ADRs)
+**Mandatory Quality Requirements**:
+✅ Extract repeated strings/configurations into constants (>2 uses)
+✅ Use safe type assertions: `unknown` instead of `any`
+✅ Handle errors with try/catch blocks and descriptive logging
+✅ Run `pnpm lint` and `pnpm test` before completing any task
+✅ Document architectural decisions in code (ADRs)
 ## 4. Project Setup & Stack
 Runtime: Node.js v22 (LTS).
 

@@ -7,18 +7,17 @@ const portFromEnv = process.env.PORT;
 const parsedPort = Number(portFromEnv);
 const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : DEFAULT_PORT;
 
-// 1. Creamos la instancia de la aplicación (Inyección de Dependencias)
+// 1. Create the app instance (Dependency Injection)
 const app = createApp();
 
-// 2. Arrancamos el servidor
+// 2. Start the server
 const server = app.listen(PORT, () => {
   console.log(`AI-PR-Sentinel API running on port ${PORT}`);
   console.log(`Health check available at http://localhost:${PORT}/health`);
 });
 
-// 3. Manejo de cierre elegante (Graceful Shutdown)
-// Esto es un detalle Senior: asegura que si matas el proceso (Docker/K8s),
-// se cierren las conexiones limpiamente.
+// 3. Graceful shutdown handling
+// This ensures clean shutdown when the process is terminated (Docker/K8s).
 const shutdown = (signal: string) => {
   console.log(`Received ${signal}. Shutting down gracefully...`);
   server.close(() => {

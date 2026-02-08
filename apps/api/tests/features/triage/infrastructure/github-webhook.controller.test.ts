@@ -165,7 +165,7 @@ describe('GithubWebhookController integration', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('should log success without removing labels for a valid issue with no previous invalid label', async () => {
+  it('should remove triage/needs-info label and log success for a valid issue', async () => {
     const { app, governanceGateway } = setup();
 
     const validPayload = createPayload({
@@ -184,7 +184,11 @@ describe('GithubWebhookController integration', () => {
     const response = await request(app).post(WEBHOOK_ROUTE).send(validPayload);
 
     expect(response.status).toBe(200);
-    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.removeLabel).toHaveBeenCalledWith({
+      repositoryFullName: REPO_FULL_NAME,
+      issueNumber: 12,
+      label: 'triage/needs-info',
+    });
     expect(governanceGateway.logValidatedIssue).toHaveBeenCalledWith({
       repositoryFullName: REPO_FULL_NAME,
       issueNumber: 12,

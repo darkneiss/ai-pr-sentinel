@@ -59,7 +59,7 @@ describe('App (Composition Root)', () => {
   
   it('should return 404 for unknown routes', async () => {
     const app = createApp();
-    const response = await request(app).get('/ruta-inventada');
+    const response = await request(app).get('/unknown-route');
     expect(response.status).toBe(404);
   });
 

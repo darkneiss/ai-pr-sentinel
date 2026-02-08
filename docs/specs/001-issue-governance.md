@@ -1,47 +1,47 @@
-# Especificación 001: Gobernanza de Issues y Triaje Automático
+# Specification 001: Issue Governance and Automatic Triage
 
-## 1. Resumen Ejecutivo
-El sistema actuará como una "puerta de calidad" (Quality Gate) automatizada. Cada vez que se crea o edita una Issue, el Sentinel analizará su contenido para asegurar que cumple con los estándares mínimos de información antes de molestar al equipo humano.
+## 1. Executive Summary
+The system acts as an automated quality gate. Whenever an Issue is created or edited, Sentinel analyzes its content to ensure it meets minimum information standards before involving the human team.
 
-## 2. Reglas de Negocio (Domain Rules)
+## 2. Business Rules (Domain Rules)
 
-### RN-01: Integridad del Título
-- **Objetivo:** Evitar títulos vagos como "ayuda", "error", "bug".
-- **Lógica:**
-  - Debe existir (no nulo/vacío).
-  - Longitud mínima: **10 caracteres**.
-  - No puede contener únicamente palabras genéricas (lista negra: "bug", "error", "issue", "help").
+### BR-01: Title Integrity
+- **Goal:** Avoid vague titles such as "help", "error", or "bug".
+- **Logic:**
+  - Must exist (not null or empty).
+  - Minimum length: **10 characters**.
+  - Must not contain only generic words (blacklist: "bug", "error", "issue", "help").
 
-### RN-02: Integridad de la Descripción
-- **Objetivo:** Asegurar contexto suficiente para reproducir el problema.
-- **Lógica:**
-  - Debe existir.
-  - Longitud mínima: **30 caracteres**.
-  - (Futuro) Debe contener secciones clave como "Steps to reproduce" (fuera del alcance actual).
+### BR-02: Description Integrity
+- **Goal:** Ensure enough context to reproduce the issue.
+- **Logic:**
+  - Must exist.
+  - Minimum length: **30 characters**.
+  - (Future scope) Should include key sections like "Steps to reproduce" (out of current scope).
 
-### RN-03: Identidad del Autor
-- **Lógica:** El autor debe estar identificado (no `null`).
+### BR-03: Author Identity
+- **Logic:** The author must be identified (not `null`).
 
-## 3. Comportamiento del Sistema (Flujo)
+## 3. System Behavior (Flow)
 
-### Escenario A: Issue Inválida (Validation Failure)
-Cuando se detecta una violación de las reglas RN-01 o RN-02:
-1.  **Acción 1 (Label):** El sistema añade la etiqueta `triage/needs-info` o `invalid`.
-2.  **Acción 2 (Comment):** El sistema publica un comentario automático listando los errores específicos encontrados.
-3.  **Acción 3 (State):** (Opcional) El sistema no cierra la issue automáticamente, pero alerta al usuario.
+### Scenario A: Invalid Issue (Validation Failure)
+When a violation of BR-01 or BR-02 is detected:
+1. **Action 1 (Label):** Add label `triage/needs-info` or `invalid`.
+2. **Action 2 (Comment):** Post an automatic comment listing the detected errors.
+3. **Action 3 (State):** (Optional) Do not close the issue automatically, but alert the user.
 
-### Escenario B: Issue Válida (Happy Path)
-1.  **Acción:** Si existen etiquetas de error previas (`invalid`), el sistema las retira.
-2.  **Log:** Se registra internamente que la issue ha pasado el filtro.
+### Scenario B: Valid Issue (Happy Path)
+1. **Action:** If previous error labels exist (`invalid`), remove them.
+2. **Log:** Register internally that the issue passed the filter.
 
-## 4. API & Eventos (Infrastructure)
+## 4. API and Events (Infrastructure)
 
 ### Trigger: GitHub Webhooks
-El sistema debe escuchar los siguientes eventos del webhook:
+The system must listen to:
 - `issues.opened`
 - `issues.edited`
 
-### Payload Esperado (Simplificado)
+### Expected Payload (Simplified)
 ```json
 {
   "action": "opened",
@@ -59,9 +59,7 @@ El sistema debe escuchar los siguientes eventos del webhook:
 }
 ```
 
-## 5. Implementación Técnica (Hexagonal)
-- Domain: Issue (Entidad), IssueValidationService (Servicio de Dominio).
-
-- Application: ValidateIssueUseCase (Orquestador).
-
-- Infrastructure: GithubWebhookController (Entrada), GithubRestAdapter (Salida para comentar/etiquetar).
+## 5. Technical Implementation (Hexagonal)
+- Domain: `Issue` (Entity), `IssueValidationService` (Domain Service).
+- Application: `ValidateIssueUseCase` (Orchestrator).
+- Infrastructure: `GithubWebhookController` (input), `GithubRestAdapter` (output for comments/labels).

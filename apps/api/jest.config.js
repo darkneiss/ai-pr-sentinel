@@ -2,13 +2,13 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  // Buscamos tests tanto en la carpeta tests/ como archivos .spec.ts
+  // Look for tests in tests/ and in .spec.ts files
   testMatch: ['**/tests/**/*.test.ts', '**/*.spec.ts'],
-  // Directorio raíz para Jest (el de la propia app api)
+  // Jest root directory (the api app itself)
   rootDir: '.',
-  // Limpia llamadas a mocks entre tests para evitar efectos secundarios
+  // Clear mock calls between tests to avoid side effects
   clearMocks: true,
-  // Configuración de Cobertura (Importante para la memoria del TFM)
+  // Coverage configuration
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coveragePathIgnorePatterns: ['/node_modules/'],

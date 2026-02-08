@@ -62,13 +62,18 @@ apps/api/src/
 
 ## Installation
 ```Bash
-# 1. Clone repository
-git clone [https://git@github.com:darkneiss/AI-PR-Sentinel.git](https://git@github.com:darkneiss/AI-PR-Sentinel.git)
+# Clone repository
+git clone [darkneiss/AI-PR-Sentinel](https://git@github.com:darkneiss/AI-PR-Sentinel.git)
 
-# 2. Install dependencies
+# Change directory
+cd AI-PR-Sentinel
+
+# Node version
+nvm use
+# Install dependencies
 pnpm install
 
-# 3. Run Tests (The Holy Grail)
+# Run Tests (The Holy Grail)
 pnpm test
 ```
 ## 🧪 Quality Assurance
