@@ -32,7 +32,12 @@ export const normalizeLegacyAiAnalysis = (
       duplicateDetectionRaw.originalIssueNumber !== undefined ||
       duplicateDetectionRaw.duplicate_of !== undefined);
   const isLegacyDuplicate = duplicateDetectionRaw?.is_duplicate === true;
-  const hasLegacyShape = typeof value.tone === 'string' || !!duplicateDetectionRaw;
+  const hasSuggestedResponse =
+    typeof value.suggested_response === 'string' || typeof value.suggestedResponse === 'string';
+  const hasLegacyShape =
+    typeof value.tone === 'string' ||
+    !!duplicateDetectionRaw ||
+    (legacyClassification !== null && hasSuggestedResponse);
 
   if (!hasLegacyShape) {
     return undefined;
