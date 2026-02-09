@@ -92,6 +92,7 @@ pnpm quality
 - [Governance Rules](./docs/specs/001-issue-governance.md)
 - [Architecture Decisions (ADRs)](./docs/adr/ADR-001-llm-integration-strategy.md)
 - [Setup Guide](./docs/SETUP_GUIDE.md)
+- [Prompt Registry & Versioning](./docs/PROMPT_REGISTRY.md)
 
 - [Agent Rules & Conventions](AGENTS.md)
 
