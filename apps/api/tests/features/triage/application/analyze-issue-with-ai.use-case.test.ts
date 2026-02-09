@@ -110,6 +110,52 @@ describe('AnalyzeIssueWithAiUseCase', () => {
     expect(llmGateway.generateJson).toHaveBeenCalledTimes(1);
   });
 
+  it('should use LLM_TIMEOUT override when configured', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    const config = {
+      get: (key: string) => (key === 'LLM_TIMEOUT' ? '300000' : undefined),
+      getBoolean: () => undefined,
+    };
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway, config });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(llmGateway.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeoutMs: 300000,
+      }),
+    );
+  });
+
+  it('should default to the ollama timeout when provider is ollama and no override is set', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    const config = {
+      get: (key: string) => (key === 'LLM_PROVIDER' ? 'ollama' : undefined),
+      getBoolean: () => undefined,
+    };
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway, config });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(llmGateway.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeoutMs: 240000,
+      }),
+    );
+  });
+
   it('should fail open when llm provider fails', async () => {
     // Arrange
     const llmGateway = createLlmGatewayMock();
@@ -181,6 +227,101 @@ describe('AnalyzeIssueWithAiUseCase', () => {
     expect(loggerCallContext.rawText).toBeUndefined();
     expect(governanceGateway.addLabels).not.toHaveBeenCalled();
     expect(governanceGateway.createComment).not.toHaveBeenCalled();
+  });
+
+  it('should not log raw ai response when debug logging is disabled', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({ rawText: '{invalid-json' });
+    const logger = {
+      error: jest.fn(),
+    };
+    const config = {
+      get: () => undefined,
+      getBoolean: () => undefined,
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+      config,
+    });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
+    const loggerCallContext = logger.error.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(loggerCallContext.rawTextLength).toBe('{invalid-json'.length);
+    expect(loggerCallContext.rawTextPreview).toBeUndefined();
+  });
+
+  it('should log truncated raw ai response when debug logging is enabled', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    const longRawText = 'x'.repeat(5000);
+    llmGateway.generateJson.mockResolvedValueOnce({ rawText: longRawText });
+    const logger = {
+      error: jest.fn(),
+    };
+    const config = {
+      get: (key: string) => (key === 'NODE_ENV' ? 'development' : undefined),
+      getBoolean: (key: string) => (key === 'LLM_LOG_RAW_RESPONSE' ? true : undefined),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+      config,
+    });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
+    const loggerCallContext = logger.error.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(loggerCallContext.rawTextLength).toBe(5000);
+    expect(typeof loggerCallContext.rawTextPreview).toBe('string');
+    expect((loggerCallContext.rawTextPreview as string).length).toBe(2000);
+  });
+
+  it('should not log raw ai response in production even when enabled', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({ rawText: '{invalid-json' });
+    const logger = {
+      error: jest.fn(),
+    };
+    const config = {
+      get: (key: string) => (key === 'NODE_ENV' ? 'production' : undefined),
+      getBoolean: (key: string) => (key === 'LLM_LOG_RAW_RESPONSE' ? true : undefined),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+      config,
+    });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
+    const loggerCallContext = logger.error.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(loggerCallContext.rawTextLength).toBe('{invalid-json'.length);
+    expect(loggerCallContext.rawTextPreview).toBeUndefined();
   });
 
   it('should fail open when ai response is valid json but not an object', async () => {
@@ -467,6 +608,42 @@ describe('AnalyzeIssueWithAiUseCase', () => {
       issueNumber: 42,
       body: expect.stringContaining(`${AI_DUPLICATE_COMMENT_PREFIX}10`),
     });
+  });
+
+  it('should build prompts from registry template when prompt gateway is provided', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    const issueTriagePromptGateway = {
+      getPrompt: () => ({
+        version: '1.0.0',
+        provider: 'generic',
+        systemPrompt: 'System prompt from registry',
+        userPromptTemplate: 'Title: {{issue_title}}',
+        config: { temperature: 0.42, maxTokens: 321 },
+      }),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      issueTriagePromptGateway,
+      governanceGateway,
+    });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(llmGateway.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        systemPrompt: 'System prompt from registry',
+        userPrompt: expect.stringContaining('Title: Login fails intermittently'),
+        maxTokens: 321,
+        temperature: 0.42,
+      }),
+    );
   });
 
   it('should add monitor label when sentiment is hostile', async () => {
