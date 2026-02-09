@@ -9,7 +9,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "dev": "nodemon --watch src --ext ts,json,env --signal SIGTERM --exec \"tsx src/index.ts\"",
-    "build": "tsc"
+    "build": "tsc && mkdir -p dist/shared/application && cp -R src/shared/application/prompts dist/shared/application/"
   },
   "keywords": [],
   "author": "",
