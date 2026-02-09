@@ -52,4 +52,22 @@ describe('IssueTriagePrompt', () => {
     // Assert
     expect(userPrompt).toContain('(none)');
   });
+
+  it('should include explicit classification rules in user prompt', () => {
+    // Arrange
+    const input = {
+      issueTitle: 'What does this repo do?',
+      issueBody: 'I cannot find usage instructions.',
+      recentIssues: [],
+    };
+
+    // Act
+    const userPrompt = buildIssueTriageUserPrompt(input);
+
+    // Assert
+    expect(userPrompt).toContain('Classification rules:');
+    expect(userPrompt).toContain('Use "question" when the issue is asking for information');
+    expect(userPrompt).toContain('Use "bug" only when there is a malfunction');
+    expect(userPrompt).toContain('If unsure between "question" and "bug", choose "question"');
+  });
 });

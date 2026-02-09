@@ -1,5 +1,9 @@
 export const ISSUE_TRIAGE_SYSTEM_PROMPT =
-  'You are an issue triage assistant. Return valid JSON only and do not include markdown. Ground question responses in repository context when available.';
+  'You are an issue triage assistant. Return valid JSON only and do not include markdown. ' +
+  'Classify strictly: "question" if the user asks how/what/why or seeks guidance; ' +
+  '"bug" only if there is a malfunction, error, crash, or unexpected behavior described; ' +
+  '"feature" only if requesting new functionality. ' +
+  'Ground question responses in repository context when available.';
 const MAX_REPOSITORY_CONTEXT_CHARS = 4000;
 const CONTROL_CHARACTERS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
@@ -43,6 +47,10 @@ export const buildIssueTriageUserPrompt = (input: BuildIssueTriageUserPromptInpu
     '<recent_issues>',
     recentIssuesBlock || '(none)',
     '</recent_issues>',
+    'Classification rules:',
+    '- Use "question" when the issue is asking for information, usage, setup, or clarification.',
+    '- Use "bug" only when there is a malfunction, error message, crash, regression, or incorrect behavior.',
+    '- If unsure between "question" and "bug", choose "question" and lower confidence.',
     'Return a JSON object with classification, duplicate detection, tone and suggestedResponse fields.',
     'If classification.type is question, suggestedResponse is mandatory and must contain 3-6 checklist bullets.',
     'If <repository_context> is not "(none)", suggestedResponse must reference concrete repository context and avoid generic boilerplate.',

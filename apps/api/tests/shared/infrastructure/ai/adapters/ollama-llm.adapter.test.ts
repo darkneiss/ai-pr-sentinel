@@ -56,6 +56,23 @@ describe('OllamaLlmAdapter', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  it('should request JSON-formatted output from Ollama', async () => {
+    // Arrange
+    const fetchFn = createFetchFnMock({
+      ok: true,
+      status: 200,
+      json: async () => ({ response: DEFAULT_JSON_TEXT }),
+    });
+    const adapter = createAdapterWithFetch(fetchFn);
+
+    // Act
+    await runGenerateJson(adapter);
+
+    // Assert
+    const requestBody = (fetchFn.mock.calls[0]?.[1]?.body ?? '') as string;
+    expect(requestBody).toContain('"format":"json"');
+  });
+
   it('should throw when Ollama returns non-ok response', async () => {
     // Arrange
     const fetchFn = createFetchFnMock({

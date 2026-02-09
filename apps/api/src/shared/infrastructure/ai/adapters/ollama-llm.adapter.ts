@@ -53,6 +53,7 @@ const buildOllamaRequestBody = ({
     system: systemPrompt,
     prompt: userPrompt,
     stream: false,
+    format: 'json',
     options: {
       temperature,
       num_predict: maxTokens,
