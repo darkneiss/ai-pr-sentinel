@@ -1,0 +1,17 @@
+version: "1.0.0"
+provider: "generic"
+config:
+  temperature: 0.2
+  enabled: true
+  disabled: false
+  mode: auto
+system_prompt: |
+  System prompt generic
+invalid_line_without_colon
+user_prompt_template: |
+  Title: {{issue_title}}
+  Body: {{issue_body}}
+  Repo: {{repository_context}}
+  Recent: {{recent_issues}}
+output_contract: |
+  JSON with classification, duplicateDetection, sentiment, suggestedResponse

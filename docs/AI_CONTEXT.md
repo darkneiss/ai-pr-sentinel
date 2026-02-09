@@ -42,7 +42,9 @@
   - Groq
   - Ollama
 - Prompting:
-  - Centralized in `src/shared/application/prompts/issue-triage.prompt.ts`.
+  - Versioned YAML registry under `src/shared/application/prompts/issue-triage/`.
+  - Runtime selection by provider/version with generic fallback.
+  - Legacy fallback still available in `src/shared/application/prompts/issue-triage.prompt.ts`.
   - JSON-only response contract enforced.
 
 ## 4. Repository Context Enrichment
@@ -88,3 +90,5 @@
 ## 9. ADR References
 - `docs/adr/ADR-001-llm-integration-strategy.md`
   - Justifies the MVP decision to avoid LangChain and provider SDKs in core AI triage flow.
+- `docs/adr/ADR-002-prompt-registry-and-assets-copy.md`
+  - Defines versioned prompt registry and build-time asset copy for YAML prompts.

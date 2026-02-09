@@ -1,0 +1,8 @@
+version: "1.1.0-beta"
+provider: "ollama"
+system_prompt: |
+  System prompt ollama beta
+user_prompt_template: |
+  Ollama title: {{issue_title}}
+output_contract: |
+  JSON with classification, duplicateDetection, sentiment, suggestedResponse

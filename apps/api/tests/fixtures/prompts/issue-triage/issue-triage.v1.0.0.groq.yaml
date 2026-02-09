@@ -1,0 +1,8 @@
+version: "1.0.0"
+provider: "groq"
+system_prompt: |
+  System prompt groq
+user_prompt_template: |
+  Groq title: {{issue_title}}
+output_contract: |
+  JSON with classification, duplicateDetection, sentiment, suggestedResponse
