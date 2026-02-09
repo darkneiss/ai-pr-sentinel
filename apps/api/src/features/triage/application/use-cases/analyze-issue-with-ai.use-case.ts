@@ -3,7 +3,9 @@ import {
   AI_RECENT_ISSUES_LIMIT,
   AI_SUPPORTED_ACTIONS,
   AI_TEMPERATURE,
-  AI_TIMEOUT_MS,
+  LLM_LOG_RAW_RESPONSE_ENV_VAR,
+  LLM_RAW_TEXT_LOG_PREVIEW_CHARS,
+  resolveAiTimeoutMs,
 } from '../constants/ai-triage.constants';
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import type { IssueHistoryGateway } from '../ports/issue-history-gateway.port';
@@ -11,7 +13,10 @@ import type { RepositoryContextGateway } from '../ports/repository-context-gatew
 import { parseAiAnalysis } from '../services/ai-analysis-normalizer.service';
 import { applyAiTriageGovernanceActions } from '../services/apply-ai-triage-governance-actions.service';
 import type { LLMGateway } from '../../../../shared/application/ports/llm-gateway.port';
+import type { IssueTriagePromptGateway } from '../../../../shared/application/ports/issue-triage-prompt-gateway.port';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
+import type { ConfigPort } from '../../../../shared/application/ports/config.port';
+import { renderIssueTriageUserPrompt } from '../../../../shared/application/prompts/issue-triage-prompt.builder';
 import {
   buildIssueTriageUserPrompt,
   ISSUE_TRIAGE_SYSTEM_PROMPT,
@@ -45,27 +50,46 @@ interface Dependencies {
   llmGateway: LLMGateway;
   issueHistoryGateway: IssueHistoryGateway;
   repositoryContextGateway?: RepositoryContextGateway;
+  issueTriagePromptGateway?: IssueTriagePromptGateway;
   governanceGateway: GovernanceGateway;
   questionResponseMetrics?: QuestionResponseMetricsPort;
   botLogin?: string;
+  config?: ConfigPort;
   logger?: Logger;
 }
 
 const isSupportedAction = (action: string): action is AiSupportedAction =>
   AI_SUPPORTED_ACTIONS.includes(action as AiSupportedAction);
 
-const buildSafeRawTextLogContext = (rawText: string): { rawTextLength: number } => ({
-  rawTextLength: rawText.length,
-});
+const buildSafeRawTextLogContext = (
+  rawText: string,
+  config?: ConfigPort,
+): { rawTextLength: number; rawTextPreview?: string } => {
+  const rawTextLength = rawText.length;
+  const shouldLogRawText = config?.getBoolean(LLM_LOG_RAW_RESPONSE_ENV_VAR) === true;
+  const nodeEnv = (config?.get('NODE_ENV') ?? '').trim().toLowerCase();
+  const isProduction = nodeEnv === 'production';
+
+  if (!shouldLogRawText || isProduction) {
+    return { rawTextLength };
+  }
+
+  return {
+    rawTextLength,
+    rawTextPreview: rawText.slice(0, LLM_RAW_TEXT_LOG_PREVIEW_CHARS),
+  };
+};
 
 export const analyzeIssueWithAi =
   ({
     llmGateway,
     issueHistoryGateway,
     repositoryContextGateway,
+    issueTriagePromptGateway,
     governanceGateway,
     questionResponseMetrics,
     botLogin,
+    config,
     logger = console,
   }: Dependencies) =>
   async (input: AnalyzeIssueWithAiInput): Promise<AnalyzeIssueWithAiResult> => {
@@ -94,20 +118,36 @@ export const analyzeIssueWithAi =
         }
       }
 
+      const promptInput = {
+        issueTitle: input.issue.title,
+        issueBody: input.issue.body,
+        repositoryReadme,
+        recentIssues: recentIssues.map((recentIssue) => ({
+          number: recentIssue.number,
+          title: recentIssue.title,
+        })),
+      };
+      const resolvedPrompt = issueTriagePromptGateway?.getPrompt();
+      const systemPrompt = resolvedPrompt?.systemPrompt ?? ISSUE_TRIAGE_SYSTEM_PROMPT;
+      const userPrompt = resolvedPrompt
+        ? renderIssueTriageUserPrompt({
+            template: resolvedPrompt.userPromptTemplate,
+            issueTitle: promptInput.issueTitle,
+            issueBody: promptInput.issueBody,
+            repositoryContext: promptInput.repositoryReadme,
+            recentIssues: promptInput.recentIssues,
+          })
+        : buildIssueTriageUserPrompt(promptInput);
+      const maxTokens = resolvedPrompt?.config?.maxTokens ?? AI_MAX_TOKENS;
+      const temperature = resolvedPrompt?.config?.temperature ?? AI_TEMPERATURE;
+      const timeoutMs = resolveAiTimeoutMs(config);
+
       const llmResult = await llmGateway.generateJson({
-        systemPrompt: ISSUE_TRIAGE_SYSTEM_PROMPT,
-        userPrompt: buildIssueTriageUserPrompt({
-          issueTitle: input.issue.title,
-          issueBody: input.issue.body,
-          repositoryReadme,
-          recentIssues: recentIssues.map((recentIssue) => ({
-            number: recentIssue.number,
-            title: recentIssue.title,
-          })),
-        }),
-        maxTokens: AI_MAX_TOKENS,
-        timeoutMs: AI_TIMEOUT_MS,
-        temperature: AI_TEMPERATURE,
+        systemPrompt,
+        userPrompt,
+        maxTokens,
+        timeoutMs,
+        temperature,
       });
 
       const aiAnalysis = parseAiAnalysis(llmResult.rawText, input.issue.number);
@@ -115,7 +155,7 @@ export const analyzeIssueWithAi =
         logger.error('AnalyzeIssueWithAiUseCase failed parsing AI response. Applying fail-open policy.', {
           repositoryFullName: input.repositoryFullName,
           issueNumber: input.issue.number,
-          ...buildSafeRawTextLogContext(llmResult.rawText),
+          ...buildSafeRawTextLogContext(llmResult.rawText, config),
         });
         return { status: 'skipped', reason: 'ai_unavailable' };
       }

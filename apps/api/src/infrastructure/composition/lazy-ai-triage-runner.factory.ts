@@ -35,14 +35,19 @@ export const createLazyAnalyzeIssueWithAi = (
           llmGateway: import('../../shared/application/ports/llm-gateway.port').LLMGateway;
           issueHistoryGateway: import('../../features/triage/application/ports/issue-history-gateway.port').IssueHistoryGateway;
           repositoryContextGateway?: RepositoryContextGateway;
+          issueTriagePromptGateway?: import('../../shared/application/ports/issue-triage-prompt-gateway.port').IssueTriagePromptGateway;
           governanceGateway: GovernanceGateway;
           questionResponseMetrics?: QuestionResponseMetricsPort;
           botLogin?: string;
+          config?: ConfigPort;
           logger?: Logger;
         }) => (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
       };
       const { createGithubRepositoryContextAdapter } = require('../../features/triage/infrastructure/adapters/github-repository-context.adapter') as {
         createGithubRepositoryContextAdapter: (params?: { logger?: Logger }) => RepositoryContextGateway;
+      };
+      const { createIssueTriagePromptRegistry } = require('../../shared/infrastructure/prompts/issue-triage-prompt-registry.adapter') as {
+        createIssueTriagePromptRegistry: (params?: { config?: ConfigPort }) => import('../../shared/application/ports/issue-triage-prompt-gateway.port').IssueTriagePromptGateway;
       };
       let repositoryContextGateway: RepositoryContextGateway | undefined;
       try {
@@ -57,9 +62,11 @@ export const createLazyAnalyzeIssueWithAi = (
         llmGateway: createLlmGateway(),
         issueHistoryGateway: createGithubIssueHistoryAdapter(),
         repositoryContextGateway,
+        issueTriagePromptGateway: createIssueTriagePromptRegistry({ config }),
         governanceGateway,
         questionResponseMetrics: metrics,
         botLogin: config.get(GITHUB_BOT_LOGIN_ENV_VAR),
+        config,
         logger,
       });
     }
