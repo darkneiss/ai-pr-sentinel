@@ -6,6 +6,7 @@ import type { QuestionResponseMetricsPort } from '../../../../shared/application
 interface Logger {
   debug?: (message: string, ...args: unknown[]) => void;
   info?: (message: string, ...args: unknown[]) => void;
+  error?: (message: string, ...args: unknown[]) => void;
 }
 
 interface IssuePayload {
@@ -20,6 +21,8 @@ export interface ApplyAiTriageGovernanceActionsInput {
   repositoryFullName: string;
   issue: IssuePayload;
   aiAnalysis: AiAnalysis;
+  llmProvider: string;
+  llmModel: string;
   repositoryReadme?: string;
   governanceGateway: GovernanceGateway;
   issueHistoryGateway: IssueHistoryGateway;
@@ -39,6 +42,8 @@ export interface AiTriageGovernanceActionsExecutionContext {
   repositoryFullName: string;
   issue: IssuePayload;
   aiAnalysis: AiAnalysis;
+  llmProvider: string;
+  llmModel: string;
   repositoryReadme?: string;
   governanceGateway: GovernanceGateway;
   issueHistoryGateway: IssueHistoryGateway;

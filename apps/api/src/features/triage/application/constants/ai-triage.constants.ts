@@ -5,10 +5,11 @@ export const AI_SENTIMENT_CONFIDENCE_THRESHOLD = 0.75;
 export const AI_DUPLICATE_SIMILARITY_THRESHOLD = 0.85;
 export const AI_RECENT_ISSUES_LIMIT = 15;
 const LLM_TIMEOUT_ENV_VAR = 'LLM_TIMEOUT';
-const LLM_PROVIDER_ENV_VAR = 'LLM_PROVIDER';
+export const LLM_PROVIDER_ENV_VAR = 'LLM_PROVIDER';
+export const LLM_MODEL_ENV_VAR = 'LLM_MODEL';
 export const LLM_LOG_RAW_RESPONSE_ENV_VAR = 'LLM_LOG_RAW_RESPONSE';
 export const LLM_RAW_TEXT_LOG_PREVIEW_CHARS = 2000;
-const DEFAULT_LLM_PROVIDER = 'ollama';
+export const DEFAULT_LLM_PROVIDER = 'ollama';
 const AI_TIMEOUT_DEFAULT_MS = 120000;
 const AI_TIMEOUT_OLLAMA_MS = 240000;
 const AI_TIMEOUT_GEMINI_MS = 120000;
@@ -72,3 +73,24 @@ export const AI_QUESTION_FALLBACK_CHECKLIST = [
   '- Describe expected behavior vs actual behavior.',
   '- Include relevant logs/errors from the API process.',
 ] as const;
+
+export const AI_TRIAGE_LOG_EVENT_STARTED = 'ai_triage_started';
+export const AI_TRIAGE_LOG_EVENT_COMPLETED = 'ai_triage_completed';
+export const AI_TRIAGE_LOG_EVENT_FAILED = 'ai_triage_failed';
+
+export const AI_TRIAGE_LOG_STATUS_STARTED = 'started';
+export const AI_TRIAGE_LOG_STATUS_COMPLETED = 'completed';
+export const AI_TRIAGE_LOG_STATUS_FAILED = 'failed';
+
+export const AI_TRIAGE_LOG_STEP_CLASSIFICATION = 'classification';
+export const AI_TRIAGE_LOG_STEP_DUPLICATE = 'duplicate';
+export const AI_TRIAGE_LOG_STEP_TONE = 'tone';
+export const AI_TRIAGE_LOG_STEPS = [
+  AI_TRIAGE_LOG_STEP_CLASSIFICATION,
+  AI_TRIAGE_LOG_STEP_DUPLICATE,
+  AI_TRIAGE_LOG_STEP_TONE,
+] as const;
+export type AiTriageLogStep = (typeof AI_TRIAGE_LOG_STEPS)[number];
+
+export const AI_TRIAGE_LOG_START_DURATION_MS = 0;
+export const AI_TRIAGE_LOG_UNKNOWN_VALUE = 'unknown';

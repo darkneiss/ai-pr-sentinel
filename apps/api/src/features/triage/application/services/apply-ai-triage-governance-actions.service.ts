@@ -1,4 +1,17 @@
-import { AI_TRIAGE_MONITOR_LABEL } from '../constants/ai-triage.constants';
+import {
+  AI_TRIAGE_LOG_EVENT_COMPLETED,
+  AI_TRIAGE_LOG_EVENT_FAILED,
+  AI_TRIAGE_LOG_EVENT_STARTED,
+  AI_TRIAGE_LOG_START_DURATION_MS,
+  AI_TRIAGE_LOG_STATUS_COMPLETED,
+  AI_TRIAGE_LOG_STATUS_FAILED,
+  AI_TRIAGE_LOG_STATUS_STARTED,
+  AI_TRIAGE_LOG_STEP_CLASSIFICATION,
+  AI_TRIAGE_LOG_STEP_DUPLICATE,
+  AI_TRIAGE_LOG_STEP_TONE,
+  AI_TRIAGE_MONITOR_LABEL,
+  type AiTriageLogStep,
+} from '../constants/ai-triage.constants';
 import {
   createAiTriageGovernanceActionsExecutionContext,
   type ApplyAiTriageGovernanceActionsInput,
@@ -13,12 +26,68 @@ export const applyAiTriageGovernanceActions = async (
 ): Promise<ApplyAiTriageGovernanceActionsResult> => {
   const context = createAiTriageGovernanceActionsExecutionContext(input);
 
-  await applyClassificationGovernanceActions(context);
-  await applyDuplicateGovernanceActions(context);
+  const logTriageEvent = (
+    eventName: string,
+    step: AiTriageLogStep,
+    status: string,
+    durationMs: number,
+    error?: unknown,
+  ): void => {
+    if (!context.logger?.debug) {
+      return;
+    }
 
-  if (context.effectiveTone === 'hostile') {
+    context.logger.debug(eventName, {
+      repositoryFullName: context.repositoryFullName,
+      issueNumber: context.issue.number,
+      step,
+      durationMs,
+      status,
+      provider: context.llmProvider,
+      model: context.llmModel,
+      ...(error ? { error } : {}),
+    });
+  };
+
+  const runStep = async (step: AiTriageLogStep, action: () => Promise<void>): Promise<void> => {
+    const startedAt = Date.now();
+    logTriageEvent(AI_TRIAGE_LOG_EVENT_STARTED, step, AI_TRIAGE_LOG_STATUS_STARTED, AI_TRIAGE_LOG_START_DURATION_MS);
+
+    try {
+      await action();
+      logTriageEvent(
+        AI_TRIAGE_LOG_EVENT_COMPLETED,
+        step,
+        AI_TRIAGE_LOG_STATUS_COMPLETED,
+        Date.now() - startedAt,
+      );
+    } catch (error: unknown) {
+      logTriageEvent(
+        AI_TRIAGE_LOG_EVENT_FAILED,
+        step,
+        AI_TRIAGE_LOG_STATUS_FAILED,
+        Date.now() - startedAt,
+        error,
+      );
+      throw error;
+    }
+  };
+
+  await runStep(AI_TRIAGE_LOG_STEP_CLASSIFICATION, async () => {
+    await applyClassificationGovernanceActions(context);
+  });
+
+  await runStep(AI_TRIAGE_LOG_STEP_DUPLICATE, async () => {
+    await applyDuplicateGovernanceActions(context);
+  });
+
+  await runStep(AI_TRIAGE_LOG_STEP_TONE, async () => {
+    if (context.effectiveTone !== 'hostile') {
+      return;
+    }
+
     await context.addLabelIfMissing(AI_TRIAGE_MONITOR_LABEL);
-  }
+  });
 
   await applyQuestionResponseGovernanceActions(context);
 
