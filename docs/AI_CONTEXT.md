@@ -8,7 +8,7 @@
 - Stack: Node.js (v22), Express, TypeScript, Jest, pnpm workspaces.
 - Architecture: Hexagonal (Domain/Application/Infrastructure) + shared kernel.
 
-## 2. Current Status (2026-02-08)
+## 2. Current Status (2026-02-10)
 
 ### Feature 001: Basic Governance
 - Status: DONE
@@ -41,6 +41,11 @@
   - Gemini
   - Groq
   - Ollama
+  - Endpoint rules:
+    - Groq: `LLM_BASE_URL` is the full endpoint (no path appended).
+    - Ollama: `LLM_BASE_URL` is the full `/api/generate` endpoint (no path appended).
+    - Gemini: `LLM_BASE_URL` is a base URL; the adapter appends `/models/{LLM_MODEL}:generateContent` only when `/models/` is missing.
+    - Gemini API key is sent via the `x-goog-api-key` header (no query param).
 - Prompting:
   - Versioned YAML registry under `src/shared/application/prompts/issue-triage/`.
   - Runtime selection by provider/version with generic fallback.
@@ -92,3 +97,7 @@
   - Justifies the MVP decision to avoid LangChain and provider SDKs in core AI triage flow.
 - `docs/adr/ADR-002-prompt-registry-and-assets-copy.md`
   - Defines versioned prompt registry and build-time asset copy for YAML prompts.
+ - `docs/adr/ADR-004-llm-endpoint-config.md`
+   - Documents LLM endpoint configuration rules for Gemini, Groq, and Ollama.
+ - `docs/adr/README.md`
+   - ADR index.

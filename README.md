@@ -46,7 +46,7 @@ Testing: Jest + Supertest (TDD Approach)
 Patterns: DDD, Hexagonal Architecture, Dependency Injection
 
 ## 🛠️ Project Structure
-Bash
+```bash
 apps/api/src/
 ├── features/           # Vertical Slices (Screaming Architecture)
 │   └── triage/
@@ -54,6 +54,7 @@ apps/api/src/
 │       ├── application/# Use Cases & Ports
 │       └── infrastructure/ # Controllers & Adapters
 └── shared/             # Shared Kernel
+```
 ## ⚡ Quick Start
 ### Prerequisites
 - Node.js v22+
@@ -63,7 +64,7 @@ apps/api/src/
 ## Installation
 ```Bash
 # Clone repository
-git clone [darkneiss/AI-PR-Sentinel](https://git@github.com:darkneiss/AI-PR-Sentinel.git)
+git clone git@github.com:darkneiss/ai-pr-sentinel.git
 
 # Change directory
 cd AI-PR-Sentinel
@@ -76,6 +77,17 @@ pnpm install
 # Run Tests (The Holy Grail)
 pnpm test
 ```
+## 🔧 Environment
+Create the API environment file and configure the LLM provider:
+
+```Bash
+cd apps/api
+cp .env.example .env
+```
+
+See the setup guide for provider-specific `LLM_BASE_URL` rules:
+- [Setup Guide](./docs/SETUP_GUIDE.md)
+
 ## 🧪 Quality Assurance
 This project follows strict TDD (Test Driven Development) protocols.
 
@@ -90,7 +102,7 @@ pnpm quality
 ```
 ## 📜 Documentation
 - [Governance Rules](./docs/specs/001-issue-governance.md)
-- [Architecture Decisions (ADRs)](./docs/adr/ADR-001-llm-integration-strategy.md)
+- [Architecture Decisions (ADRs)](./docs/adr/README.md)
 - [Setup Guide](./docs/SETUP_GUIDE.md)
 - [Prompt Registry & Versioning](./docs/PROMPT_REGISTRY.md)
 

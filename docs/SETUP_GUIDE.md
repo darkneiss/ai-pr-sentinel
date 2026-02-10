@@ -84,31 +84,24 @@ You need to expose your local server to GitHub.
    * Optional advanced override: `GITHUB_WEBHOOK_VERIFY_SIGNATURE=true|false`.
    * If verification is enabled and `GITHUB_WEBHOOK_SECRET` is missing, the app fails fast on startup.
 
-5. Configure the AI provider (OpenAI-compatible, Gemini, or Ollama):
+5. Configure the AI provider (Groq, Gemini, or Ollama):
    * Select provider with `LLM_PROVIDER`:
-     * `openai` for OpenAI-compatible APIs (OpenAI, Groq, etc.)
+     * `groq` for Groq (OpenAI-compatible)
      * `gemini` for Google Gemini API
      * `ollama` for local models via Ollama
    * Set generic variables:
      * `LLM_API_KEY`
      * `LLM_MODEL`
      * `LLM_BASE_URL`
-   * **OpenAI-compatible URL rule (important):**
-     * The adapter always calls `LLM_BASE_URL + /v1/chat/completions`.
-     * Do not include `/v1/chat/completions` in `LLM_BASE_URL`.
+   * **Groq URL rule (important):**
+     * The adapter uses `LLM_BASE_URL` exactly as provided.
+     * Include `/v1/chat/completions` in `LLM_BASE_URL`.
    * Example for Groq:
    ```ini
-   LLM_PROVIDER=openai
+   LLM_PROVIDER=groq
    LLM_API_KEY=your_groq_api_key
    LLM_MODEL=openai/gpt-oss-20b
-   LLM_BASE_URL=https://api.groq.com/openai
-   ```
-   * Example for OpenAI:
-   ```ini
-   LLM_PROVIDER=openai
-   LLM_API_KEY=your_openai_api_key
-   LLM_MODEL=gpt-4o-mini
-   LLM_BASE_URL=https://api.openai.com
+   LLM_BASE_URL=https://api.groq.com/openai/v1/chat/completions
    ```
    * Example for Gemini:
    ```ini
@@ -116,6 +109,13 @@ You need to expose your local server to GitHub.
    LLM_API_KEY=your_gemini_api_key
    LLM_MODEL=gemini-2.5-flash-lite
    LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+   ```
+   * Example for Ollama:
+   ```ini
+   LLM_PROVIDER=ollama
+   LLM_API_KEY=
+   LLM_MODEL=llama3.1
+   LLM_BASE_URL=http://127.0.0.1:11434/api/generate
    ```
 
 ---
