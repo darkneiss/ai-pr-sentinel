@@ -1,7 +1,7 @@
 # ADR-003: LLM Observability via LangSmith (Opt-In)
 
 ## Status
-Proposed (2026-02-10)
+Accepted (2026-02-10)
 
 ## Context
 We need better visibility into LLM requests/responses (timings, failure rates, prompt selection, and model behavior), especially across multiple providers (Gemini, Groq, Ollama). We want this without breaking Hexagonal Architecture or coupling application/domain logic to a specific vendor.
@@ -17,8 +17,8 @@ We need better visibility into LLM requests/responses (timings, failure rates, p
 
 2. **Implement LangSmith adapter in Infrastructure**
    - Create `LangSmithObservabilityAdapter` under `apps/api/src/shared/infrastructure/observability/`.
-   - Adapter is only constructed when `LANGSMITH_ENABLED=true`.
-   - Uses `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and optional `LANGSMITH_ENDPOINT`.
+   - Adapter is only constructed when `LANGSMITH_TRACING=true` (official convention).
+   - Uses `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, optional `LANGSMITH_ENDPOINT`, and optional `LANGSMITH_WORKSPACE_ID`.
 
 3. **Wrap LLMGateway with an instrumented decorator**
    - Create an `LLMGateway` decorator that calls the observability gateway before/after `generateJson`.

@@ -104,6 +104,7 @@ pnpm quality
 - [Governance Rules](./docs/specs/001-issue-governance.md)
 - [Architecture Decisions (ADRs)](./docs/adr/README.md)
 - [Setup Guide](./docs/SETUP_GUIDE.md)
+- [LangSmith Observability](./docs/LANGSMITH_OBSERVABILITY.md)
 - [Prompt Registry & Versioning](./docs/PROMPT_REGISTRY.md)
 
 - [Agent Rules & Conventions](AGENTS.md)

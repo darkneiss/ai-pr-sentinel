@@ -118,6 +118,11 @@ You need to expose your local server to GitHub.
    LLM_BASE_URL=http://127.0.0.1:11434/api/generate
    ```
 
+6. Optional: enable LangSmith observability:
+   * Set `LANGSMITH_TRACING=true`
+   * Provide `LANGSMITH_API_KEY`
+   * Optional: `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT`, `LANGSMITH_WORKSPACE_ID`
+
 ---
 
 ## 5. Run Locally
