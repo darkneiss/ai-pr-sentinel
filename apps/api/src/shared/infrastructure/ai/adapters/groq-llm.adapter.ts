@@ -9,6 +9,7 @@ import {
   GROQ_MODEL_ENV_VAR,
   LLM_API_KEY_ENV_VAR,
   LLM_BASE_URL_ENV_VAR,
+  LLM_LOG_RAW_RESPONSE_ENV_VAR,
   LLM_MODEL_ENV_VAR,
 } from './groq-adapter.constants';
 import type { CreateGroqLlmAdapterParams, GroqSuccessResponse } from './groq-adapter.types';
@@ -44,6 +45,19 @@ export const createGroqLlmAdapter = (params: CreateGroqLlmAdapterParams = {}): L
     DEFAULT_GROQ_BASE_URL;
   const endpoint = buildGroqEndpoint(baseUrl);
   const fetchFn = params.fetchFn ?? fetch;
+  const shouldLogRawResponse = config.getBoolean(LLM_LOG_RAW_RESPONSE_ENV_VAR) === true;
+
+  const logRawResponse = (responseJson: GroqSuccessResponse): void => {
+    if (!shouldLogRawResponse) {
+      return;
+    }
+
+    console.debug('Groq raw response', {
+      endpoint,
+      model,
+      responseJson,
+    });
+  };
 
   return {
     generateJson: async ({ systemPrompt, userPrompt, maxTokens, timeoutMs, temperature }) => {
@@ -100,6 +114,7 @@ export const createGroqLlmAdapter = (params: CreateGroqLlmAdapterParams = {}): L
         const retryResponseJson = (await retryResponse.json()) as GroqSuccessResponse;
         const retryRawText = extractRawText(retryResponseJson);
         if (!retryRawText) {
+          logRawResponse(retryResponseJson);
           throw new Error(`Groq response did not include text content for model ${model} at ${endpoint}`);
         }
 
@@ -109,6 +124,7 @@ export const createGroqLlmAdapter = (params: CreateGroqLlmAdapterParams = {}): L
       const responseJson = (await firstResponse.json()) as GroqSuccessResponse;
       const rawText = extractRawText(responseJson);
       if (!rawText) {
+        logRawResponse(responseJson);
         throw new Error(`Groq response did not include text content for model ${model} at ${endpoint}`);
       }
 

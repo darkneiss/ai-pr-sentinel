@@ -1,7 +1,4 @@
-import {
-  CHAT_COMPLETIONS_PATH,
-  JSON_VALIDATION_ERROR_FRAGMENT,
-} from './groq-adapter.constants';
+import { JSON_VALIDATION_ERROR_FRAGMENT } from './groq-adapter.constants';
 import type { GroqErrorContext, GroqErrorResponse, GroqSuccessResponse } from './groq-adapter.types';
 
 const createAbortSignal = (timeoutMs: number): AbortSignal | undefined => {
@@ -29,23 +26,7 @@ const parseProviderErrorMessage = (value: unknown): string | undefined => {
   return undefined;
 };
 
-export const buildGroqEndpoint = (baseUrl: string): string => {
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
-
-  if (normalizedBaseUrl.endsWith(CHAT_COMPLETIONS_PATH)) {
-    return normalizedBaseUrl;
-  }
-
-  if (normalizedBaseUrl.endsWith('/openai')) {
-    return `${normalizedBaseUrl}/v1${CHAT_COMPLETIONS_PATH}`;
-  }
-
-  if (normalizedBaseUrl.endsWith('/v1')) {
-    return `${normalizedBaseUrl}${CHAT_COMPLETIONS_PATH}`;
-  }
-
-  return `${normalizedBaseUrl}${CHAT_COMPLETIONS_PATH}`;
-};
+export const buildGroqEndpoint = (baseUrl: string): string => baseUrl;
 
 export const extractRawText = (responseJson: GroqSuccessResponse): string | undefined => {
   const rawText = responseJson.choices?.[0]?.message?.content;

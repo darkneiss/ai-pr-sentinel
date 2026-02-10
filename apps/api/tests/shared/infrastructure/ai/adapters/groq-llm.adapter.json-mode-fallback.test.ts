@@ -31,7 +31,7 @@ describe('GroqLlmAdapter (JSON Mode Fallback)', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'openai/gpt-oss-20b',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -79,7 +79,7 @@ describe('GroqLlmAdapter (JSON Mode Fallback)', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'openai/gpt-oss-20b',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -120,7 +120,7 @@ describe('GroqLlmAdapter (JSON Mode Fallback)', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'openai/gpt-oss-20b',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 

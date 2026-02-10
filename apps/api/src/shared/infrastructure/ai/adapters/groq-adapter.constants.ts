@@ -3,6 +3,7 @@ export const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile';
 export const LLM_API_KEY_ENV_VAR = 'LLM_API_KEY';
 export const LLM_MODEL_ENV_VAR = 'LLM_MODEL';
 export const LLM_BASE_URL_ENV_VAR = 'LLM_BASE_URL';
+export const LLM_LOG_RAW_RESPONSE_ENV_VAR = 'LLM_LOG_RAW_RESPONSE';
 export const GROQ_API_KEY_ENV_VAR = 'GROQ_API_KEY';
 export const GROQ_MODEL_ENV_VAR = 'GROQ_MODEL';
 export const GROQ_BASE_URL_ENV_VAR = 'GROQ_BASE_URL';

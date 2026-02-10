@@ -63,6 +63,14 @@ describe('GeminiLlmAdapter', () => {
     // Assert
     expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
     expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-goog-api-key': 'gemini-key',
+        }),
+      }),
+    );
   });
 
   it('should request JSON-only output via responseMimeType', async () => {
@@ -263,7 +271,7 @@ describe('GeminiLlmAdapter', () => {
 
     // Assert
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://generic-gemini-base.test/models/generic-model:generateContent?key=generic-key',
+      'https://generic-gemini-base.test/models/generic-model:generateContent',
       expect.any(Object),
     );
   });
@@ -320,7 +328,39 @@ describe('GeminiLlmAdapter', () => {
 
     // Assert
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://config-gemini-base.test/models/config-model:generateContent?key=config-key',
+      'https://config-gemini-base.test/models/config-model:generateContent',
+      expect.any(Object),
+    );
+  });
+
+  it('should keep model endpoint when baseUrl already includes /models/', async () => {
+    // Arrange
+    const fetchFn = createFetchFnMock({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: DEFAULT_JSON_TEXT }],
+            },
+          },
+        ],
+      }),
+    });
+    const adapter = createGeminiLlmAdapter({
+      apiKey: 'gemini-key',
+      model: 'gemini-1.5-flash',
+      baseUrl: 'https://gemini.example.test/v1beta/models/gemini-1.5-flash:generateContent/',
+      fetchFn,
+    });
+
+    // Act
+    await runGenerateJson(adapter);
+
+    // Assert
+    expect(fetchFn).toHaveBeenCalledWith(
+      'https://gemini.example.test/v1beta/models/gemini-1.5-flash:generateContent',
       expect.any(Object),
     );
   });

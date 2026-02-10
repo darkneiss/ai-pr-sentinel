@@ -2,8 +2,8 @@ import type { LLMGateway } from '../../../application/ports/llm-gateway.port';
 import type { ConfigPort } from '../../../application/ports/config.port';
 import { createEnvConfig } from '../../config/env-config.adapter';
 
-const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash';
+const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const LLM_API_KEY_ENV_VAR = 'LLM_API_KEY';
 const LLM_MODEL_ENV_VAR = 'LLM_MODEL';
 const LLM_BASE_URL_ENV_VAR = 'LLM_BASE_URL';
@@ -63,8 +63,15 @@ const getGeminiBaseUrl = (params: CreateGeminiLlmAdapterParams, config: ConfigPo
   config.get(GEMINI_BASE_URL_ENV_VAR) ??
   DEFAULT_GEMINI_BASE_URL;
 
-const buildGeminiEndpoint = (baseUrl: string, model: string, apiKey: string): string =>
-  `${baseUrl}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+const buildGeminiEndpoint = (baseUrl: string, model: string): string => {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+
+  if (normalizedBaseUrl.includes('/models/')) {
+    return normalizedBaseUrl;
+  }
+
+  return `${normalizedBaseUrl}/models/${model}:generateContent`;
+};
 
 const buildGeminiRequestBody = ({
   systemPrompt,
@@ -118,7 +125,7 @@ export const createGeminiLlmAdapter = (params: CreateGeminiLlmAdapterParams = {}
   const apiKey = getGeminiApiKey(params, config);
   const model = getGeminiModel(params, config);
   const baseUrl = getGeminiBaseUrl(params, config);
-  const endpoint = buildGeminiEndpoint(baseUrl, model, apiKey);
+  const endpoint = buildGeminiEndpoint(baseUrl, model);
   const fetchFn = params.fetchFn ?? fetch;
 
   return {
@@ -127,6 +134,7 @@ export const createGeminiLlmAdapter = (params: CreateGeminiLlmAdapterParams = {}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
         body: buildGeminiRequestBody({
           systemPrompt,

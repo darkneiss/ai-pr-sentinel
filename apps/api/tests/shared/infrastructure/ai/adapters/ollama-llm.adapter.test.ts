@@ -164,7 +164,7 @@ describe('OllamaLlmAdapter', () => {
 
     // Assert
     expect(fetchFn).toHaveBeenCalledWith(
-      'http://generic-ollama-base.test/api/generate',
+      'http://generic-ollama-base.test',
       expect.objectContaining({
         body: expect.stringContaining('\"model\":\"generic-model\"'),
       }),

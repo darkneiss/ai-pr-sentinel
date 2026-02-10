@@ -7,7 +7,7 @@ interface MockFetchResponse {
 }
 
 describe('GroqLlmAdapter', () => {
-  it('should call Groq chat completions and return raw text', async () => {
+  it('should call Groq endpoint as provided and return raw text', async () => {
     // Arrange
     const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
       ok: true,
@@ -26,7 +26,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'llama-3.3-70b-versatile',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -66,7 +66,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'llama-3.3-70b-versatile',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -133,7 +133,7 @@ describe('GroqLlmAdapter', () => {
     );
   });
 
-  it('should append chat completions endpoint when baseUrl ends with /v1', async () => {
+  it('should not append chat completions endpoint when baseUrl ends with /v1', async () => {
     // Arrange
     const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
       ok: true,
@@ -158,10 +158,10 @@ describe('GroqLlmAdapter', () => {
     });
 
     // Assert
-    expect(fetchFn.mock.calls[0]?.[0]).toBe('https://api.groq.com/openai/v1/chat/completions');
+    expect(fetchFn.mock.calls[0]?.[0]).toBe('https://api.groq.com/openai/v1');
   });
 
-  it('should append chat completions endpoint for custom base url paths', async () => {
+  it('should not append chat completions endpoint for custom base url paths', async () => {
     // Arrange
     const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
       ok: true,
@@ -186,7 +186,7 @@ describe('GroqLlmAdapter', () => {
     });
 
     // Assert
-    expect(fetchFn.mock.calls[0]?.[0]).toBe('https://api.groq.com/openai/custom/chat/completions');
+    expect(fetchFn.mock.calls[0]?.[0]).toBe('https://api.groq.com/openai/custom');
   });
 
   it('should throw error without provider suffix when non-ok response payload is not an object', async () => {
@@ -200,7 +200,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'llama-3.3-70b-versatile',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -228,7 +228,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'llama-3.3-70b-versatile',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -256,7 +256,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'llama-3.3-70b-versatile',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -292,7 +292,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'llama-3.3-70b-versatile',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -320,7 +320,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'llama-3.3-70b-versatile',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -351,7 +351,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'openai/gpt-oss-20b',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -381,7 +381,7 @@ describe('GroqLlmAdapter', () => {
     const adapter = createGroqLlmAdapter({
       apiKey: 'groq-key',
       model: 'openai/gpt-oss-20b',
-      baseUrl: 'https://api.groq.com/openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       fetchFn: fetchFn as unknown as typeof fetch,
     });
 
@@ -453,7 +453,7 @@ describe('GroqLlmAdapter', () => {
       const adapter = createGroqLlmAdapter({
         apiKey: 'groq-key',
         model: 'llama-3.3-70b-versatile',
-        baseUrl: 'https://api.groq.com/openai',
+        baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
       });
 
       // Act
@@ -469,5 +469,43 @@ describe('GroqLlmAdapter', () => {
 
     // Assert
     expect(globalFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('should log raw response when enabled and content is missing', async () => {
+    // Arrange
+    const previousLogFlag = process.env.LLM_LOG_RAW_RESPONSE;
+    process.env.LLM_LOG_RAW_RESPONSE = 'true';
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    const fetchFn = jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: null } }],
+      }),
+    });
+
+    const adapter = createGroqLlmAdapter({
+      apiKey: 'groq-key',
+      model: 'openai/gpt-oss-20b',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+
+    try {
+      // Act + Assert
+      await expect(
+        adapter.generateJson({
+          systemPrompt: 'system',
+          userPrompt: 'user',
+          maxTokens: 120,
+          timeoutMs: 5000,
+        }),
+      ).rejects.toThrow('Groq response did not include text content');
+
+      expect(debugSpy).toHaveBeenCalled();
+    } finally {
+      process.env.LLM_LOG_RAW_RESPONSE = previousLogFlag;
+      debugSpy.mockRestore();
+    }
   });
 });

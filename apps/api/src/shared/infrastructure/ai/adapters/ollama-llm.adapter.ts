@@ -2,7 +2,7 @@ import type { LLMGateway } from '../../../application/ports/llm-gateway.port';
 import type { ConfigPort } from '../../../application/ports/config.port';
 import { createEnvConfig } from '../../config/env-config.adapter';
 
-const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434/api/generate';
 const DEFAULT_OLLAMA_MODEL = 'llama3.1';
 const LLM_MODEL_ENV_VAR = 'LLM_MODEL';
 const LLM_BASE_URL_ENV_VAR = 'LLM_BASE_URL';
@@ -39,7 +39,7 @@ const getOllamaBaseUrl = (params: CreateOllamaLlmAdapterParams, config: ConfigPo
 const getOllamaModel = (params: CreateOllamaLlmAdapterParams, config: ConfigPort): string =>
   params.model ?? config.get(LLM_MODEL_ENV_VAR) ?? config.get(OLLAMA_MODEL_ENV_VAR) ?? DEFAULT_OLLAMA_MODEL;
 
-const buildOllamaEndpoint = (baseUrl: string): string => `${baseUrl}/api/generate`;
+const buildOllamaEndpoint = (baseUrl: string): string => baseUrl;
 
 const buildOllamaRequestBody = ({
   model,
