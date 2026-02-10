@@ -3,7 +3,14 @@ import {
   AI_RECENT_ISSUES_LIMIT,
   AI_SUPPORTED_ACTIONS,
   AI_TEMPERATURE,
+  AI_TRIAGE_LOG_EVENT_FAILED,
+  AI_TRIAGE_LOG_STATUS_FAILED,
+  AI_TRIAGE_LOG_STEPS,
+  AI_TRIAGE_LOG_UNKNOWN_VALUE,
+  DEFAULT_LLM_PROVIDER,
   LLM_LOG_RAW_RESPONSE_ENV_VAR,
+  LLM_MODEL_ENV_VAR,
+  LLM_PROVIDER_ENV_VAR,
   LLM_RAW_TEXT_LOG_PREVIEW_CHARS,
   resolveAiTimeoutMs,
 } from '../constants/ai-triage.constants';
@@ -61,6 +68,11 @@ interface Dependencies {
 const isSupportedAction = (action: string): action is AiSupportedAction =>
   AI_SUPPORTED_ACTIONS.includes(action as AiSupportedAction);
 
+const resolveAiProvider = (config?: ConfigPort): string =>
+  (config?.get(LLM_PROVIDER_ENV_VAR) ?? DEFAULT_LLM_PROVIDER).toLowerCase();
+
+const resolveAiModel = (config?: ConfigPort): string => config?.get(LLM_MODEL_ENV_VAR) ?? AI_TRIAGE_LOG_UNKNOWN_VALUE;
+
 const buildSafeRawTextLogContext = (
   rawText: string,
   config?: ConfigPort,
@@ -80,6 +92,31 @@ const buildSafeRawTextLogContext = (
   };
 };
 
+const logAiTriageFailures = (
+  logger: Logger | undefined,
+  input: AnalyzeIssueWithAiInput,
+  durationMs: number,
+  provider: string,
+  model: string,
+): void => {
+  const debug = logger?.debug;
+  if (!debug) {
+    return;
+  }
+
+  AI_TRIAGE_LOG_STEPS.forEach((step) => {
+    debug(AI_TRIAGE_LOG_EVENT_FAILED, {
+      repositoryFullName: input.repositoryFullName,
+      issueNumber: input.issue.number,
+      step,
+      durationMs,
+      status: AI_TRIAGE_LOG_STATUS_FAILED,
+      provider,
+      model,
+    });
+  });
+};
+
 export const analyzeIssueWithAi =
   ({
     llmGateway,
@@ -96,6 +133,10 @@ export const analyzeIssueWithAi =
     if (!isSupportedAction(input.action)) {
       return { status: 'skipped', reason: 'unsupported_action' };
     }
+
+    const triageStartedAt = Date.now();
+    const provider = resolveAiProvider(config);
+    const model = resolveAiModel(config);
 
     try {
       const recentIssues = await issueHistoryGateway.findRecentIssues({
@@ -152,6 +193,7 @@ export const analyzeIssueWithAi =
 
       const aiAnalysis = parseAiAnalysis(llmResult.rawText, input.issue.number);
       if (!aiAnalysis) {
+        logAiTriageFailures(logger, input, Date.now() - triageStartedAt, provider, model);
         logger.error('AnalyzeIssueWithAiUseCase failed parsing AI response. Applying fail-open policy.', {
           repositoryFullName: input.repositoryFullName,
           issueNumber: input.issue.number,
@@ -191,11 +233,14 @@ export const analyzeIssueWithAi =
         issueHistoryGateway,
         questionResponseMetrics,
         botLogin,
+        llmProvider: provider,
+        llmModel: model,
         logger,
       });
 
       return { status: 'completed' };
     } catch (error: unknown) {
+      logAiTriageFailures(logger, input, Date.now() - triageStartedAt, provider, model);
       logger.error('AnalyzeIssueWithAiUseCase failed. Applying fail-open policy.', {
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
