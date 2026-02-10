@@ -67,6 +67,11 @@
   - `aiSuggestedResponse`
   - `fallbackChecklist`
   - `total`
+- Optional LangSmith observability:
+  - Enabled via `LANGSMITH_TRACING=true`.
+  - Uses `LANGSMITH_API_KEY` and optional `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT`, `LANGSMITH_WORKSPACE_ID`.
+  - Requests/responses are sanitized (redaction + truncation) before sending.
+  - See `docs/LANGSMITH_OBSERVABILITY.md` for the operational checklist.
 
 ## 6. Testing & Quality
 - Test strategy:
