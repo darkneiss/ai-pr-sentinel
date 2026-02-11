@@ -28,6 +28,12 @@ const createAbortError = (): Error => {
   return error;
 };
 
+const createTimeoutError = (): Error => {
+  const error = new Error('Request timed out');
+  error.name = 'TimeoutError';
+  return error;
+};
+
 const createAdapterWithFetch = (fetchFn: typeof fetch) =>
   createOllamaLlmAdapter({
     baseUrl: 'http://localhost:11434',
@@ -142,6 +148,26 @@ describe('OllamaLlmAdapter', () => {
     const fetchFn = jest
       .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
       .mockRejectedValueOnce(createAbortError())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ response: DEFAULT_JSON_TEXT }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act
+    const result = await runGenerateJson(adapter);
+
+    // Assert
+    expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should retry once when Ollama request times out with TimeoutError', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(createTimeoutError())
       .mockResolvedValueOnce({
         ok: true,
         status: 200,

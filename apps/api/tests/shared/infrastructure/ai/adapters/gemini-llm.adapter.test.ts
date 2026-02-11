@@ -29,6 +29,12 @@ const createAbortError = (): Error => {
   return error;
 };
 
+const createTimeoutError = (): Error => {
+  const error = new Error('Request timed out');
+  error.name = 'TimeoutError';
+  return error;
+};
+
 const createAdapterWithFetch = (fetchFn: typeof fetch) =>
   createGeminiLlmAdapter({
     apiKey: 'gemini-key',
@@ -157,6 +163,34 @@ describe('GeminiLlmAdapter', () => {
     const fetchFn = jest
       .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
       .mockRejectedValueOnce(createAbortError())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: DEFAULT_JSON_TEXT }],
+              },
+            },
+          ],
+        }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act
+    const result = await runGenerateJson(adapter);
+
+    // Assert
+    expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should retry once when Gemini request times out with TimeoutError', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(createTimeoutError())
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
