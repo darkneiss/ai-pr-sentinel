@@ -10,6 +10,7 @@ const LLM_BASE_URL_ENV_VAR = 'LLM_BASE_URL';
 const GEMINI_API_KEY_ENV_VAR = 'GEMINI_API_KEY';
 const GEMINI_MODEL_ENV_VAR = 'GEMINI_MODEL';
 const GEMINI_BASE_URL_ENV_VAR = 'GEMINI_BASE_URL';
+const GEMINI_RETRYABLE_STATUS_CODES = [429, 503] as const;
 
 interface CreateGeminiLlmAdapterParams {
   apiKey?: string;
@@ -96,6 +97,19 @@ const buildGeminiRequestBody = ({
     },
   });
 
+const isRetryableStatus = (status: number): boolean =>
+  (GEMINI_RETRYABLE_STATUS_CODES as readonly number[]).includes(status);
+
+const isTimeoutError = (error: unknown): boolean => error instanceof Error && error.name === 'AbortError';
+
+const parseGeminiErrorResponse = async (response: Response): Promise<GeminiErrorResponse | undefined> => {
+  try {
+    return (await response.json()) as GeminiErrorResponse;
+  } catch (_error: unknown) {
+    return undefined;
+  }
+};
+
 const buildGeminiRequestError = ({
   status,
   model,
@@ -130,33 +144,74 @@ export const createGeminiLlmAdapter = (params: CreateGeminiLlmAdapterParams = {}
 
   return {
     generateJson: async ({ systemPrompt, userPrompt, maxTokens, timeoutMs, temperature }) => {
-      const response = await fetchFn(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: buildGeminiRequestBody({
-          systemPrompt,
-          userPrompt,
-          maxTokens,
-          timeoutMs,
-          temperature,
-        }),
-        signal: createAbortSignal(timeoutMs),
-      });
-
-      if (!response.ok) {
-        const responseJson = (await response.json().catch(() => undefined)) as GeminiErrorResponse | undefined;
-        throw buildGeminiRequestError({
-          status: response.status,
-          model,
-          responseJson,
+      const requestOnce = async (): Promise<Response> =>
+        fetchFn(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: buildGeminiRequestBody({
+            systemPrompt,
+            userPrompt,
+            maxTokens,
+            timeoutMs,
+            temperature,
+          }),
+          signal: createAbortSignal(timeoutMs),
         });
-      }
 
-      const responseJson = (await response.json()) as GeminiSuccessResponse;
+      const handleNonOkResponse = async (response: Response): Promise<GeminiSuccessResponse> => {
+        const responseJson = await parseGeminiErrorResponse(response);
+        if (!isRetryableStatus(response.status)) {
+          throw buildGeminiRequestError({
+            status: response.status,
+            model,
+            responseJson,
+          });
+        }
 
+        const retryResponse = await requestOnce();
+        if (!retryResponse.ok) {
+          const retryResponseJson = await parseGeminiErrorResponse(retryResponse);
+          throw buildGeminiRequestError({
+            status: retryResponse.status,
+            model,
+            responseJson: retryResponseJson,
+          });
+        }
+
+        return (await retryResponse.json()) as GeminiSuccessResponse;
+      };
+
+      const requestWithRetry = async (): Promise<GeminiSuccessResponse> => {
+        try {
+          const response = await requestOnce();
+          if (!response.ok) {
+            return handleNonOkResponse(response);
+          }
+
+          return (await response.json()) as GeminiSuccessResponse;
+        } catch (error: unknown) {
+          if (!isTimeoutError(error)) {
+            throw error;
+          }
+
+          const retryResponse = await requestOnce();
+          if (!retryResponse.ok) {
+            const retryResponseJson = await parseGeminiErrorResponse(retryResponse);
+            throw buildGeminiRequestError({
+              status: retryResponse.status,
+              model,
+              responseJson: retryResponseJson,
+            });
+          }
+
+          return (await retryResponse.json()) as GeminiSuccessResponse;
+        }
+      };
+
+      const responseJson = await requestWithRetry();
       return { rawText: extractGeminiRawText(responseJson) };
     },
   };

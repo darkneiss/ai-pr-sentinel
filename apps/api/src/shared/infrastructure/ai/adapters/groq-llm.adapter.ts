@@ -12,7 +12,7 @@ import {
   LLM_LOG_RAW_RESPONSE_ENV_VAR,
   LLM_MODEL_ENV_VAR,
 } from './groq-adapter.constants';
-import type { CreateGroqLlmAdapterParams, GroqSuccessResponse } from './groq-adapter.types';
+import type { CreateGroqLlmAdapterParams, GroqErrorContext, GroqSuccessResponse } from './groq-adapter.types';
 import {
   buildGroqEndpoint,
   buildGroqRequestError,
@@ -32,6 +32,8 @@ const getGroqApiKey = (params: CreateGroqLlmAdapterParams): string => {
 
   return apiKey;
 };
+
+const GROQ_RETRY_LOG_MESSAGE = 'Groq retrying without structured output.';
 
 export const createGroqLlmAdapter = (params: CreateGroqLlmAdapterParams = {}): LLMGateway => {
   const config = params.config ?? createEnvConfig();
@@ -56,6 +58,14 @@ export const createGroqLlmAdapter = (params: CreateGroqLlmAdapterParams = {}): L
       endpoint,
       model,
       responseJson,
+    });
+  };
+
+  const logRetryWithoutStructuredOutput = (errorContext: GroqErrorContext): void => {
+    console.debug(GROQ_RETRY_LOG_MESSAGE, {
+      endpoint,
+      model,
+      errorContext,
     });
   };
 
@@ -86,6 +96,8 @@ export const createGroqLlmAdapter = (params: CreateGroqLlmAdapterParams = {}): L
             endpoint,
           });
         }
+
+        logRetryWithoutStructuredOutput(firstErrorContext);
 
         const retryResponse = await requestGroq({
           fetchFn,
