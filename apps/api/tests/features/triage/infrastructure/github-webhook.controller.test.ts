@@ -5,7 +5,10 @@ import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../..
 import { createGithubWebhookController } from '../../../../src/features/triage/infrastructure/controllers/github-webhook.controller';
 import type { GovernanceGateway } from '../../../../src/features/triage/application/ports/governance-gateway.port';
 import type { RepositoryAuthorizationGateway } from '../../../../src/features/triage/application/ports/repository-authorization-gateway.port';
-import type { WebhookDeliveryGateway } from '../../../../src/features/triage/application/ports/webhook-delivery-gateway.port';
+import {
+  WEBHOOK_DELIVERY_SOURCE_GITHUB,
+  type WebhookDeliveryGateway,
+} from '../../../../src/features/triage/application/ports/webhook-delivery-gateway.port';
 import { createInMemoryWebhookDeliveryAdapter } from '../../../../src/features/triage/infrastructure/adapters/in-memory-webhook-delivery.adapter';
 
 const WEBHOOK_ROUTE = '/webhooks/github';
@@ -438,5 +441,71 @@ describe('GithubWebhookController integration', () => {
     expect(secondResponse.status).toBe(200);
     expect(secondResponse.body).toEqual({ status: 'ok' });
     expect(governanceGateway.logValidatedIssue).toHaveBeenCalledTimes(2);
+  });
+
+  it('should process webhook when delivery id is present and delivery gateway is not configured', async () => {
+    // Arrange
+    const { app, governanceGateway } = setup();
+
+    // Act
+    const response = await request(app)
+      .post(WEBHOOK_ROUTE)
+      .set('x-github-delivery', 'delivery-no-gateway-1')
+      .send(createPayload());
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: 'ok' });
+    expect(governanceGateway.logValidatedIssue).toHaveBeenCalledTimes(1);
+  });
+
+  it('should log rollback failure when unregister throws after processing failure', async () => {
+    // Arrange
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockRejectedValueOnce(new Error('temporary failure')),
+    };
+    const webhookDeliveryGateway: jest.Mocked<WebhookDeliveryGateway> = {
+      registerIfFirstSeen: jest.fn().mockResolvedValue({ status: 'accepted' }),
+      unregister: jest.fn().mockRejectedValue(new Error('rollback failed')),
+    };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const app = express();
+    app.use(express.json());
+    app.post(
+      WEBHOOK_ROUTE,
+      createGithubWebhookController({
+        governanceGateway,
+        webhookDeliveryGateway,
+        logger,
+      }),
+    );
+
+    // Act
+    const response = await request(app)
+      .post(WEBHOOK_ROUTE)
+      .set('x-github-delivery', 'delivery-rollback-1')
+      .send(createPayload());
+
+    // Assert
+    expect(response.status).toBe(500);
+    expect(webhookDeliveryGateway.unregister).toHaveBeenCalledWith({
+      source: WEBHOOK_DELIVERY_SOURCE_GITHUB,
+      deliveryId: 'delivery-rollback-1',
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      'GithubWebhookController failed to roll back webhook delivery registration.',
+      expect.objectContaining({
+        deliveryId: 'delivery-rollback-1',
+        rollbackError: expect.any(Error),
+      }),
+    );
   });
 });

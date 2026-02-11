@@ -72,6 +72,19 @@ describe('WebhookIngressConfigService', () => {
     expect(result.deliveryTtlSeconds).toBe(86400);
   });
 
+  it('should fallback to default ttl when ttl env var is zero', () => {
+    // Arrange
+    const config = createConfigMock({
+      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '0',
+    });
+
+    // Act
+    const result = resolveWebhookIngressConfig(config);
+
+    // Assert
+    expect(result.deliveryTtlSeconds).toBe(86400);
+  });
+
   it('should fallback to default ttl when ttl env var has partially numeric format', () => {
     // Arrange
     const configWithScientificNotation = createConfigMock({

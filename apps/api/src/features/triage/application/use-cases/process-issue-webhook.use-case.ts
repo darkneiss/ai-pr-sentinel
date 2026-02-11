@@ -8,6 +8,7 @@ import {
   validateIssueIntegrity,
   type IssueIntegrityValidator,
 } from '../../domain/services/issue-validation.service';
+import { IssueEntity } from '../../domain/entities/issue.entity';
 
 const SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
 
@@ -61,13 +62,14 @@ export const processIssueWebhook =
       return { statusCode: 204 };
     }
 
-    const validationResult = issueIntegrityValidator({
+    const issueEntity = IssueEntity.create({
       id: `${input.repositoryFullName}#${input.issue.number}`,
       title: input.issue.title,
       description: input.issue.body,
       author: input.issue.author,
       createdAt: new Date(),
     });
+    const validationResult = issueIntegrityValidator(issueEntity);
 
     if (!validationResult.isValid) {
       const hasNeedsInfoLabel = input.issue.labels.includes(TRIAGE_NEEDS_INFO_LABEL);
