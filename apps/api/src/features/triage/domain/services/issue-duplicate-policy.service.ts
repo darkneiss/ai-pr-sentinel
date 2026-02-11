@@ -27,6 +27,10 @@ export interface BuildIssueDuplicateCommentInput {
   similarityScore: number;
 }
 
+export interface ShouldProcessIssueDuplicateSignalInput {
+  isDuplicate: boolean;
+}
+
 const SIMILARITY_PERCENT_MULTIPLIER = 100;
 
 export const resolveFallbackDuplicateIssueNumber = ({
@@ -67,3 +71,7 @@ export const buildIssueDuplicateComment = ({
   similarityScore,
 }: BuildIssueDuplicateCommentInput): string =>
   `${commentPrefix}${originalIssueNumber} (Similarity: ${Math.round(similarityScore * SIMILARITY_PERCENT_MULTIPLIER)}%).`;
+
+export const shouldProcessIssueDuplicateSignal = ({
+  isDuplicate,
+}: ShouldProcessIssueDuplicateSignalInput): boolean => isDuplicate;

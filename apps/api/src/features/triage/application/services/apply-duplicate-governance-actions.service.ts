@@ -7,13 +7,14 @@ import {
   buildIssueDuplicateComment,
   decideIssueDuplicateActions,
   resolveFallbackDuplicateIssueNumber,
+  shouldProcessIssueDuplicateSignal,
 } from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 
 export const applyDuplicateGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
 ): Promise<void> => {
-  if (!context.aiAnalysis.duplicateDetection.isDuplicate) {
+  if (!shouldProcessIssueDuplicateSignal({ isDuplicate: context.aiAnalysis.duplicateDetection.isDuplicate })) {
     return;
   }
 

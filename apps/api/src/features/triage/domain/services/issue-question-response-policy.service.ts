@@ -112,6 +112,17 @@ export const buildIssueQuestionFallbackResponse = (checklistLines: readonly stri
     .filter((line) => line.length > 0)
     .join(QUESTION_RESPONSE_LINE_SEPARATOR);
 
+export interface BuildIssueQuestionFallbackResponseWhenApplicableInput {
+  looksLikeQuestionIssue: boolean;
+  checklistLines: readonly string[];
+}
+
+export const buildIssueQuestionFallbackResponseWhenApplicable = ({
+  looksLikeQuestionIssue,
+  checklistLines,
+}: BuildIssueQuestionFallbackResponseWhenApplicableInput): string =>
+  looksLikeQuestionIssue ? buildIssueQuestionFallbackResponse(checklistLines) : '';
+
 export interface ResolveIssueQuestionResponseCommentPrefixInput {
   responseSource: IssueQuestionResponseSource;
   aiSuggestedResponseCommentPrefix: string;

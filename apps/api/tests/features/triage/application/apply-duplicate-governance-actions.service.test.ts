@@ -3,6 +3,7 @@ import type { AiTriageGovernanceActionsExecutionContext } from '../../../../src/
 import {
   decideIssueDuplicateActions,
   resolveFallbackDuplicateIssueNumber,
+  shouldProcessIssueDuplicateSignal,
 } from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
 import type { RecentIssueSummary } from '../../../../src/features/triage/application/ports/issue-history-gateway.port';
 
@@ -10,6 +11,7 @@ jest.mock('../../../../src/features/triage/domain/services/issue-duplicate-polic
   buildIssueDuplicateComment: jest.fn(),
   decideIssueDuplicateActions: jest.fn(),
   resolveFallbackDuplicateIssueNumber: jest.fn(),
+  shouldProcessIssueDuplicateSignal: jest.fn(() => true),
 }));
 
 const mockedDecideIssueDuplicateActions = decideIssueDuplicateActions as jest.MockedFunction<
@@ -17,6 +19,9 @@ const mockedDecideIssueDuplicateActions = decideIssueDuplicateActions as jest.Mo
 >;
 const mockedResolveFallbackDuplicateIssueNumber = resolveFallbackDuplicateIssueNumber as jest.MockedFunction<
   typeof resolveFallbackDuplicateIssueNumber
+>;
+const mockedShouldProcessIssueDuplicateSignal = shouldProcessIssueDuplicateSignal as jest.MockedFunction<
+  typeof shouldProcessIssueDuplicateSignal
 >;
 
 const createExecutionContext = (): AiTriageGovernanceActionsExecutionContext => {
@@ -105,6 +110,7 @@ describe('applyDuplicateGovernanceActions', () => {
     await applyDuplicateGovernanceActions(context);
 
     // Assert
+    expect(mockedShouldProcessIssueDuplicateSignal).toHaveBeenCalledTimes(1);
     expect(mockedResolveFallbackDuplicateIssueNumber).toHaveBeenCalledTimes(1);
     expect(mockedDecideIssueDuplicateActions).toHaveBeenCalledTimes(1);
     expect(context.addLabelIfMissing).not.toHaveBeenCalled();

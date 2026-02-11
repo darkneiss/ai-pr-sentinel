@@ -1,6 +1,7 @@
 import {
   buildIssueQuestionResponseComment,
   buildIssueQuestionFallbackResponse,
+  buildIssueQuestionFallbackResponseWhenApplicable,
   decideIssueQuestionResponseAction,
   detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
@@ -267,6 +268,25 @@ describe('IssueQuestionResponsePolicyService', () => {
 
     // Assert
     expect(result).toBe('- Confirm Node version\n- Install dependencies\n- Run tests');
+  });
+
+  it('should only build fallback response when issue looks like a question', () => {
+    // Arrange
+    const checklistLines = ['- Confirm Node version', '- Install dependencies'];
+
+    // Act
+    const fallbackForQuestion = buildIssueQuestionFallbackResponseWhenApplicable({
+      looksLikeQuestionIssue: true,
+      checklistLines,
+    });
+    const fallbackForNonQuestion = buildIssueQuestionFallbackResponseWhenApplicable({
+      looksLikeQuestionIssue: false,
+      checklistLines,
+    });
+
+    // Assert
+    expect(fallbackForQuestion).toBe('- Confirm Node version\n- Install dependencies');
+    expect(fallbackForNonQuestion).toBe('');
   });
 
   it('should resolve response comment prefix and build question response comment body', () => {

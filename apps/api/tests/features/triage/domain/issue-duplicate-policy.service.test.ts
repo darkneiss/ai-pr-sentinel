@@ -2,6 +2,7 @@ import {
   buildIssueDuplicateComment,
   decideIssueDuplicateActions,
   resolveFallbackDuplicateIssueNumber,
+  shouldProcessIssueDuplicateSignal,
 } from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
 
 describe('IssueDuplicatePolicyService', () => {
@@ -185,5 +186,19 @@ describe('IssueDuplicatePolicyService', () => {
 
     // Assert
     expect(result).toBe('Possible duplicate of #123 (Similarity: 91%).');
+  });
+
+  it('should process duplicate actions only when ai marks issue as duplicate', () => {
+    // Arrange
+    const duplicateSignalInput = { isDuplicate: true };
+    const nonDuplicateSignalInput = { isDuplicate: false };
+
+    // Act
+    const shouldProcessDuplicateSignal = shouldProcessIssueDuplicateSignal(duplicateSignalInput);
+    const shouldProcessNonDuplicateSignal = shouldProcessIssueDuplicateSignal(nonDuplicateSignalInput);
+
+    // Assert
+    expect(shouldProcessDuplicateSignal).toBe(true);
+    expect(shouldProcessNonDuplicateSignal).toBe(false);
   });
 });

@@ -9,8 +9,8 @@ import {
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import type { QuestionResponseSource } from '../../../../shared/application/ports/question-response-metrics.port';
 import {
+  buildIssueQuestionFallbackResponseWhenApplicable,
   buildIssueQuestionResponseComment,
-  buildIssueQuestionFallbackResponse,
   decideIssueQuestionResponseAction,
   detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
@@ -29,9 +29,10 @@ export const applyQuestionResponseGovernanceActions = async (
     body: context.issue.body,
     questionSignalKeywords: AI_QUESTION_SIGNAL_KEYWORDS,
   });
-  const fallbackQuestionResponse = looksLikeQuestionIssue
-    ? buildIssueQuestionFallbackResponse(AI_QUESTION_FALLBACK_CHECKLIST)
-    : '';
+  const fallbackQuestionResponse = buildIssueQuestionFallbackResponseWhenApplicable({
+    looksLikeQuestionIssue,
+    checklistLines: AI_QUESTION_FALLBACK_CHECKLIST,
+  });
   const questionResponseDecision = decideIssueQuestionResponseAction({
     action: context.action,
     effectiveTone: context.effectiveTone,
