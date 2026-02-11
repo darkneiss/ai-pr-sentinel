@@ -57,4 +57,21 @@ describe('IssueEntity', () => {
     expect(result.errors).toContain('Description is too short (min 30 chars) to be useful');
     expect(result.errors).toContain('Author is required');
   });
+
+  it('should throw when createdAt date is invalid', () => {
+    // Arrange
+    const act = (): void => {
+      IssueEntity.create({
+        id: 'ISSUE-123',
+        title: 'Valid title for issue',
+        description: 'This is a valid description with enough length for integrity checks.',
+        author: 'dev_user',
+        createdAt: new Date(Number.NaN),
+      });
+    };
+
+    // Act
+    // Assert
+    expect(act).toThrow('Invalid issue createdAt date');
+  });
 });

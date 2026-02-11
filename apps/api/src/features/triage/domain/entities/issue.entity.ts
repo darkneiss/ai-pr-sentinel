@@ -10,6 +10,7 @@ import {
   TITLE_TOO_SHORT_ERROR,
 } from '../constants/issue-validation.constants';
 import { IssueAuthor } from '../value-objects/issue-author.value-object';
+import { IssueCreatedAt } from '../value-objects/issue-created-at.value-object';
 import { IssueDescription } from '../value-objects/issue-description.value-object';
 import { IssueId } from '../value-objects/issue-id.value-object';
 import { IssueTitle } from '../value-objects/issue-title.value-object';
@@ -31,6 +32,7 @@ export interface IssueIntegrityValidationResult {
 
 export class IssueEntity {
   #issueId: IssueId;
+  #issueCreatedAt: IssueCreatedAt;
   #issueTitle: IssueTitle;
   #issueDescription: IssueDescription;
   #issueAuthor: IssueAuthor;
@@ -42,11 +44,13 @@ export class IssueEntity {
     public readonly author: string,
     public readonly createdAt: Date,
     issueId: IssueId,
+    issueCreatedAt: IssueCreatedAt,
     issueTitle: IssueTitle,
     issueDescription: IssueDescription,
     issueAuthor: IssueAuthor,
   ) {
     this.#issueId = issueId;
+    this.#issueCreatedAt = issueCreatedAt;
     this.#issueTitle = issueTitle;
     this.#issueDescription = issueDescription;
     this.#issueAuthor = issueAuthor;
@@ -54,6 +58,7 @@ export class IssueEntity {
 
   public static create(input: Issue): IssueEntity {
     const issueId = IssueId.create(input.id);
+    const issueCreatedAt = IssueCreatedAt.create(input.createdAt);
     const issueTitle = IssueTitle.create(input.title);
     const issueDescription = IssueDescription.create(input.description);
     const issueAuthor = IssueAuthor.create(input.author);
@@ -63,8 +68,9 @@ export class IssueEntity {
       issueTitle.value,
       issueDescription.value,
       issueAuthor.value,
-      input.createdAt,
+      issueCreatedAt.value,
       issueId,
+      issueCreatedAt,
       issueTitle,
       issueDescription,
       issueAuthor,
