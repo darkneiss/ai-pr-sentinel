@@ -1,7 +1,9 @@
 import {
+  buildIssueQuestionFallbackResponse,
   decideIssueQuestionResponseAction,
   detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
+  normalizeIssueQuestionSuggestedResponse,
 } from '../../../../src/features/triage/domain/services/issue-question-response-policy.service';
 
 describe('IssueQuestionResponsePolicyService', () => {
@@ -213,5 +215,41 @@ describe('IssueQuestionResponsePolicyService', () => {
 
     // Assert
     expect(result).toBe(false);
+  });
+
+  it('should normalize suggested response by trimming non-empty text', () => {
+    // Arrange
+    const suggestedResponse = '  Use pnpm install and run tests.  ';
+
+    // Act
+    const result = normalizeIssueQuestionSuggestedResponse(suggestedResponse);
+
+    // Assert
+    expect(result).toBe('Use pnpm install and run tests.');
+  });
+
+  it('should normalize suggested response to empty string when undefined or blank', () => {
+    // Arrange
+    const undefinedSuggestedResponse = undefined;
+    const blankSuggestedResponse = '   ';
+
+    // Act
+    const undefinedResult = normalizeIssueQuestionSuggestedResponse(undefinedSuggestedResponse);
+    const blankResult = normalizeIssueQuestionSuggestedResponse(blankSuggestedResponse);
+
+    // Assert
+    expect(undefinedResult).toBe('');
+    expect(blankResult).toBe('');
+  });
+
+  it('should build fallback response by joining checklist lines with line breaks', () => {
+    // Arrange
+    const checklistLines = ['- Confirm Node version', '- Install dependencies', '- Run tests'];
+
+    // Act
+    const result = buildIssueQuestionFallbackResponse(checklistLines);
+
+    // Assert
+    expect(result).toBe('- Confirm Node version\n- Install dependencies\n- Run tests');
   });
 });

@@ -28,6 +28,7 @@ export interface DetectRepositoryContextUsageInResponseInput {
   repositoryReadme: string | undefined;
 }
 
+const QUESTION_RESPONSE_LINE_SEPARATOR = '\n';
 const CONTEXT_STOP_WORDS = new Set([
   'this',
   'that',
@@ -63,6 +64,21 @@ const extractMeaningfulContextTokens = (value: string): string[] =>
     .split(/[^a-z0-9]+/i)
     .map((token) => token.trim())
     .filter((token) => token.length >= CONTEXT_TOKEN_MIN_LENGTH && !CONTEXT_STOP_WORDS.has(token));
+
+export const normalizeIssueQuestionSuggestedResponse = (suggestedResponse: string | undefined): string => {
+  if (typeof suggestedResponse !== 'string') {
+    return '';
+  }
+
+  const normalizedSuggestedResponse = suggestedResponse.trim();
+  return normalizedSuggestedResponse.length > 0 ? normalizedSuggestedResponse : '';
+};
+
+export const buildIssueQuestionFallbackResponse = (checklistLines: readonly string[]): string =>
+  checklistLines
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join(QUESTION_RESPONSE_LINE_SEPARATOR);
 
 export const isLikelyQuestionIssueContent = ({
   title,
