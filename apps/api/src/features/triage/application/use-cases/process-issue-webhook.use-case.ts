@@ -9,6 +9,7 @@ import {
   type IssueIntegrityValidator,
 } from '../../domain/services/issue-validation.service';
 import { IssueEntity } from '../../domain/entities/issue.entity';
+import { decideIssueGovernanceActions } from '../../domain/services/issue-governance-policy.service';
 
 const SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
 
@@ -70,29 +71,34 @@ export const processIssueWebhook =
       createdAt: new Date(),
     });
     const validationResult = issueIntegrityValidator(issueEntity);
+    const governanceActionsDecision = decideIssueGovernanceActions({
+      validation: validationResult,
+      existingLabels: input.issue.labels,
+      governanceErrorLabels: GOVERNANCE_ERROR_LABELS,
+      needsInfoLabel: TRIAGE_NEEDS_INFO_LABEL,
+    });
 
-    if (!validationResult.isValid) {
-      const hasNeedsInfoLabel = input.issue.labels.includes(TRIAGE_NEEDS_INFO_LABEL);
-      if (hasNeedsInfoLabel) {
-        return { statusCode: 200 };
-      }
-
+    if (governanceActionsDecision.shouldAddNeedsInfoLabel) {
       await governanceGateway.addLabels({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
         labels: [TRIAGE_NEEDS_INFO_LABEL],
       });
+    }
+
+    if (governanceActionsDecision.shouldCreateValidationComment) {
       await governanceGateway.createComment({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
-        body: buildValidationComment(validationResult.errors),
+        body: buildValidationComment(governanceActionsDecision.validationErrors),
       });
+    }
 
+    if (!governanceActionsDecision.shouldLogValidatedIssue) {
       return { statusCode: 200 };
     }
 
-    const labelsToRemove = GOVERNANCE_ERROR_LABELS.filter((label) => input.issue.labels.includes(label));
-    for (const label of labelsToRemove) {
+    for (const label of governanceActionsDecision.labelsToRemove) {
       await governanceGateway.removeLabel({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
@@ -105,7 +111,7 @@ export const processIssueWebhook =
       issueNumber: input.issue.number,
     });
 
-    if (analyzeIssueWithAi) {
+    if (analyzeIssueWithAi && governanceActionsDecision.shouldRunAiTriage) {
       try {
         logger.debug?.('ProcessIssueWebhookUseCase AI triage started.', {
           repositoryFullName: input.repositoryFullName,
