@@ -4,12 +4,12 @@ import {
   isObjectRecord,
   normalizeAiIssueKind,
   normalizeAiTone,
-} from './ai-analysis.types';
+} from './issue-ai-analysis.types';
 import {
   parseFirstValidDuplicateIssueReference,
   parseIssueNumberFromReference,
-} from '../../domain/services/issue-reference-parser-policy.service';
-import { normalizeIssueQuestionSuggestedResponseValue } from '../../domain/services/issue-question-response-policy.service';
+} from './issue-reference-parser-policy.service';
+import { normalizeIssueQuestionSuggestedResponseValue } from './issue-question-response-policy.service';
 
 export const normalizeStructuredAiAnalysis = (
   value: Record<string, unknown>,

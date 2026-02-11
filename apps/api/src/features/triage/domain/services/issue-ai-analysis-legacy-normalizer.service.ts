@@ -4,11 +4,11 @@ import {
   isObjectRecord,
   normalizeAiIssueKind,
   normalizeAiTone,
-} from './ai-analysis.types';
+} from './issue-ai-analysis.types';
 import {
   parseFirstValidDuplicateIssueReference,
   parseIssueNumberFromReference,
-} from '../../domain/services/issue-reference-parser-policy.service';
+} from './issue-reference-parser-policy.service';
 
 export const normalizeLegacyAiAnalysis = (
   value: Record<string, unknown>,

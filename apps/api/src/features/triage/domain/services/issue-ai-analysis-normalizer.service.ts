@@ -1,9 +1,9 @@
-import { normalizeLegacyAiAnalysis } from './ai-analysis-legacy-normalizer.service';
-import { isAiAnalysis } from './ai-analysis-shape-guards.service';
-import { normalizeStructuredAiAnalysis } from './ai-analysis-structured-normalizer.service';
-import { isObjectRecord } from './ai-analysis.types';
+import { normalizeLegacyAiAnalysis } from './issue-ai-analysis-legacy-normalizer.service';
+import { isAiAnalysis } from './issue-ai-analysis-shape-guards.service';
+import { normalizeStructuredAiAnalysis } from './issue-ai-analysis-structured-normalizer.service';
+import { isObjectRecord } from './issue-ai-analysis.types';
 
-export type { AiAnalysis, AiIssueKind, AiTone } from './ai-analysis.types';
+export type { AiAnalysis, AiIssueKind, AiTone } from './issue-ai-analysis.types';
 
 export const parseAiAnalysis = (rawText: string, currentIssueNumber: number) => {
   try {

@@ -1,10 +1,10 @@
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import type { IssueHistoryGateway, RecentIssueSummary } from '../ports/issue-history-gateway.port';
-import type { AiAnalysis, AiTone } from './ai-analysis-normalizer.service';
 import {
   shouldAddIssueLabel,
   shouldRemoveIssueLabel,
 } from '../../domain/services/issue-label-transition-policy.service';
+import type { AiAnalysis, AiTone } from '../../domain/services/issue-ai-analysis-normalizer.service';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
 
 interface Logger {

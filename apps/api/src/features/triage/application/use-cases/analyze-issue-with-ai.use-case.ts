@@ -16,9 +16,9 @@ import {
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import type { IssueHistoryGateway } from '../ports/issue-history-gateway.port';
 import type { RepositoryContextGateway } from '../ports/repository-context-gateway.port';
-import { parseAiAnalysis } from '../services/ai-analysis-normalizer.service';
 import { applyAiTriageGovernanceActions } from '../services/apply-ai-triage-governance-actions.service';
 import { isIssueAiTriageActionSupported } from '../../domain/services/issue-ai-triage-action-policy.service';
+import { parseAiAnalysis } from '../../domain/services/issue-ai-analysis-normalizer.service';
 import type { LLMGateway } from '../../../../shared/application/ports/llm-gateway.port';
 import type { IssueTriagePromptGateway } from '../../../../shared/application/ports/issue-triage-prompt-gateway.port';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
