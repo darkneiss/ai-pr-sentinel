@@ -13,10 +13,7 @@ import {
   buildIssueValidationComment,
   decideIssueGovernanceActions,
 } from '../../domain/services/issue-governance-policy.service';
-
-const SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
-
-type SupportedAction = (typeof SUPPORTED_ACTIONS)[number];
+import { isIssueWebhookActionSupported } from '../../domain/services/issue-webhook-action-policy.service';
 
 export interface ProcessIssueWebhookInput {
   action: string;
@@ -46,9 +43,6 @@ interface Dependencies {
   };
 }
 
-const isSupportedAction = (action: string): action is SupportedAction =>
-  SUPPORTED_ACTIONS.includes(action as SupportedAction);
-
 export const processIssueWebhook =
   ({
     governanceGateway,
@@ -57,7 +51,7 @@ export const processIssueWebhook =
     logger = console,
   }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
-    if (!isSupportedAction(input.action)) {
+    if (!isIssueWebhookActionSupported(input.action)) {
       return { statusCode: 204 };
     }
 
