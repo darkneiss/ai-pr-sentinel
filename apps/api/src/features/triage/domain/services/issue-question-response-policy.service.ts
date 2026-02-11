@@ -75,6 +75,28 @@ export const normalizeIssueQuestionSuggestedResponse = (suggestedResponse: strin
   return normalizedSuggestedResponse.length > 0 ? normalizedSuggestedResponse : '';
 };
 
+export const normalizeIssueQuestionSuggestedResponseValue = (
+  suggestedResponseValue: unknown,
+): string | undefined => {
+  if (typeof suggestedResponseValue === 'string') {
+    const normalizedSuggestedResponse = normalizeIssueQuestionSuggestedResponse(suggestedResponseValue);
+    return normalizedSuggestedResponse.length > 0 ? normalizedSuggestedResponse : undefined;
+  }
+
+  if (Array.isArray(suggestedResponseValue)) {
+    const normalizedLines = suggestedResponseValue
+      .filter((item): item is string => typeof item === 'string')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (normalizedLines.length > 0) {
+      return normalizedLines.join(QUESTION_RESPONSE_LINE_SEPARATOR);
+    }
+  }
+
+  return undefined;
+};
+
 export const buildIssueQuestionFallbackResponse = (checklistLines: readonly string[]): string =>
   checklistLines
     .map((line) => line.trim())

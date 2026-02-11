@@ -5,6 +5,7 @@ import {
   detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
   normalizeIssueQuestionSuggestedResponse,
+  normalizeIssueQuestionSuggestedResponseValue,
   resolveIssueQuestionResponseCommentPrefix,
 } from '../../../../src/features/triage/domain/services/issue-question-response-policy.service';
 
@@ -242,6 +243,17 @@ describe('IssueQuestionResponsePolicyService', () => {
     // Assert
     expect(undefinedResult).toBe('');
     expect(blankResult).toBe('');
+  });
+
+  it('should normalize suggested response value from string arrays and ignore non-string values', () => {
+    // Arrange
+    const suggestedResponseValue: unknown = ['  Step 1  ', 12, 'Step 2', '', null];
+
+    // Act
+    const result = normalizeIssueQuestionSuggestedResponseValue(suggestedResponseValue);
+
+    // Assert
+    expect(result).toBe('Step 1\nStep 2');
   });
 
   it('should build fallback response by joining checklist lines with line breaks', () => {

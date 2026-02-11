@@ -5,11 +5,11 @@ import {
   normalizeAiIssueKind,
   normalizeAiTone,
 } from './ai-analysis.types';
-import { normalizeSuggestedResponse } from './ai-analysis-reference-parser.service';
 import {
   parseFirstValidDuplicateIssueReference,
   parseIssueNumberFromReference,
 } from '../../domain/services/issue-reference-parser-policy.service';
+import { normalizeIssueQuestionSuggestedResponseValue } from '../../domain/services/issue-question-response-policy.service';
 
 export const normalizeStructuredAiAnalysis = (
   value: Record<string, unknown>,
@@ -119,6 +119,7 @@ export const normalizeStructuredAiAnalysis = (
         typeof sentimentRaw.reasoning === 'string' ? sentimentRaw.reasoning : 'Structured-format AI response',
     },
     suggestedResponse:
-      normalizeSuggestedResponse(value.suggestedResponse) ?? normalizeSuggestedResponse(value.suggested_response),
+      normalizeIssueQuestionSuggestedResponseValue(value.suggestedResponse) ??
+      normalizeIssueQuestionSuggestedResponseValue(value.suggested_response),
   };
 };
