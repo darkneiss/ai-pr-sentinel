@@ -1,22 +1,12 @@
+import { IssueNumber } from '../value-objects/issue-number.value-object';
+
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 export const parseIssueNumberFromReference = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isInteger(value)) {
-    return value > 0 ? value : null;
-  }
-
-  if (typeof value === 'string') {
-    const exactParsedNumber = Number(value.replace('#', '').trim());
-    if (Number.isInteger(exactParsedNumber) && exactParsedNumber > 0) {
-      return exactParsedNumber;
-    }
-
-    const numericMatch = value.match(/#?\s*(\d+)/);
-    const extractedNumber = numericMatch?.[1] ? Number(numericMatch[1]) : Number.NaN;
-    if (Number.isInteger(extractedNumber) && extractedNumber > 0) {
-      return extractedNumber;
-    }
+  const parsedPrimitiveIssueNumber = IssueNumber.fromUnknown(value);
+  if (parsedPrimitiveIssueNumber !== null) {
+    return parsedPrimitiveIssueNumber.value;
   }
 
   if (isObjectRecord(value)) {
