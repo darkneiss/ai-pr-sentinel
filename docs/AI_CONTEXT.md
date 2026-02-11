@@ -76,7 +76,8 @@
 
 ## 5. Observability & Metrics
 - Environment-based logger active (debug/info/warn/error behavior by level).
-- Duplicate detection logs include whether fallback original issue resolution was used.
+  - Duplicate detection logs include whether fallback original issue resolution was used.
+  - AI response parsing/normalization is now modeled as domain policy services (`issue-ai-analysis-*`), keeping application focused on orchestration.
 - Question response source metric:
   - `aiSuggestedResponse`
   - `fallbackChecklist`
