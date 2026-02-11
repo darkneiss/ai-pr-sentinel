@@ -71,4 +71,22 @@ describe('WebhookIngressConfigService', () => {
     // Assert
     expect(result.deliveryTtlSeconds).toBe(86400);
   });
+
+  it('should fallback to default ttl when ttl env var has partially numeric format', () => {
+    // Arrange
+    const configWithScientificNotation = createConfigMock({
+      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '1e6',
+    });
+    const configWithUnitSuffix = createConfigMock({
+      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '3600s',
+    });
+
+    // Act
+    const scientificNotationResult = resolveWebhookIngressConfig(configWithScientificNotation);
+    const unitSuffixResult = resolveWebhookIngressConfig(configWithUnitSuffix);
+
+    // Assert
+    expect(scientificNotationResult.deliveryTtlSeconds).toBe(86400);
+    expect(unitSuffixResult.deliveryTtlSeconds).toBe(86400);
+  });
 });

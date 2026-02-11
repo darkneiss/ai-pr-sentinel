@@ -7,6 +7,7 @@ const DELIVERY_TTL_SECONDS_ENV_VAR = 'GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS';
 
 const DEFAULT_DELIVERY_TTL_SECONDS = 60 * 60 * 24;
 const MIN_DELIVERY_TTL_SECONDS = 1;
+const POSITIVE_INTEGER_PATTERN = /^\d+$/;
 
 const parseAllowedRepositories = (value: string | undefined): string[] => {
   if (!value) {
@@ -24,8 +25,13 @@ const parsePositiveInteger = (value: string | undefined): number | undefined => 
     return undefined;
   }
 
-  const parsedValue = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsedValue) || parsedValue < MIN_DELIVERY_TTL_SECONDS) {
+  const normalizedValue = value.trim();
+  if (!POSITIVE_INTEGER_PATTERN.test(normalizedValue)) {
+    return undefined;
+  }
+
+  const parsedValue = Number(normalizedValue);
+  if (!Number.isInteger(parsedValue) || parsedValue < MIN_DELIVERY_TTL_SECONDS) {
     return undefined;
   }
 
