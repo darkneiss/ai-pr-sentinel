@@ -15,6 +15,7 @@ describe('IssueEntity', () => {
     const issue = IssueEntity.create(rawIssue);
 
     // Assert
+    expect(issue.getNormalizedId()).toBe('ISSUE-123');
     expect(issue.getNormalizedTitle()).toBe('Bug: Login fails after token refresh');
     expect(issue.getNormalizedDescription()).toBe('Repro steps: refresh token and retry protected endpoint.');
     expect(issue.getNormalizedAuthor()).toBe('dev_user');

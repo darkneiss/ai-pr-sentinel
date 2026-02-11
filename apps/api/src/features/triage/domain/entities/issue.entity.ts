@@ -11,6 +11,7 @@ import {
 } from '../constants/issue-validation.constants';
 import { IssueAuthor } from '../value-objects/issue-author.value-object';
 import { IssueDescription } from '../value-objects/issue-description.value-object';
+import { IssueId } from '../value-objects/issue-id.value-object';
 import { IssueTitle } from '../value-objects/issue-title.value-object';
 
 export interface Issue {
@@ -29,6 +30,7 @@ export interface IssueIntegrityValidationResult {
 }
 
 export class IssueEntity {
+  #issueId: IssueId;
   #issueTitle: IssueTitle;
   #issueDescription: IssueDescription;
   #issueAuthor: IssueAuthor;
@@ -39,26 +41,30 @@ export class IssueEntity {
     public readonly description: string,
     public readonly author: string,
     public readonly createdAt: Date,
+    issueId: IssueId,
     issueTitle: IssueTitle,
     issueDescription: IssueDescription,
     issueAuthor: IssueAuthor,
   ) {
+    this.#issueId = issueId;
     this.#issueTitle = issueTitle;
     this.#issueDescription = issueDescription;
     this.#issueAuthor = issueAuthor;
   }
 
   public static create(input: Issue): IssueEntity {
+    const issueId = IssueId.create(input.id);
     const issueTitle = IssueTitle.create(input.title);
     const issueDescription = IssueDescription.create(input.description);
     const issueAuthor = IssueAuthor.create(input.author);
 
     return new IssueEntity(
-      input.id,
+      issueId.value,
       issueTitle.value,
       issueDescription.value,
       issueAuthor.value,
       input.createdAt,
+      issueId,
       issueTitle,
       issueDescription,
       issueAuthor,
@@ -75,6 +81,10 @@ export class IssueEntity {
 
   public getNormalizedTitle(): string {
     return this.#issueTitle.normalizedValue;
+  }
+
+  public getNormalizedId(): string {
+    return this.#issueId.normalizedValue;
   }
 
   public getNormalizedDescription(): string {
