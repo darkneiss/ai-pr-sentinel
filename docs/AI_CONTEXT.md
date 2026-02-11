@@ -8,7 +8,7 @@
 - Stack: Node.js (v22), Express, TypeScript, Jest, pnpm workspaces.
 - Architecture: Hexagonal (Domain/Application/Infrastructure) + shared kernel.
 
-## 2. Current Status (2026-02-10)
+## 2. Current Status (2026-02-11)
 
 ### Feature 001: Basic Governance
 - Status: DONE
@@ -33,6 +33,20 @@
     - fallback checklist if AI does not provide usable setup content.
   - Idempotency guards (avoid duplicated labels/comments).
   - Fail-open policy across LLM/provider/parsing/governance failures.
+
+### Webhook Ingress Security Hardening
+- Status: DONE (Phase 1 baseline)
+- Behavior implemented:
+  - Repository authorization policy before webhook processing via allowlist adapter.
+  - Delivery-level replay protection with `X-GitHub-Delivery` deduplication.
+  - Delivery registration rollback on downstream processing failures to preserve retryability of the same delivery id.
+  - Configurable strict mode for missing delivery id header.
+  - In-memory TTL dedup adapter wired by default in composition root.
+  - Config surface:
+    - `GITHUB_WEBHOOK_ALLOWED_REPOSITORIES`
+    - `GITHUB_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST`
+    - `GITHUB_WEBHOOK_REQUIRE_DELIVERY_ID`
+    - `GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS`
 
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).
@@ -102,7 +116,11 @@
   - Justifies the MVP decision to avoid LangChain and provider SDKs in core AI triage flow.
 - `docs/adr/ADR-002-prompt-registry-and-assets-copy.md`
   - Defines versioned prompt registry and build-time asset copy for YAML prompts.
- - `docs/adr/ADR-004-llm-endpoint-config.md`
-   - Documents LLM endpoint configuration rules for Gemini, Groq, and Ollama.
- - `docs/adr/README.md`
-   - ADR index.
+- `docs/adr/ADR-003-llm-observability-langsmith.md`
+  - Documents optional LangSmith tracing integration and safeguards.
+- `docs/adr/ADR-004-llm-endpoint-config.md`
+  - Documents LLM endpoint configuration rules for Gemini, Groq, and Ollama.
+- `docs/adr/ADR-005-webhook-ingress-hardening.md`
+  - Documents webhook ingress allowlist and delivery deduplication strategy.
+- `docs/adr/README.md`
+  - ADR index.

@@ -41,5 +41,9 @@ export const createApp = (params: CreateAppParams = {}) => {
     analyzeIssueWithAi: triageWebhookComposition.analyzeIssueWithAi,
     logger,
     webhookSecret: triageWebhookComposition.webhookSecret,
+    webhookDeliveryGateway: triageWebhookComposition.webhookDeliveryGateway,
+    webhookDeliveryTtlSeconds: triageWebhookComposition.webhookDeliveryTtlSeconds,
+    requireDeliveryId: triageWebhookComposition.requireDeliveryId,
+    repositoryAuthorizationGateway: triageWebhookComposition.repositoryAuthorizationGateway,
   });
 };
