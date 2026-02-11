@@ -6,6 +6,7 @@ import { createGithubWebhookController } from '../../../../src/features/triage/i
 import type { GovernanceGateway } from '../../../../src/features/triage/application/ports/governance-gateway.port';
 import type { RepositoryAuthorizationGateway } from '../../../../src/features/triage/application/ports/repository-authorization-gateway.port';
 import type { WebhookDeliveryGateway } from '../../../../src/features/triage/application/ports/webhook-delivery-gateway.port';
+import { createInMemoryWebhookDeliveryAdapter } from '../../../../src/features/triage/infrastructure/adapters/in-memory-webhook-delivery.adapter';
 
 const WEBHOOK_ROUTE = '/webhooks/github';
 const REPO_FULL_NAME = 'org/repo';
@@ -48,6 +49,7 @@ const createRepositoryAuthorizationGatewayMock = (): jest.Mocked<RepositoryAutho
 
 const createWebhookDeliveryGatewayMock = (): jest.Mocked<WebhookDeliveryGateway> => ({
   registerIfFirstSeen: jest.fn().mockResolvedValue({ status: 'accepted' }),
+  unregister: jest.fn().mockResolvedValue(undefined),
 });
 
 const createAiAnalyzerMock = (): jest.MockedFunction<
@@ -400,5 +402,41 @@ describe('GithubWebhookController integration', () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'Missing X-GitHub-Delivery header' });
     expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+  });
+
+  it('should allow retrying same delivery id after transient processing failure', async () => {
+    // Arrange
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockRejectedValueOnce(new Error('temporary failure')).mockResolvedValueOnce(undefined),
+    };
+    const webhookDeliveryGateway = createInMemoryWebhookDeliveryAdapter();
+    const app = express();
+    app.use(express.json());
+    app.post(
+      WEBHOOK_ROUTE,
+      createGithubWebhookController({
+        governanceGateway,
+        webhookDeliveryGateway,
+      }),
+    );
+
+    // Act
+    const firstResponse = await request(app)
+      .post(WEBHOOK_ROUTE)
+      .set('x-github-delivery', 'delivery-retry-1')
+      .send(createPayload());
+    const secondResponse = await request(app)
+      .post(WEBHOOK_ROUTE)
+      .set('x-github-delivery', 'delivery-retry-1')
+      .send(createPayload());
+
+    // Assert
+    expect(firstResponse.status).toBe(500);
+    expect(secondResponse.status).toBe(200);
+    expect(secondResponse.body).toEqual({ status: 'ok' });
+    expect(governanceGateway.logValidatedIssue).toHaveBeenCalledTimes(2);
   });
 });

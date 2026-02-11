@@ -53,6 +53,7 @@ describe('TriageWebhookCompositionFactory ingress security dependencies', () => 
     });
     const webhookDeliveryGateway = {
       registerIfFirstSeen: jest.fn(),
+      unregister: jest.fn(),
     };
     const repositoryAuthorizationGateway = {
       isAllowed: jest.fn(),

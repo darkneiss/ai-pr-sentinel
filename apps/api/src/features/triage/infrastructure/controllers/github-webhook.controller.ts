@@ -16,6 +16,9 @@ const DEFAULT_WEBHOOK_DELIVERY_TTL_SECONDS = 60 * 60 * 24;
 const MISSING_DELIVERY_ID_ERROR = 'Missing X-GitHub-Delivery header';
 const REPOSITORY_NOT_ALLOWED_ERROR = 'Repository not allowed';
 const DUPLICATE_WEBHOOK_RESPONSE = { status: 'duplicate_ignored' } as const;
+const DELIVERY_REGISTRATION_ROLLBACK_LOG = 'GithubWebhookController rolled back webhook delivery registration.';
+const DELIVERY_REGISTRATION_ROLLBACK_FAILED_LOG =
+  'GithubWebhookController failed to roll back webhook delivery registration.';
 
 interface Dependencies {
   governanceGateway: GovernanceGateway;
@@ -107,6 +110,9 @@ export const createGithubWebhookController = ({
   };
 
   return async (req, res) => {
+    let shouldRollbackDeliveryRegistration = false;
+    let registeredDeliveryId: string | undefined;
+
     try {
       if (hasWebhookSecret) {
         const signatureHeader = req.header('x-hub-signature-256');
@@ -166,6 +172,9 @@ export const createGithubWebhookController = ({
           res.status(200).json(DUPLICATE_WEBHOOK_RESPONSE);
           return;
         }
+
+        shouldRollbackDeliveryRegistration = true;
+        registeredDeliveryId = deliveryId;
       }
 
       const result = await run({
@@ -179,6 +188,7 @@ export const createGithubWebhookController = ({
           labels: payload.issue.labels.map((label) => label.name),
         },
       });
+      shouldRollbackDeliveryRegistration = false;
 
       if (result.statusCode === 204) {
         res.status(204).send();
@@ -187,6 +197,23 @@ export const createGithubWebhookController = ({
 
       res.status(200).json({ status: 'ok' });
     } catch (error: unknown) {
+      if (shouldRollbackDeliveryRegistration && webhookDeliveryGateway && typeof registeredDeliveryId === 'string') {
+        try {
+          await webhookDeliveryGateway.unregister({
+            source: WEBHOOK_DELIVERY_SOURCE_GITHUB,
+            deliveryId: registeredDeliveryId,
+          });
+          logger.warn(DELIVERY_REGISTRATION_ROLLBACK_LOG, {
+            deliveryId: registeredDeliveryId,
+          });
+        } catch (rollbackError: unknown) {
+          logger.error(DELIVERY_REGISTRATION_ROLLBACK_FAILED_LOG, {
+            deliveryId: registeredDeliveryId,
+            rollbackError,
+          });
+        }
+      }
+
       logger.error('GithubWebhookController failed processing issue webhook', error);
       res.status(500).json({ error: 'Internal Server Error' });
     }

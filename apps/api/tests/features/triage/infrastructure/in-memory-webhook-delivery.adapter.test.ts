@@ -53,4 +53,21 @@ describe('InMemoryWebhookDeliveryAdapter', () => {
     // Assert
     expect(result).toEqual({ status: 'accepted' });
   });
+
+  it('should accept same delivery id again after unregister', async () => {
+    // Arrange
+    const adapter = createInMemoryWebhookDeliveryAdapter();
+    const registerInput = createRegisterInput();
+    await adapter.registerIfFirstSeen(registerInput);
+    await adapter.unregister({
+      source: registerInput.source,
+      deliveryId: registerInput.deliveryId,
+    });
+
+    // Act
+    const result = await adapter.registerIfFirstSeen(registerInput);
+
+    // Assert
+    expect(result).toEqual({ status: 'accepted' });
+  });
 });

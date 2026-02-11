@@ -13,6 +13,12 @@ export interface RegisterWebhookDeliveryResult {
   status: 'accepted' | 'duplicate';
 }
 
+export interface UnregisterWebhookDeliveryInput {
+  source: WebhookDeliverySource;
+  deliveryId: string;
+}
+
 export interface WebhookDeliveryGateway {
   registerIfFirstSeen(input: RegisterWebhookDeliveryInput): Promise<RegisterWebhookDeliveryResult>;
+  unregister(input: UnregisterWebhookDeliveryInput): Promise<void>;
 }

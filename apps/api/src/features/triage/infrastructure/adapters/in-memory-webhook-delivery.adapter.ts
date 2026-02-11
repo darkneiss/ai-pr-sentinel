@@ -1,6 +1,7 @@
 import type {
   RegisterWebhookDeliveryInput,
   RegisterWebhookDeliveryResult,
+  UnregisterWebhookDeliveryInput,
   WebhookDeliveryGateway,
 } from '../../application/ports/webhook-delivery-gateway.port';
 
@@ -13,6 +14,8 @@ export const createInMemoryWebhookDeliveryAdapter = (): WebhookDeliveryGateway =
   const deliveryIdToExpirationMap = new Map<string, EpochMilliseconds>();
 
   const getDeliveryKey = ({ source, deliveryId }: RegisterWebhookDeliveryInput): string => `${source}:${deliveryId}`;
+  const getUnregisterDeliveryKey = ({ source, deliveryId }: UnregisterWebhookDeliveryInput): string =>
+    `${source}:${deliveryId}`;
 
   const removeExpiredEntries = (nowMs: EpochMilliseconds): void => {
     for (const [deliveryKey, expiresAtMs] of deliveryIdToExpirationMap.entries()) {
@@ -40,6 +43,10 @@ export const createInMemoryWebhookDeliveryAdapter = (): WebhookDeliveryGateway =
       deliveryIdToExpirationMap.set(deliveryKey, expiresAtMs);
 
       return { status: 'accepted' };
+    },
+    unregister: async (input: UnregisterWebhookDeliveryInput): Promise<void> => {
+      const deliveryKey = getUnregisterDeliveryKey(input);
+      deliveryIdToExpirationMap.delete(deliveryKey);
     },
   };
 };
