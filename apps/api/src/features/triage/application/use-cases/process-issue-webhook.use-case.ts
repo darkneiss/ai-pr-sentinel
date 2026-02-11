@@ -13,6 +13,7 @@ import {
   buildIssueValidationComment,
   decideIssueGovernanceActions,
 } from '../../domain/services/issue-governance-policy.service';
+import { buildIssueIdentity } from '../../domain/services/issue-identity-policy.service';
 import { isIssueWebhookActionSupported } from '../../domain/services/issue-webhook-action-policy.service';
 
 export interface ProcessIssueWebhookInput {
@@ -56,7 +57,10 @@ export const processIssueWebhook =
     }
 
     const issueForValidation = IssueEntity.create({
-      id: `${input.repositoryFullName}#${input.issue.number}`,
+      id: buildIssueIdentity({
+        repositoryFullName: input.repositoryFullName,
+        issueNumber: input.issue.number,
+      }).value,
       title: input.issue.title,
       description: input.issue.body,
       author: input.issue.author,
