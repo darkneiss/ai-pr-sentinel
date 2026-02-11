@@ -7,6 +7,8 @@ import {
   normalizeIssueQuestionSuggestedResponse,
   normalizeIssueQuestionSuggestedResponseValue,
   resolveIssueQuestionResponseCommentPrefix,
+  shouldPrepareIssueQuestionResponseComment,
+  shouldPublishIssueQuestionResponseComment,
 } from '../../../../src/features/triage/domain/services/issue-question-response-policy.service';
 
 describe('IssueQuestionResponsePolicyService', () => {
@@ -283,5 +285,41 @@ describe('IssueQuestionResponsePolicyService', () => {
 
     // Assert
     expect(result).toBe('[Fallback]\n\nUse the setup checklist first.');
+  });
+
+  it('should prepare question response comment only when decision contains response source and body', () => {
+    // Arrange
+    const validDecision = {
+      shouldCreateComment: true,
+      responseSource: 'ai_suggested_response' as const,
+      responseBody: 'Use pnpm install',
+    };
+    const invalidDecision = {
+      shouldCreateComment: false,
+      responseSource: null,
+      responseBody: '',
+    };
+
+    // Act
+    const shouldPrepareValidDecision = shouldPrepareIssueQuestionResponseComment(validDecision);
+    const shouldPrepareInvalidDecision = shouldPrepareIssueQuestionResponseComment(invalidDecision);
+
+    // Assert
+    expect(shouldPrepareValidDecision).toBe(true);
+    expect(shouldPrepareInvalidDecision).toBe(false);
+  });
+
+  it('should publish question response comment only when there is no existing comment', () => {
+    // Arrange
+    const existingCommentInput = { hasExistingQuestionReplyComment: true };
+    const missingCommentInput = { hasExistingQuestionReplyComment: false };
+
+    // Act
+    const shouldPublishWithExistingComment = shouldPublishIssueQuestionResponseComment(existingCommentInput);
+    const shouldPublishWithoutExistingComment = shouldPublishIssueQuestionResponseComment(missingCommentInput);
+
+    // Assert
+    expect(shouldPublishWithExistingComment).toBe(false);
+    expect(shouldPublishWithoutExistingComment).toBe(true);
   });
 });

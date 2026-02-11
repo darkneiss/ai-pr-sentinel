@@ -23,6 +23,15 @@ export interface IssueQuestionResponseDecision {
   responseBody: string;
 }
 
+export type IssueQuestionResponseCommentDecision = IssueQuestionResponseDecision & {
+  shouldCreateComment: true;
+  responseSource: IssueQuestionResponseSource;
+};
+
+export interface ShouldPublishIssueQuestionResponseCommentInput {
+  hasExistingQuestionReplyComment: boolean;
+}
+
 export interface DetectRepositoryContextUsageInResponseInput {
   suggestedResponse: string;
   repositoryReadme: string | undefined;
@@ -183,6 +192,15 @@ export const decideIssueQuestionResponseAction = ({
     responseBody,
   };
 };
+
+export const shouldPrepareIssueQuestionResponseComment = (
+  decision: IssueQuestionResponseDecision,
+): decision is IssueQuestionResponseCommentDecision =>
+  decision.shouldCreateComment && decision.responseSource !== null && decision.responseBody.length > 0;
+
+export const shouldPublishIssueQuestionResponseComment = ({
+  hasExistingQuestionReplyComment,
+}: ShouldPublishIssueQuestionResponseCommentInput): boolean => !hasExistingQuestionReplyComment;
 
 export const detectRepositoryContextUsageInResponse = ({
   suggestedResponse,

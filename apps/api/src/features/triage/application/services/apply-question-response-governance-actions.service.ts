@@ -16,6 +16,8 @@ import {
   isLikelyQuestionIssueContent,
   normalizeIssueQuestionSuggestedResponse,
   resolveIssueQuestionResponseCommentPrefix,
+  shouldPrepareIssueQuestionResponseComment,
+  shouldPublishIssueQuestionResponseComment,
 } from '../../domain/services/issue-question-response-policy.service';
 
 export const applyQuestionResponseGovernanceActions = async (
@@ -41,7 +43,7 @@ export const applyQuestionResponseGovernanceActions = async (
     fallbackQuestionResponse,
   });
 
-  if (!questionResponseDecision.shouldCreateComment || questionResponseDecision.responseSource === null) {
+  if (!shouldPrepareIssueQuestionResponseComment(questionResponseDecision)) {
     return;
   }
 
@@ -71,7 +73,7 @@ export const applyQuestionResponseGovernanceActions = async (
     authorLogin: context.botLogin,
   });
 
-  if (hasExistingQuestionReplyComment) {
+  if (!shouldPublishIssueQuestionResponseComment({ hasExistingQuestionReplyComment })) {
     context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment already exists. Skipping.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
