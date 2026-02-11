@@ -9,7 +9,10 @@ import {
   type IssueIntegrityValidator,
 } from '../../domain/services/issue-validation.service';
 import { IssueEntity } from '../../domain/entities/issue.entity';
-import { decideIssueGovernanceActions } from '../../domain/services/issue-governance-policy.service';
+import {
+  buildIssueValidationComment,
+  decideIssueGovernanceActions,
+} from '../../domain/services/issue-governance-policy.service';
 
 const SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
 
@@ -45,11 +48,6 @@ interface Dependencies {
 
 const isSupportedAction = (action: string): action is SupportedAction =>
   SUPPORTED_ACTIONS.includes(action as SupportedAction);
-
-const buildValidationComment = (errors: string[]): string => {
-  const lines = errors.map((error) => `- ${error}`);
-  return ['Issue validation failed. Please fix the following items:', ...lines].join('\n');
-};
 
 export const processIssueWebhook =
   ({
@@ -90,7 +88,7 @@ export const processIssueWebhook =
       await governanceGateway.createComment({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
-        body: buildValidationComment(governanceActionsDecision.validationErrors),
+        body: buildIssueValidationComment(governanceActionsDecision.validationErrors),
       });
     }
 

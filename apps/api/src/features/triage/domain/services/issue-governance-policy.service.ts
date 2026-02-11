@@ -16,6 +16,10 @@ export interface IssueGovernanceActionsDecision {
   validationErrors: string[];
 }
 
+const ISSUE_VALIDATION_COMMENT_HEADER = 'Issue validation failed. Please fix the following items:';
+const ISSUE_VALIDATION_COMMENT_ITEM_PREFIX = '- ';
+const ISSUE_VALIDATION_COMMENT_LINE_SEPARATOR = '\n';
+
 export const decideIssueGovernanceActions = ({
   validation,
   existingLabels,
@@ -45,4 +49,12 @@ export const decideIssueGovernanceActions = ({
     labelsToRemove,
     validationErrors: [],
   };
+};
+
+export const buildIssueValidationComment = (validationErrors: readonly string[]): string => {
+  const validationItems = validationErrors.map(
+    (validationError) => `${ISSUE_VALIDATION_COMMENT_ITEM_PREFIX}${validationError}`,
+  );
+
+  return [ISSUE_VALIDATION_COMMENT_HEADER, ...validationItems].join(ISSUE_VALIDATION_COMMENT_LINE_SEPARATOR);
 };

@@ -1,5 +1,8 @@
 import { IssueEntity } from '../../../../src/features/triage/domain/entities/issue.entity';
-import { decideIssueGovernanceActions } from '../../../../src/features/triage/domain/services/issue-governance-policy.service';
+import {
+  buildIssueValidationComment,
+  decideIssueGovernanceActions,
+} from '../../../../src/features/triage/domain/services/issue-governance-policy.service';
 
 const TRIAGE_NEEDS_INFO_LABEL = 'triage/needs-info';
 const GOVERNANCE_ERROR_LABELS = ['triage/needs-info', 'triage/spam'] as const;
@@ -94,5 +97,18 @@ describe('IssueGovernancePolicyService', () => {
       labelsToRemove: ['triage/spam'],
       validationErrors: [],
     });
+  });
+
+  it('should build validation comment body from validation errors', () => {
+    // Arrange
+    const validationErrors = ['Title is too short (min 10 chars)', 'Author is required'];
+
+    // Act
+    const result = buildIssueValidationComment(validationErrors);
+
+    // Assert
+    expect(result).toBe(
+      'Issue validation failed. Please fix the following items:\n- Title is too short (min 10 chars)\n- Author is required',
+    );
   });
 });
