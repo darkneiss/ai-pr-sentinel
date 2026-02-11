@@ -39,6 +39,7 @@
 - Behavior implemented:
   - Repository authorization policy before webhook processing via allowlist adapter.
   - Delivery-level replay protection with `X-GitHub-Delivery` deduplication.
+  - Delivery registration rollback on downstream processing failures to preserve retryability of the same delivery id.
   - Configurable strict mode for missing delivery id header.
   - In-memory TTL dedup adapter wired by default in composition root.
   - Config surface:
