@@ -1,10 +1,14 @@
-import { AI_DUPLICATE_SIMILARITY_THRESHOLD, AI_TRIAGE_DUPLICATE_LABEL } from '../constants/ai-triage.constants';
 import {
+  AI_DUPLICATE_COMMENT_PREFIX,
+  AI_DUPLICATE_SIMILARITY_THRESHOLD,
+  AI_TRIAGE_DUPLICATE_LABEL,
+} from '../constants/ai-triage.constants';
+import {
+  buildIssueDuplicateComment,
   decideIssueDuplicateActions,
   resolveFallbackDuplicateIssueNumber,
 } from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
-import { buildDuplicateComment } from './issue-triage-labels.service';
 
 export const applyDuplicateGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
@@ -53,7 +57,11 @@ export const applyDuplicateGovernanceActions = async (
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: buildDuplicateComment(resolvedOriginalIssueNumber, context.aiAnalysis.duplicateDetection.similarityScore),
+    body: buildIssueDuplicateComment({
+      commentPrefix: AI_DUPLICATE_COMMENT_PREFIX,
+      originalIssueNumber: resolvedOriginalIssueNumber,
+      similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
+    }),
   });
   context.incrementActionsAppliedCount();
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase duplicate comment created.', {

@@ -21,6 +21,14 @@ export interface ResolveFallbackDuplicateIssueNumberInput {
   recentIssueNumbers: readonly number[];
 }
 
+export interface BuildIssueDuplicateCommentInput {
+  commentPrefix: string;
+  originalIssueNumber: number;
+  similarityScore: number;
+}
+
+const SIMILARITY_PERCENT_MULTIPLIER = 100;
+
 export const resolveFallbackDuplicateIssueNumber = ({
   currentIssueNumber,
   recentIssueNumbers,
@@ -52,3 +60,10 @@ export const decideIssueDuplicateActions = ({
     usedFallbackOriginalIssue,
   };
 };
+
+export const buildIssueDuplicateComment = ({
+  commentPrefix,
+  originalIssueNumber,
+  similarityScore,
+}: BuildIssueDuplicateCommentInput): string =>
+  `${commentPrefix}${originalIssueNumber} (Similarity: ${Math.round(similarityScore * SIMILARITY_PERCENT_MULTIPLIER)}%).`;

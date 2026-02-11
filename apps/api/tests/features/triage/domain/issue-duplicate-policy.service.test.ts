@@ -1,4 +1,5 @@
 import {
+  buildIssueDuplicateComment,
   decideIssueDuplicateActions,
   resolveFallbackDuplicateIssueNumber,
 } from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
@@ -169,5 +170,20 @@ describe('IssueDuplicatePolicyService', () => {
 
     // Assert
     expect(result).toBeNull();
+  });
+
+  it('should build duplicate comment message with rounded similarity percentage', () => {
+    // Arrange
+    const input = {
+      commentPrefix: 'Possible duplicate of #',
+      originalIssueNumber: 123,
+      similarityScore: 0.914,
+    };
+
+    // Act
+    const result = buildIssueDuplicateComment(input);
+
+    // Assert
+    expect(result).toBe('Possible duplicate of #123 (Similarity: 91%).');
   });
 });
