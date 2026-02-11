@@ -1,6 +1,7 @@
 import type { LLMGateway } from '../../../application/ports/llm-gateway.port';
 import type { ConfigPort } from '../../../application/ports/config.port';
 import { createEnvConfig } from '../../config/env-config.adapter';
+import { isRetryableTimeoutError } from './retryable-timeout-error.guard';
 
 const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434/api/generate';
 const DEFAULT_OLLAMA_MODEL = 'llama3.1';
@@ -44,8 +45,6 @@ const buildOllamaEndpoint = (baseUrl: string): string => baseUrl;
 
 const isRetryableStatus = (status: number): boolean =>
   (OLLAMA_RETRYABLE_STATUS_CODES as readonly number[]).includes(status);
-
-const isTimeoutError = (error: unknown): boolean => error instanceof Error && error.name === 'AbortError';
 
 const buildOllamaRequestBody = ({
   model,
@@ -125,7 +124,7 @@ export const createOllamaLlmAdapter = (params: CreateOllamaLlmAdapterParams = {}
 
           return (await response.json()) as OllamaSuccessResponse;
         } catch (error: unknown) {
-          if (!isTimeoutError(error)) {
+          if (!isRetryableTimeoutError(error)) {
             throw error;
           }
 
