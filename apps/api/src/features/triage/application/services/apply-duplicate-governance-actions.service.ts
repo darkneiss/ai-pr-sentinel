@@ -1,5 +1,5 @@
 import { AI_DUPLICATE_SIMILARITY_THRESHOLD, AI_TRIAGE_DUPLICATE_LABEL } from '../constants/ai-triage.constants';
-import { isValidOriginalIssueNumber } from './ai-analysis-normalizer.service';
+import { decideIssueDuplicateActions } from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import { buildDuplicateComment } from './issue-triage-labels.service';
 
@@ -15,31 +15,31 @@ export const applyDuplicateGovernanceActions = async (
     return;
   }
 
-  const originalIssueNumber = context.aiAnalysis.duplicateDetection.originalIssueNumber;
-  const hasSimilarityScore =
-    context.aiAnalysis.duplicateDetection.similarityScore >= AI_DUPLICATE_SIMILARITY_THRESHOLD;
-  const hasExplicitOriginalIssueReference =
-    context.aiAnalysis.duplicateDetection.hasExplicitOriginalIssueReference === true;
-  const shouldApplyFallbackOriginalIssue = originalIssueNumber === null && hasSimilarityScore;
-  const shouldApplyFallbackWithoutReference = shouldApplyFallbackOriginalIssue && !hasExplicitOriginalIssueReference;
-  const fallbackOriginalIssueNumber = shouldApplyFallbackOriginalIssue
-    ? resolveFallbackOriginalIssueNumber(context)
-    : null;
-  const resolvedOriginalIssueNumber = shouldApplyFallbackWithoutReference
-    ? fallbackOriginalIssueNumber
-    : originalIssueNumber;
-  const hasValidOriginalIssue = isValidOriginalIssueNumber(resolvedOriginalIssueNumber, context.issue.number);
+  const duplicateDecision = decideIssueDuplicateActions({
+    isDuplicate: context.aiAnalysis.duplicateDetection.isDuplicate,
+    originalIssueNumber: context.aiAnalysis.duplicateDetection.originalIssueNumber,
+    similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
+    hasExplicitOriginalIssueReference: context.aiAnalysis.duplicateDetection.hasExplicitOriginalIssueReference === true,
+    currentIssueNumber: context.issue.number,
+    fallbackOriginalIssueNumber: resolveFallbackOriginalIssueNumber(context),
+    similarityThreshold: AI_DUPLICATE_SIMILARITY_THRESHOLD,
+  });
 
-  if (!hasValidOriginalIssue || !hasSimilarityScore) {
+  if (!duplicateDecision.shouldApplyDuplicateActions) {
     context.logger?.info?.('AnalyzeIssueWithAiUseCase duplicate detection skipped.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
-      originalIssueNumber: resolvedOriginalIssueNumber,
+      originalIssueNumber: duplicateDecision.resolvedOriginalIssueNumber,
       similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-      hasValidOriginalIssue,
-      hasSimilarityScore,
-      usedFallbackOriginalIssue: shouldApplyFallbackWithoutReference && resolvedOriginalIssueNumber !== null,
+      hasValidOriginalIssue: duplicateDecision.hasValidOriginalIssue,
+      hasSimilarityScore: duplicateDecision.hasSimilarityScore,
+      usedFallbackOriginalIssue: duplicateDecision.usedFallbackOriginalIssue,
     });
+    return;
+  }
+
+  const resolvedOriginalIssueNumber = duplicateDecision.resolvedOriginalIssueNumber;
+  if (resolvedOriginalIssueNumber === null) {
     return;
   }
 
@@ -60,6 +60,6 @@ export const applyDuplicateGovernanceActions = async (
     issueNumber: context.issue.number,
     originalIssueNumber: resolvedOriginalIssueNumber,
     similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-    usedFallbackOriginalIssue: shouldApplyFallbackWithoutReference && resolvedOriginalIssueNumber !== null,
+    usedFallbackOriginalIssue: duplicateDecision.usedFallbackOriginalIssue,
   });
 };
