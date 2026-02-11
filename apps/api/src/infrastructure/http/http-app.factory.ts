@@ -5,6 +5,8 @@ import type {
   AnalyzeIssueWithAiResult,
 } from '../../features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 import type { GovernanceGateway } from '../../features/triage/application/ports/governance-gateway.port';
+import type { RepositoryAuthorizationGateway } from '../../features/triage/application/ports/repository-authorization-gateway.port';
+import type { WebhookDeliveryGateway } from '../../features/triage/application/ports/webhook-delivery-gateway.port';
 import { createGithubWebhookController } from '../../features/triage/infrastructure/controllers/github-webhook.controller';
 import type { Logger } from '../../shared/infrastructure/logging/env-logger';
 
@@ -17,6 +19,10 @@ interface CreateHttpAppParams {
   analyzeIssueWithAi?: (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
   logger: Logger;
   webhookSecret?: string;
+  webhookDeliveryGateway: WebhookDeliveryGateway;
+  webhookDeliveryTtlSeconds: number;
+  requireDeliveryId: boolean;
+  repositoryAuthorizationGateway: RepositoryAuthorizationGateway;
 }
 
 export const createHttpApp = ({
@@ -25,6 +31,10 @@ export const createHttpApp = ({
   analyzeIssueWithAi,
   logger,
   webhookSecret,
+  webhookDeliveryGateway,
+  webhookDeliveryTtlSeconds,
+  requireDeliveryId,
+  repositoryAuthorizationGateway,
 }: CreateHttpAppParams): Express => {
   const app = express();
 
@@ -51,6 +61,10 @@ export const createHttpApp = ({
       analyzeIssueWithAi,
       logger,
       webhookSecret,
+      webhookDeliveryGateway,
+      webhookDeliveryTtlSeconds,
+      requireDeliveryId,
+      repositoryAuthorizationGateway,
     }),
   );
 

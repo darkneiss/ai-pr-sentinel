@@ -4,6 +4,8 @@ import request from 'supertest';
 import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../../../src/features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 import { createGithubWebhookController } from '../../../../src/features/triage/infrastructure/controllers/github-webhook.controller';
 import type { GovernanceGateway } from '../../../../src/features/triage/application/ports/governance-gateway.port';
+import type { RepositoryAuthorizationGateway } from '../../../../src/features/triage/application/ports/repository-authorization-gateway.port';
+import type { WebhookDeliveryGateway } from '../../../../src/features/triage/application/ports/webhook-delivery-gateway.port';
 
 const WEBHOOK_ROUTE = '/webhooks/github';
 const REPO_FULL_NAME = 'org/repo';
@@ -39,6 +41,14 @@ const setup = () => {
 
   return { app, governanceGateway };
 };
+
+const createRepositoryAuthorizationGatewayMock = (): jest.Mocked<RepositoryAuthorizationGateway> => ({
+  isAllowed: jest.fn().mockReturnValue(true),
+});
+
+const createWebhookDeliveryGatewayMock = (): jest.Mocked<WebhookDeliveryGateway> => ({
+  registerIfFirstSeen: jest.fn().mockResolvedValue({ status: 'accepted' }),
+});
 
 const createAiAnalyzerMock = (): jest.MockedFunction<
   (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>
@@ -291,5 +301,104 @@ describe('GithubWebhookController integration', () => {
         labels: [],
       },
     });
+  });
+
+  it('should not process webhook when repository is not in allowlist', async () => {
+    // Arrange
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockResolvedValue(undefined),
+    };
+    const repositoryAuthorizationGateway = createRepositoryAuthorizationGatewayMock();
+    repositoryAuthorizationGateway.isAllowed.mockReturnValue(false);
+    const app = express();
+    app.use(express.json());
+    app.post(
+      WEBHOOK_ROUTE,
+      createGithubWebhookController({
+        governanceGateway,
+        repositoryAuthorizationGateway,
+      }),
+    );
+
+    // Act
+    const response = await request(app).post(WEBHOOK_ROUTE).send(createPayload());
+
+    // Assert
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: 'Repository not allowed' });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+  });
+
+  it('should ignore duplicate webhook delivery id', async () => {
+    // Arrange
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockResolvedValue(undefined),
+    };
+    const webhookDeliveryGateway = createWebhookDeliveryGatewayMock();
+    webhookDeliveryGateway.registerIfFirstSeen
+      .mockResolvedValueOnce({ status: 'accepted' })
+      .mockResolvedValueOnce({ status: 'duplicate' });
+    const app = express();
+    app.use(express.json());
+    app.post(
+      WEBHOOK_ROUTE,
+      createGithubWebhookController({
+        governanceGateway,
+        webhookDeliveryGateway,
+      }),
+    );
+
+    // Act
+    const firstResponse = await request(app)
+      .post(WEBHOOK_ROUTE)
+      .set('x-github-delivery', 'delivery-123')
+      .send(createPayload());
+    const secondResponse = await request(app)
+      .post(WEBHOOK_ROUTE)
+      .set('x-github-delivery', 'delivery-123')
+      .send(createPayload());
+
+    // Assert
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(secondResponse.body).toEqual({ status: 'duplicate_ignored' });
+    expect(governanceGateway.logValidatedIssue).toHaveBeenCalledTimes(1);
+  });
+
+  it('should reject webhook when delivery id is required but missing', async () => {
+    // Arrange
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockResolvedValue(undefined),
+    };
+    const app = express();
+    app.use(express.json());
+    app.post(
+      WEBHOOK_ROUTE,
+      createGithubWebhookController({
+        governanceGateway,
+        requireDeliveryId: true,
+        webhookDeliveryGateway: createWebhookDeliveryGatewayMock(),
+      }),
+    );
+
+    // Act
+    const response = await request(app).post(WEBHOOK_ROUTE).send(createPayload());
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Missing X-GitHub-Delivery header' });
+    expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
   });
 });
