@@ -17,6 +17,7 @@ import {
   type ApplyAiTriageGovernanceActionsInput,
   type ApplyAiTriageGovernanceActionsResult,
 } from './ai-triage-governance-actions-context.service';
+import { shouldApplyIssueToneMonitorLabel } from '../../domain/services/issue-tone-monitor-policy.service';
 import { applyClassificationGovernanceActions } from './apply-classification-governance-actions.service';
 import { applyDuplicateGovernanceActions } from './apply-duplicate-governance-actions.service';
 import { applyQuestionResponseGovernanceActions } from './apply-question-response-governance-actions.service';
@@ -82,7 +83,7 @@ export const applyAiTriageGovernanceActions = async (
   });
 
   await runStep(AI_TRIAGE_LOG_STEP_TONE, async () => {
-    if (context.effectiveTone !== 'hostile') {
+    if (!shouldApplyIssueToneMonitorLabel({ effectiveTone: context.effectiveTone })) {
       return;
     }
 
