@@ -1,4 +1,7 @@
-import { decideIssueQuestionResponseAction } from '../../../../src/features/triage/domain/services/issue-question-response-policy.service';
+import {
+  decideIssueQuestionResponseAction,
+  isLikelyQuestionIssueContent,
+} from '../../../../src/features/triage/domain/services/issue-question-response-policy.service';
 
 describe('IssueQuestionResponsePolicyService', () => {
   it('should skip comment when action is edited', () => {
@@ -119,5 +122,50 @@ describe('IssueQuestionResponsePolicyService', () => {
       responseSource: null,
       responseBody: '',
     });
+  });
+
+  it('should detect question-like issue when text includes question mark', () => {
+    // Arrange
+    const input = {
+      title: 'How to run this?',
+      body: 'I need help with setup.',
+      questionSignalKeywords: ['help', 'how to'],
+    };
+
+    // Act
+    const result = isLikelyQuestionIssueContent(input);
+
+    // Assert
+    expect(result).toBe(true);
+  });
+
+  it('should detect question-like issue when text includes configured keywords', () => {
+    // Arrange
+    const input = {
+      title: 'Setup guidance',
+      body: 'Need help to configure CI',
+      questionSignalKeywords: ['help', 'how to'],
+    };
+
+    // Act
+    const result = isLikelyQuestionIssueContent(input);
+
+    // Assert
+    expect(result).toBe(true);
+  });
+
+  it('should not detect question-like issue when there are no markers', () => {
+    // Arrange
+    const input = {
+      title: 'Refactor logger output',
+      body: 'I changed implementation details and updated tests.',
+      questionSignalKeywords: ['help', 'how to'],
+    };
+
+    // Act
+    const result = isLikelyQuestionIssueContent(input);
+
+    // Assert
+    expect(result).toBe(false);
   });
 });

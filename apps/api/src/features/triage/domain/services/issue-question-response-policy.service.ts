@@ -1,5 +1,11 @@
 export type IssueQuestionResponseSource = 'ai_suggested_response' | 'fallback_checklist';
 
+export interface IsLikelyQuestionIssueContentInput {
+  title: string;
+  body: string;
+  questionSignalKeywords: readonly string[];
+}
+
 export interface DecideIssueQuestionResponseActionInput {
   action: string;
   effectiveTone: 'positive' | 'neutral' | 'hostile';
@@ -16,6 +22,19 @@ export interface IssueQuestionResponseDecision {
   responseSource: IssueQuestionResponseSource | null;
   responseBody: string;
 }
+
+export const isLikelyQuestionIssueContent = ({
+  title,
+  body,
+  questionSignalKeywords,
+}: IsLikelyQuestionIssueContentInput): boolean => {
+  const normalizedText = `${title}\n${body}`.toLowerCase();
+  if (normalizedText.includes('?') || normalizedText.includes('¿')) {
+    return true;
+  }
+
+  return questionSignalKeywords.some((keyword) => normalizedText.includes(keyword));
+};
 
 export const decideIssueQuestionResponseAction = ({
   action,

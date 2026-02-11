@@ -1,4 +1,4 @@
-import { AI_QUESTION_FALLBACK_CHECKLIST, AI_QUESTION_SIGNAL_KEYWORDS } from '../constants/ai-triage.constants';
+import { AI_QUESTION_FALLBACK_CHECKLIST } from '../constants/ai-triage.constants';
 
 const CONTEXT_STOP_WORDS = new Set([
   'this',
@@ -33,15 +33,6 @@ const extractMeaningfulTokens = (value: string): string[] =>
     .split(/[^a-z0-9]+/i)
     .map((token) => token.trim())
     .filter((token) => token.length >= 5 && !CONTEXT_STOP_WORDS.has(token));
-
-export const isLikelyQuestionIssue = (title: string, body: string): boolean => {
-  const normalizedText = `${title}\n${body}`.toLowerCase();
-  if (normalizedText.includes('?') || normalizedText.includes('¿')) {
-    return true;
-  }
-
-  return AI_QUESTION_SIGNAL_KEYWORDS.some((keyword) => normalizedText.includes(keyword));
-};
 
 export const buildFallbackQuestionResponse = (): string => AI_QUESTION_FALLBACK_CHECKLIST.join('\n');
 
