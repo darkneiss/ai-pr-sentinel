@@ -9,11 +9,13 @@ import {
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import type { QuestionResponseSource } from '../../../../shared/application/ports/question-response-metrics.port';
 import {
+  buildIssueQuestionResponseComment,
   buildIssueQuestionFallbackResponse,
   decideIssueQuestionResponseAction,
   detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
   normalizeIssueQuestionSuggestedResponse,
+  resolveIssueQuestionResponseCommentPrefix,
 } from '../../domain/services/issue-question-response-policy.service';
 
 export const applyQuestionResponseGovernanceActions = async (
@@ -44,10 +46,11 @@ export const applyQuestionResponseGovernanceActions = async (
   }
 
   const responseSource: QuestionResponseSource = questionResponseDecision.responseSource;
-  const questionReplyCommentPrefix =
-    responseSource === 'ai_suggested_response'
-      ? AI_QUESTION_AI_REPLY_COMMENT_PREFIX
-      : AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX;
+  const questionReplyCommentPrefix = resolveIssueQuestionResponseCommentPrefix({
+    responseSource,
+    aiSuggestedResponseCommentPrefix: AI_QUESTION_AI_REPLY_COMMENT_PREFIX,
+    fallbackChecklistCommentPrefix: AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX,
+  });
   const usedRepositoryContext = detectRepositoryContextUsageInResponse({
     suggestedResponse: questionResponseDecision.responseBody,
     repositoryReadme: context.repositoryReadme,
@@ -81,7 +84,10 @@ export const applyQuestionResponseGovernanceActions = async (
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: `${questionReplyCommentPrefix}\n\n${questionResponseDecision.responseBody}`,
+    body: buildIssueQuestionResponseComment({
+      commentPrefix: questionReplyCommentPrefix,
+      responseBody: questionResponseDecision.responseBody,
+    }),
   });
   context.incrementActionsAppliedCount();
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment created.', {

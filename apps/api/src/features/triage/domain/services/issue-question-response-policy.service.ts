@@ -29,6 +29,7 @@ export interface DetectRepositoryContextUsageInResponseInput {
 }
 
 const QUESTION_RESPONSE_LINE_SEPARATOR = '\n';
+const QUESTION_RESPONSE_COMMENT_SEPARATOR = '\n\n';
 const CONTEXT_STOP_WORDS = new Set([
   'this',
   'that',
@@ -79,6 +80,32 @@ export const buildIssueQuestionFallbackResponse = (checklistLines: readonly stri
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .join(QUESTION_RESPONSE_LINE_SEPARATOR);
+
+export interface ResolveIssueQuestionResponseCommentPrefixInput {
+  responseSource: IssueQuestionResponseSource;
+  aiSuggestedResponseCommentPrefix: string;
+  fallbackChecklistCommentPrefix: string;
+}
+
+export const resolveIssueQuestionResponseCommentPrefix = ({
+  responseSource,
+  aiSuggestedResponseCommentPrefix,
+  fallbackChecklistCommentPrefix,
+}: ResolveIssueQuestionResponseCommentPrefixInput): string =>
+  responseSource === 'ai_suggested_response'
+    ? aiSuggestedResponseCommentPrefix
+    : fallbackChecklistCommentPrefix;
+
+export interface BuildIssueQuestionResponseCommentInput {
+  commentPrefix: string;
+  responseBody: string;
+}
+
+export const buildIssueQuestionResponseComment = ({
+  commentPrefix,
+  responseBody,
+}: BuildIssueQuestionResponseCommentInput): string =>
+  `${commentPrefix}${QUESTION_RESPONSE_COMMENT_SEPARATOR}${responseBody}`;
 
 export const isLikelyQuestionIssueContent = ({
   title,

@@ -1,9 +1,11 @@
 import {
+  buildIssueQuestionResponseComment,
   buildIssueQuestionFallbackResponse,
   decideIssueQuestionResponseAction,
   detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
   normalizeIssueQuestionSuggestedResponse,
+  resolveIssueQuestionResponseCommentPrefix,
 } from '../../../../src/features/triage/domain/services/issue-question-response-policy.service';
 
 describe('IssueQuestionResponsePolicyService', () => {
@@ -251,5 +253,23 @@ describe('IssueQuestionResponsePolicyService', () => {
 
     // Assert
     expect(result).toBe('- Confirm Node version\n- Install dependencies\n- Run tests');
+  });
+
+  it('should resolve response comment prefix and build question response comment body', () => {
+    // Arrange
+    const commentPrefix = resolveIssueQuestionResponseCommentPrefix({
+      responseSource: 'fallback_checklist',
+      aiSuggestedResponseCommentPrefix: '[AI]',
+      fallbackChecklistCommentPrefix: '[Fallback]',
+    });
+
+    // Act
+    const result = buildIssueQuestionResponseComment({
+      commentPrefix,
+      responseBody: 'Use the setup checklist first.',
+    });
+
+    // Assert
+    expect(result).toBe('[Fallback]\n\nUse the setup checklist first.');
   });
 });
