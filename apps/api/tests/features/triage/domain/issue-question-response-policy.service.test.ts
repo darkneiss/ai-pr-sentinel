@@ -1,5 +1,6 @@
 import {
   decideIssueQuestionResponseAction,
+  detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
 } from '../../../../src/features/triage/domain/services/issue-question-response-policy.service';
 
@@ -164,6 +165,51 @@ describe('IssueQuestionResponsePolicyService', () => {
 
     // Act
     const result = isLikelyQuestionIssueContent(input);
+
+    // Assert
+    expect(result).toBe(false);
+  });
+
+  it('should detect repository context usage when response overlaps meaningful readme tokens', () => {
+    // Arrange
+    const suggestedResponse = 'You should configure telemetry exporter and observability pipeline first.';
+    const repositoryReadme =
+      'Project setup includes telemetry exporter wiring and observability pipeline configuration.';
+
+    // Act
+    const result = detectRepositoryContextUsageInResponse({
+      suggestedResponse,
+      repositoryReadme,
+    });
+
+    // Assert
+    expect(result).toBe(true);
+  });
+
+  it('should not detect repository context usage when readme is empty', () => {
+    // Arrange
+    const suggestedResponse = 'Run npm install and start the API service.';
+
+    // Act
+    const result = detectRepositoryContextUsageInResponse({
+      suggestedResponse,
+      repositoryReadme: '   ',
+    });
+
+    // Assert
+    expect(result).toBe(false);
+  });
+
+  it('should not detect repository context usage with low token overlap', () => {
+    // Arrange
+    const suggestedResponse = 'Configure Docker and run migration scripts.';
+    const repositoryReadme = 'This service validates issue templates and triages labels automatically.';
+
+    // Act
+    const result = detectRepositoryContextUsageInResponse({
+      suggestedResponse,
+      repositoryReadme,
+    });
 
     // Assert
     expect(result).toBe(false);
