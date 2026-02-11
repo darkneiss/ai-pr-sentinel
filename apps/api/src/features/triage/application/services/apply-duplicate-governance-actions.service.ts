@@ -1,12 +1,10 @@
 import { AI_DUPLICATE_SIMILARITY_THRESHOLD, AI_TRIAGE_DUPLICATE_LABEL } from '../constants/ai-triage.constants';
-import { decideIssueDuplicateActions } from '../../domain/services/issue-duplicate-policy.service';
+import {
+  decideIssueDuplicateActions,
+  resolveFallbackDuplicateIssueNumber,
+} from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import { buildDuplicateComment } from './issue-triage-labels.service';
-
-const resolveFallbackOriginalIssueNumber = (context: AiTriageGovernanceActionsExecutionContext): number | null => {
-  const recentIssue = context.recentIssues.find((issue) => issue.number !== context.issue.number);
-  return recentIssue?.number ?? null;
-};
 
 export const applyDuplicateGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
@@ -21,7 +19,10 @@ export const applyDuplicateGovernanceActions = async (
     similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
     hasExplicitOriginalIssueReference: context.aiAnalysis.duplicateDetection.hasExplicitOriginalIssueReference === true,
     currentIssueNumber: context.issue.number,
-    fallbackOriginalIssueNumber: resolveFallbackOriginalIssueNumber(context),
+    fallbackOriginalIssueNumber: resolveFallbackDuplicateIssueNumber({
+      currentIssueNumber: context.issue.number,
+      recentIssueNumbers: context.recentIssues.map((issue) => issue.number),
+    }),
     similarityThreshold: AI_DUPLICATE_SIMILARITY_THRESHOLD,
   });
 

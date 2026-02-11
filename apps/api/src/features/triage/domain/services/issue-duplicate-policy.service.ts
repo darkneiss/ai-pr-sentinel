@@ -16,6 +16,17 @@ export interface IssueDuplicateActionsDecision {
   usedFallbackOriginalIssue: boolean;
 }
 
+export interface ResolveFallbackDuplicateIssueNumberInput {
+  currentIssueNumber: number;
+  recentIssueNumbers: readonly number[];
+}
+
+export const resolveFallbackDuplicateIssueNumber = ({
+  currentIssueNumber,
+  recentIssueNumbers,
+}: ResolveFallbackDuplicateIssueNumberInput): number | null =>
+  recentIssueNumbers.find((issueNumber) => issueNumber !== currentIssueNumber) ?? null;
+
 export const decideIssueDuplicateActions = ({
   isDuplicate,
   originalIssueNumber,

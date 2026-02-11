@@ -1,4 +1,7 @@
-import { decideIssueDuplicateActions } from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
+import {
+  decideIssueDuplicateActions,
+  resolveFallbackDuplicateIssueNumber,
+} from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
 
 describe('IssueDuplicatePolicyService', () => {
   it('should skip duplicate actions when AI does not mark issue as duplicate', () => {
@@ -124,5 +127,47 @@ describe('IssueDuplicatePolicyService', () => {
       hasValidOriginalIssue: true,
       usedFallbackOriginalIssue: false,
     });
+  });
+
+  it('should resolve fallback duplicate issue number using first non-current issue', () => {
+    // Arrange
+    const input = {
+      currentIssueNumber: 42,
+      recentIssueNumbers: [42, 21, 33],
+    };
+
+    // Act
+    const result = resolveFallbackDuplicateIssueNumber(input);
+
+    // Assert
+    expect(result).toBe(21);
+  });
+
+  it('should return null when all recent issues are the current issue', () => {
+    // Arrange
+    const input = {
+      currentIssueNumber: 42,
+      recentIssueNumbers: [42, 42],
+    };
+
+    // Act
+    const result = resolveFallbackDuplicateIssueNumber(input);
+
+    // Assert
+    expect(result).toBeNull();
+  });
+
+  it('should return null when recent issues are empty', () => {
+    // Arrange
+    const input = {
+      currentIssueNumber: 42,
+      recentIssueNumbers: [],
+    };
+
+    // Act
+    const result = resolveFallbackDuplicateIssueNumber(input);
+
+    // Assert
+    expect(result).toBeNull();
   });
 });
