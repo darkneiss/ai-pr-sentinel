@@ -1,16 +1,26 @@
 import {
   AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
+  AI_KIND_BUG_LABEL,
+  AI_KIND_FEATURE_LABEL,
   AI_KIND_LABELS,
+  AI_KIND_QUESTION_LABEL,
   AI_SENTIMENT_CONFIDENCE_THRESHOLD,
 } from '../constants/ai-triage.constants';
-import { decideIssueKindLabelActions } from '../../domain/services/issue-kind-label-policy.service';
-import { mapKindToLabel } from './issue-triage-labels.service';
+import {
+  decideIssueKindLabelActions,
+  resolveIssueKindLabel,
+} from '../../domain/services/issue-kind-label-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 
 export const applyClassificationGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
 ): Promise<void> => {
-  const targetKindLabel = mapKindToLabel(context.aiAnalysis.classification.type);
+  const targetKindLabel = resolveIssueKindLabel({
+    issueKind: context.aiAnalysis.classification.type,
+    bugLabel: AI_KIND_BUG_LABEL,
+    featureLabel: AI_KIND_FEATURE_LABEL,
+    questionLabel: AI_KIND_QUESTION_LABEL,
+  });
   const classificationDecision = decideIssueKindLabelActions({
     targetKindLabel,
     classificationConfidence: context.aiAnalysis.classification.confidence,

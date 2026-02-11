@@ -1,4 +1,5 @@
 type AiTone = 'positive' | 'neutral' | 'hostile';
+type IssueKind = 'bug' | 'feature' | 'question';
 
 export interface DecideIssueKindLabelActionsInput {
   targetKindLabel: string;
@@ -16,6 +17,30 @@ export interface IssueKindLabelActionsDecision {
   labelsToRemove: string[];
   wasSuppressedByHostileTone: boolean;
 }
+
+export interface ResolveIssueKindLabelInput {
+  issueKind: IssueKind;
+  bugLabel: string;
+  featureLabel: string;
+  questionLabel: string;
+}
+
+export const resolveIssueKindLabel = ({
+  issueKind,
+  bugLabel,
+  featureLabel,
+  questionLabel,
+}: ResolveIssueKindLabelInput): string => {
+  if (issueKind === 'bug') {
+    return bugLabel;
+  }
+
+  if (issueKind === 'feature') {
+    return featureLabel;
+  }
+
+  return questionLabel;
+};
 
 export const decideIssueKindLabelActions = ({
   targetKindLabel,

@@ -1,4 +1,7 @@
-import { decideIssueKindLabelActions } from '../../../../src/features/triage/domain/services/issue-kind-label-policy.service';
+import {
+  decideIssueKindLabelActions,
+  resolveIssueKindLabel,
+} from '../../../../src/features/triage/domain/services/issue-kind-label-policy.service';
 
 const AI_KIND_LABELS = ['kind/bug', 'kind/feature', 'kind/question'] as const;
 
@@ -73,5 +76,21 @@ describe('IssueKindLabelPolicyService', () => {
       labelsToRemove: [],
       wasSuppressedByHostileTone: false,
     });
+  });
+
+  it('should resolve kind label for issue classification type', () => {
+    // Arrange
+    const input = {
+      issueKind: 'feature' as const,
+      bugLabel: 'kind/bug',
+      featureLabel: 'kind/feature',
+      questionLabel: 'kind/question',
+    };
+
+    // Act
+    const result = resolveIssueKindLabel(input);
+
+    // Assert
+    expect(result).toBe('kind/feature');
   });
 });
