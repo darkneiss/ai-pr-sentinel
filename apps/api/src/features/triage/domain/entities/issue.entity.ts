@@ -9,6 +9,7 @@ import {
   TITLE_REQUIRED_ERROR,
   TITLE_TOO_SHORT_ERROR,
 } from '../constants/issue-validation.constants';
+import { IssueAuthor } from '../value-objects/issue-author.value-object';
 import { IssueDescription } from '../value-objects/issue-description.value-object';
 import { IssueTitle } from '../value-objects/issue-title.value-object';
 
@@ -30,6 +31,7 @@ export interface IssueIntegrityValidationResult {
 export class IssueEntity {
   #issueTitle: IssueTitle;
   #issueDescription: IssueDescription;
+  #issueAuthor: IssueAuthor;
 
   private constructor(
     public readonly id: string,
@@ -39,23 +41,27 @@ export class IssueEntity {
     public readonly createdAt: Date,
     issueTitle: IssueTitle,
     issueDescription: IssueDescription,
+    issueAuthor: IssueAuthor,
   ) {
     this.#issueTitle = issueTitle;
     this.#issueDescription = issueDescription;
+    this.#issueAuthor = issueAuthor;
   }
 
   public static create(input: Issue): IssueEntity {
     const issueTitle = IssueTitle.create(input.title);
     const issueDescription = IssueDescription.create(input.description);
+    const issueAuthor = IssueAuthor.create(input.author);
 
     return new IssueEntity(
       input.id,
       issueTitle.value,
       issueDescription.value,
-      input.author,
+      issueAuthor.value,
       input.createdAt,
       issueTitle,
       issueDescription,
+      issueAuthor,
     );
   }
 
@@ -76,7 +82,7 @@ export class IssueEntity {
   }
 
   public getNormalizedAuthor(): string {
-    return this.author.trim();
+    return this.#issueAuthor.normalizedValue;
   }
 
   public getNormalizedContent(): string {
@@ -85,10 +91,10 @@ export class IssueEntity {
 
   public validateIntegrity(): IssueIntegrityValidationResult {
     const errors: string[] = [];
-    const author = this.getNormalizedAuthor();
     const issueContent = this.getNormalizedContent();
     const hasTitle = this.#issueTitle.hasText();
     const hasDescription = this.#issueDescription.hasText();
+    const hasAuthor = this.#issueAuthor.hasText();
 
     if (!hasTitle) {
       errors.push(TITLE_REQUIRED_ERROR);
@@ -102,7 +108,7 @@ export class IssueEntity {
       errors.push(DESCRIPTION_TOO_SHORT_ERROR);
     }
 
-    if (!author) {
+    if (!hasAuthor) {
       errors.push(AUTHOR_REQUIRED_ERROR);
     }
 
