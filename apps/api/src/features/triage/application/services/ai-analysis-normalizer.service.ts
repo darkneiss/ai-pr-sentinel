@@ -5,12 +5,6 @@ import { isObjectRecord } from './ai-analysis.types';
 
 export type { AiAnalysis, AiIssueKind, AiTone } from './ai-analysis.types';
 
-export const isValidOriginalIssueNumber = (
-  originalIssueNumber: number | null,
-  currentIssueNumber: number,
-): originalIssueNumber is number =>
-  originalIssueNumber !== null && originalIssueNumber !== currentIssueNumber;
-
 export const parseAiAnalysis = (rawText: string, currentIssueNumber: number) => {
   try {
     const parsed: unknown = JSON.parse(rawText);
