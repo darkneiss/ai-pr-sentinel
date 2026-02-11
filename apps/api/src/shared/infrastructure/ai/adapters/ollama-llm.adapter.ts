@@ -8,6 +8,7 @@ const LLM_MODEL_ENV_VAR = 'LLM_MODEL';
 const LLM_BASE_URL_ENV_VAR = 'LLM_BASE_URL';
 const OLLAMA_MODEL_ENV_VAR = 'OLLAMA_MODEL';
 const OLLAMA_BASE_URL_ENV_VAR = 'OLLAMA_BASE_URL';
+const OLLAMA_RETRYABLE_STATUS_CODES = [429, 503] as const;
 
 interface CreateOllamaLlmAdapterParams {
   baseUrl?: string;
@@ -40,6 +41,11 @@ const getOllamaModel = (params: CreateOllamaLlmAdapterParams, config: ConfigPort
   params.model ?? config.get(LLM_MODEL_ENV_VAR) ?? config.get(OLLAMA_MODEL_ENV_VAR) ?? DEFAULT_OLLAMA_MODEL;
 
 const buildOllamaEndpoint = (baseUrl: string): string => baseUrl;
+
+const isRetryableStatus = (status: number): boolean =>
+  (OLLAMA_RETRYABLE_STATUS_CODES as readonly number[]).includes(status);
+
+const isTimeoutError = (error: unknown): boolean => error instanceof Error && error.name === 'AbortError';
 
 const buildOllamaRequestBody = ({
   model,
@@ -78,28 +84,61 @@ export const createOllamaLlmAdapter = (params: CreateOllamaLlmAdapterParams = {}
 
   return {
     generateJson: async ({ systemPrompt, userPrompt, maxTokens, timeoutMs, temperature }) => {
-      const response = await fetchFn(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: buildOllamaRequestBody({
-          model,
-          systemPrompt,
-          userPrompt,
-          maxTokens,
-          timeoutMs,
-          temperature,
-        }),
-        signal: createAbortSignal(timeoutMs),
-      });
+      const requestOnce = async (): Promise<Response> =>
+        fetchFn(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: buildOllamaRequestBody({
+            model,
+            systemPrompt,
+            userPrompt,
+            maxTokens,
+            timeoutMs,
+            temperature,
+          }),
+          signal: createAbortSignal(timeoutMs),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Ollama request failed with status ${response.status}`);
-      }
+      const buildOllamaError = (status: number): Error => new Error(`Ollama request failed with status ${status}`);
 
-      const responseJson = (await response.json()) as OllamaSuccessResponse;
+      const handleNonOkResponse = async (response: Response): Promise<OllamaSuccessResponse> => {
+        if (!isRetryableStatus(response.status)) {
+          throw buildOllamaError(response.status);
+        }
 
+        const retryResponse = await requestOnce();
+        if (!retryResponse.ok) {
+          throw buildOllamaError(retryResponse.status);
+        }
+
+        return (await retryResponse.json()) as OllamaSuccessResponse;
+      };
+
+      const requestWithRetry = async (): Promise<OllamaSuccessResponse> => {
+        try {
+          const response = await requestOnce();
+          if (!response.ok) {
+            return handleNonOkResponse(response);
+          }
+
+          return (await response.json()) as OllamaSuccessResponse;
+        } catch (error: unknown) {
+          if (!isTimeoutError(error)) {
+            throw error;
+          }
+
+          const retryResponse = await requestOnce();
+          if (!retryResponse.ok) {
+            throw buildOllamaError(retryResponse.status);
+          }
+
+          return (await retryResponse.json()) as OllamaSuccessResponse;
+        }
+      };
+
+      const responseJson = await requestWithRetry();
       return { rawText: extractOllamaRawText(responseJson) };
     },
   };

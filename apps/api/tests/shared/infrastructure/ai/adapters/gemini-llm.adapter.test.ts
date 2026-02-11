@@ -23,6 +23,12 @@ const createFetchFnMock = (response: MockFetchResponse): jest.MockedFunction<typ
   jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue(response) as unknown as
     jest.MockedFunction<typeof fetch>;
 
+const createAbortError = (): Error => {
+  const error = new Error('Request aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
 const createAdapterWithFetch = (fetchFn: typeof fetch) =>
   createGeminiLlmAdapter({
     apiKey: 'gemini-key',
@@ -112,6 +118,95 @@ describe('GeminiLlmAdapter', () => {
 
     // Act + Assert
     await expect(runGenerateJson(adapter)).rejects.toThrow('Gemini request failed');
+  });
+
+  it('should retry once when Gemini returns a retryable status', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        json: async () => ({ error: { message: 'quota exceeded' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: DEFAULT_JSON_TEXT }],
+              },
+            },
+          ],
+        }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act
+    const result = await runGenerateJson(adapter);
+
+    // Assert
+    expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should retry once when Gemini request times out', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(createAbortError())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: DEFAULT_JSON_TEXT }],
+              },
+            },
+          ],
+        }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act
+    const result = await runGenerateJson(adapter);
+
+    // Assert
+    expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should rethrow non-timeout fetch errors', async () => {
+    // Arrange
+    const fetchError = new Error('network down');
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(fetchError);
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act + Assert
+    await expect(runGenerateJson(adapter)).rejects.toThrow('network down');
+  });
+
+  it('should throw when timeout retry returns non-ok response', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(createAbortError())
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({ error: { message: 'overloaded' } }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act + Assert
+    await expect(runGenerateJson(adapter)).rejects.toThrow('Gemini request failed');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
   it('should include model and provider error message when Gemini returns non-ok response', async () => {

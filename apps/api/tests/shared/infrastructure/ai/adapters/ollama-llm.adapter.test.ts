@@ -22,6 +22,12 @@ const createFetchFnMock = (response: MockFetchResponse): jest.MockedFunction<typ
   jest.fn<Promise<MockFetchResponse>, [string, RequestInit?]>().mockResolvedValue(response) as unknown as
     jest.MockedFunction<typeof fetch>;
 
+const createAbortError = (): Error => {
+  const error = new Error('Request aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
 const createAdapterWithFetch = (fetchFn: typeof fetch) =>
   createOllamaLlmAdapter({
     baseUrl: 'http://localhost:11434',
@@ -84,6 +90,100 @@ describe('OllamaLlmAdapter', () => {
 
     // Act + Assert
     await expect(runGenerateJson(adapter)).rejects.toThrow('Ollama request failed');
+  });
+
+  it('should retry once when Ollama returns a retryable status', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({ error: 'overloaded' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ response: DEFAULT_JSON_TEXT }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act
+    const result = await runGenerateJson(adapter);
+
+    // Assert
+    expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw when Ollama retry response is non-ok', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({ error: 'overloaded' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'still failing' }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act + Assert
+    await expect(runGenerateJson(adapter)).rejects.toThrow('Ollama request failed with status 500');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should retry once when Ollama request times out', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(createAbortError())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ response: DEFAULT_JSON_TEXT }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act
+    const result = await runGenerateJson(adapter);
+
+    // Assert
+    expect(result).toEqual({ rawText: DEFAULT_JSON_TEXT });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('should rethrow non-timeout fetch errors', async () => {
+    // Arrange
+    const fetchError = new Error('network down');
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(fetchError);
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act + Assert
+    await expect(runGenerateJson(adapter)).rejects.toThrow('network down');
+  });
+
+  it('should throw when timeout retry returns non-ok response', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockRejectedValueOnce(createAbortError())
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        json: async () => ({ error: 'rate limited' }),
+      });
+    const adapter = createAdapterWithFetch(fetchFn as unknown as typeof fetch);
+
+    // Act + Assert
+    await expect(runGenerateJson(adapter)).rejects.toThrow('Ollama request failed with status 429');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
   it('should throw when Ollama response does not include text content', async () => {

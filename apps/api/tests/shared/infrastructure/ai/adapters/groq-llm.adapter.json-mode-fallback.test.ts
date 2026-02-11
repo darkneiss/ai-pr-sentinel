@@ -53,6 +53,61 @@ describe('GroqLlmAdapter (JSON Mode Fallback)', () => {
     expect(secondCallBody).not.toContain('"response_format"');
   });
 
+  it('should log when retrying without structured output if raw response logging is enabled', async () => {
+    // Arrange
+    const fetchFn = jest
+      .fn<Promise<MockFetchResponse>, [string, RequestInit?]>()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: {
+            message: 'Failed to validate JSON. Please adjust your prompt.',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: '{"classification":{"type":"question"}}' } }],
+        }),
+      });
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    const config = {
+      get: (_key: string) => undefined,
+      getBoolean: (key: string) => (key === 'LLM_LOG_RAW_RESPONSE' ? true : undefined),
+    };
+    const adapter = createGroqLlmAdapter({
+      apiKey: 'groq-key',
+      model: 'openai/gpt-oss-20b',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+      fetchFn: fetchFn as unknown as typeof fetch,
+      config,
+    });
+
+    try {
+      // Act
+      await adapter.generateJson({
+        systemPrompt: 'system',
+        userPrompt: 'user',
+        maxTokens: 120,
+        timeoutMs: 5000,
+      });
+
+      // Assert
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Groq retrying without structured output.',
+        expect.objectContaining({
+          endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+          model: 'openai/gpt-oss-20b',
+        }),
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it('should throw when retry without response_format also fails', async () => {
     // Arrange
     const fetchFn = jest
