@@ -9,6 +9,8 @@ import {
   TITLE_REQUIRED_ERROR,
   TITLE_TOO_SHORT_ERROR,
 } from '../constants/issue-validation.constants';
+import { IssueDescription } from '../value-objects/issue-description.value-object';
+import { IssueTitle } from '../value-objects/issue-title.value-object';
 
 export interface Issue {
   id: string;
@@ -26,16 +28,35 @@ export interface IssueIntegrityValidationResult {
 }
 
 export class IssueEntity {
+  #issueTitle: IssueTitle;
+  #issueDescription: IssueDescription;
+
   private constructor(
     public readonly id: string,
     public readonly title: string,
     public readonly description: string,
     public readonly author: string,
     public readonly createdAt: Date,
-  ) {}
+    issueTitle: IssueTitle,
+    issueDescription: IssueDescription,
+  ) {
+    this.#issueTitle = issueTitle;
+    this.#issueDescription = issueDescription;
+  }
 
   public static create(input: Issue): IssueEntity {
-    return new IssueEntity(input.id, input.title, input.description, input.author, input.createdAt);
+    const issueTitle = IssueTitle.create(input.title);
+    const issueDescription = IssueDescription.create(input.description);
+
+    return new IssueEntity(
+      input.id,
+      issueTitle.value,
+      issueDescription.value,
+      input.author,
+      input.createdAt,
+      issueTitle,
+      issueDescription,
+    );
   }
 
   public static from(input: Issue | IssueEntity): IssueEntity {
@@ -47,11 +68,11 @@ export class IssueEntity {
   }
 
   public getNormalizedTitle(): string {
-    return this.title.trim();
+    return this.#issueTitle.normalizedValue;
   }
 
   public getNormalizedDescription(): string {
-    return this.description.trim();
+    return this.#issueDescription.normalizedValue;
   }
 
   public getNormalizedAuthor(): string {
@@ -64,20 +85,20 @@ export class IssueEntity {
 
   public validateIntegrity(): IssueIntegrityValidationResult {
     const errors: string[] = [];
-    const title = this.getNormalizedTitle();
-    const description = this.getNormalizedDescription();
     const author = this.getNormalizedAuthor();
     const issueContent = this.getNormalizedContent();
+    const hasTitle = this.#issueTitle.hasText();
+    const hasDescription = this.#issueDescription.hasText();
 
-    if (!title) {
+    if (!hasTitle) {
       errors.push(TITLE_REQUIRED_ERROR);
-    } else if (title.length < MIN_TITLE_LENGTH) {
+    } else if (!this.#issueTitle.hasMinLength(MIN_TITLE_LENGTH)) {
       errors.push(TITLE_TOO_SHORT_ERROR);
     }
 
-    if (!description) {
+    if (!hasDescription) {
       errors.push(DESCRIPTION_REQUIRED_ERROR);
-    } else if (description.length < MIN_DESCRIPTION_LENGTH) {
+    } else if (!this.#issueDescription.hasMinLength(MIN_DESCRIPTION_LENGTH)) {
       errors.push(DESCRIPTION_TOO_SHORT_ERROR);
     }
 

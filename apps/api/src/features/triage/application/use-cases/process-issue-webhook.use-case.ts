@@ -55,14 +55,14 @@ export const processIssueWebhook =
       return { statusCode: 204 };
     }
 
-    const issueEntity = IssueEntity.create({
+    const issueForValidation = IssueEntity.create({
       id: `${input.repositoryFullName}#${input.issue.number}`,
       title: input.issue.title,
       description: input.issue.body,
       author: input.issue.author,
       createdAt: new Date(),
     });
-    const validationResult = issueIntegrityValidator(issueEntity);
+    const validationResult = issueIntegrityValidator(issueForValidation);
     const governanceActionsDecision = decideIssueGovernanceActions({
       validation: validationResult,
       existingLabels: input.issue.labels,
