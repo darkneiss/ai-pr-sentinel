@@ -78,6 +78,8 @@
     via `decideIssueQuestionResponseCommentPublication`.
   - Duplicate execution gating (signal/decision/comment-plan readiness) is now centralized in domain
     via `decideIssueDuplicateGovernanceExecution`.
+  - Tone monitor actions are now represented as domain-planned label operations
+    (`tone.labelsToAdd`) consumed directly by application orchestration.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.

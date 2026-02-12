@@ -79,8 +79,7 @@ export interface IssueAiTriageQuestionPlan {
 }
 
 export interface IssueAiTriageTonePlan {
-  shouldApplyMonitorLabel: boolean;
-  monitorLabel: string;
+  labelsToAdd: string[];
 }
 
 export interface IssueAiTriageActionPlan {
@@ -165,11 +164,11 @@ export const buildIssueAiTriageActionPlan = ({
     fallbackChecklistCommentPrefix: questionPolicy.fallbackChecklistCommentPrefix,
   });
 
+  const shouldApplyMonitorLabel = shouldApplyIssueToneMonitorLabel({
+    effectiveTone: aiAnalysis.sentiment.tone,
+  });
   const tonePlan: IssueAiTriageTonePlan = {
-    shouldApplyMonitorLabel: shouldApplyIssueToneMonitorLabel({
-      effectiveTone: aiAnalysis.sentiment.tone,
-    }),
-    monitorLabel: tonePolicy.monitorLabel,
+    labelsToAdd: shouldApplyMonitorLabel ? [tonePolicy.monitorLabel] : [],
   };
 
   return {

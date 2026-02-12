@@ -78,7 +78,7 @@ describe('IssueAiTriageActionPlanService', () => {
       commentPrefix: 'AI Triage: Suggested guidance',
       usedRepositoryContext: true,
     });
-    expect(result.tone.shouldApplyMonitorLabel).toBe(false);
+    expect(result.tone.labelsToAdd).toEqual([]);
   });
 
   it('should suppress kind labels and activate monitor label on hostile high-confidence tone', () => {
@@ -143,6 +143,6 @@ describe('IssueAiTriageActionPlanService', () => {
     expect(result.classification.wasSuppressedByHostileTone).toBe(true);
     expect(result.classification.labelsToAdd).toEqual([]);
     expect(result.classification.labelsToRemove).toEqual(['kind/bug']);
-    expect(result.tone.shouldApplyMonitorLabel).toBe(true);
+    expect(result.tone.labelsToAdd).toEqual(['triage/monitor']);
   });
 });

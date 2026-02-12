@@ -129,11 +129,9 @@ export const applyAiTriageGovernanceActions = async (
   });
 
   await runStep(AI_TRIAGE_LOG_STEP_TONE, async () => {
-    if (!actionPlan.tone.shouldApplyMonitorLabel) {
-      return;
+    for (const labelToAdd of actionPlan.tone.labelsToAdd) {
+      await context.addLabelIfMissing(labelToAdd);
     }
-
-    await context.addLabelIfMissing(actionPlan.tone.monitorLabel);
   });
 
   await applyQuestionResponseGovernanceActions(context, actionPlan.question);

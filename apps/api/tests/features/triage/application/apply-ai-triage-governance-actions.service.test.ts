@@ -122,8 +122,7 @@ describe('applyAiTriageGovernanceActions', () => {
       duplicate: duplicatePlan,
       question: questionPlan,
       tone: {
-        shouldApplyMonitorLabel: false,
-        monitorLabel: 'triage/monitor',
+        labelsToAdd: [],
       },
     });
 
