@@ -7,3 +7,4 @@
 - [ADR-005: Webhook Ingress Hardening (Allowlist + Delivery Idempotency)](./ADR-005-webhook-ingress-hardening.md)
 - [ADR-006: Triage Domain Processing Policies](./ADR-006-triage-domain-processing-policies.md)
 - [ADR-007: Webhook ACL + Domain Workflow + Hexagonal Guardrails](./ADR-007-webhook-acl-and-hexagonal-guardrails.md)
+- [ADR-008: Dedicated Architecture Quality Gate and Layer Metrics](./ADR-008-architecture-quality-gate-and-layer-metrics.md)

@@ -15,6 +15,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  architecture:
+    name: Architecture
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run architecture check
+        run: pnpm --filter api architecture:check
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

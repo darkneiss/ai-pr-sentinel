@@ -161,12 +161,17 @@
 - Current quality gate:
   - `pnpm --filter api lint`: passing
   - `pnpm --filter api test`: passing
+  - `pnpm --filter api architecture:check`: passing
   - Coverage currently at 100% (statements, branches, functions, lines) for `apps/api`.
   - Domain policy coverage includes:
     - `issue-webhook-processing-policy.service.ts`
     - `issue-ai-triage-processing-policy.service.ts`
   - Hexagonal guard rails are enforced by test:
     - `tests/features/triage/architecture/triage-hexagonal-boundaries.test.ts`
+  - Dedicated architecture tool:
+    - `src/tools/architecture/triage-architecture-check.tool.ts`
+    - emits JSON coupling/change-surface metrics by layer and fails on boundary violations.
+  - CI now includes a dedicated `Architecture` job with explicit failure semantics.
 
 ## 7. Working Rules (Operational)
 - TDD in local is mandatory: RED -> GREEN -> REFACTOR.
@@ -197,5 +202,7 @@
   - Documents centralization of triage processing decisions into domain policy services.
 - `docs/adr/ADR-007-webhook-acl-and-hexagonal-guardrails.md`
   - Documents webhook anti-corruption mapper, webhook+AI domain workflows, domain ports realignment, and boundary tests.
+- `docs/adr/ADR-008-architecture-quality-gate-and-layer-metrics.md`
+  - Documents dedicated architecture CLI checks, CI architecture gate, and layer drift metrics.
 - `docs/adr/README.md`
   - ADR index.
