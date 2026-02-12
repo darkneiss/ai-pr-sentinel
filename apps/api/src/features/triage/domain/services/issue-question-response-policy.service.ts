@@ -32,6 +32,16 @@ export interface ShouldPublishIssueQuestionResponseCommentInput {
   hasExistingQuestionReplyComment: boolean;
 }
 
+export interface DecideIssueQuestionResponseCommentPublicationInput {
+  publicationPlan: IssueQuestionResponseCommentPublicationPlan | null;
+  hasExistingQuestionReplyComment: boolean;
+}
+
+export interface IssueQuestionResponseCommentPublicationDecision {
+  shouldCreateComment: boolean;
+  commentBody: string | null;
+}
+
 export interface PlanIssueQuestionResponseCommentPublicationInput {
   decision: IssueQuestionResponseDecision;
   repositoryReadme: string | undefined;
@@ -254,6 +264,33 @@ export const planIssueQuestionResponseCommentPublication = ({
 export const shouldPublishIssueQuestionResponseComment = ({
   hasExistingQuestionReplyComment,
 }: ShouldPublishIssueQuestionResponseCommentInput): boolean => !hasExistingQuestionReplyComment;
+
+export const decideIssueQuestionResponseCommentPublication = ({
+  publicationPlan,
+  hasExistingQuestionReplyComment,
+}: DecideIssueQuestionResponseCommentPublicationInput): IssueQuestionResponseCommentPublicationDecision => {
+  if (!publicationPlan) {
+    return {
+      shouldCreateComment: false,
+      commentBody: null,
+    };
+  }
+
+  if (!shouldPublishIssueQuestionResponseComment({ hasExistingQuestionReplyComment })) {
+    return {
+      shouldCreateComment: false,
+      commentBody: null,
+    };
+  }
+
+  return {
+    shouldCreateComment: true,
+    commentBody: buildIssueQuestionResponseComment({
+      commentPrefix: publicationPlan.commentPrefix,
+      responseBody: publicationPlan.responseBody,
+    }),
+  };
+};
 
 export const detectRepositoryContextUsageInResponse = ({
   suggestedResponse,

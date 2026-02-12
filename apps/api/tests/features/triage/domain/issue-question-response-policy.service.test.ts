@@ -1,5 +1,6 @@
 import {
   buildIssueQuestionResponseComment,
+  decideIssueQuestionResponseCommentPublication,
   buildIssueQuestionFallbackResponse,
   buildIssueQuestionFallbackResponseWhenApplicable,
   decideIssueQuestionResponseAction,
@@ -366,6 +367,67 @@ describe('IssueQuestionResponsePolicyService', () => {
       responseBody: 'Use the telemetry exporter setup from README.',
       commentPrefix: '[AI]',
       usedRepositoryContext: true,
+    });
+  });
+
+  it('should skip question comment publication when publication plan is null', () => {
+    // Arrange
+    const input = {
+      publicationPlan: null,
+      hasExistingQuestionReplyComment: false,
+    };
+
+    // Act
+    const result = decideIssueQuestionResponseCommentPublication(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCreateComment: false,
+      commentBody: null,
+    });
+  });
+
+  it('should skip question comment publication when comment already exists', () => {
+    // Arrange
+    const input = {
+      publicationPlan: {
+        responseSource: 'ai_suggested_response' as const,
+        responseBody: 'Use pnpm install',
+        commentPrefix: '[AI]',
+        usedRepositoryContext: false,
+      },
+      hasExistingQuestionReplyComment: true,
+    };
+
+    // Act
+    const result = decideIssueQuestionResponseCommentPublication(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCreateComment: false,
+      commentBody: null,
+    });
+  });
+
+  it('should publish question comment when plan exists and no previous comment is found', () => {
+    // Arrange
+    const input = {
+      publicationPlan: {
+        responseSource: 'fallback_checklist' as const,
+        responseBody: '- Share logs',
+        commentPrefix: '[Fallback]',
+        usedRepositoryContext: false,
+      },
+      hasExistingQuestionReplyComment: false,
+    };
+
+    // Act
+    const result = decideIssueQuestionResponseCommentPublication(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCreateComment: true,
+      commentBody: '[Fallback]\n\n- Share logs',
     });
   });
 });

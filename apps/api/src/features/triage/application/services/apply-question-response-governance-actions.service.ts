@@ -4,8 +4,7 @@ import {
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import type { QuestionResponseSource } from '../../../../shared/application/ports/question-response-metrics.port';
 import {
-  buildIssueQuestionResponseComment,
-  shouldPublishIssueQuestionResponseComment,
+  decideIssueQuestionResponseCommentPublication,
 } from '../../domain/services/issue-question-response-policy.service';
 import { type IssueAiTriageQuestionPlan } from '../../domain/services/issue-ai-triage-action-plan.service';
 
@@ -20,7 +19,6 @@ export const applyQuestionResponseGovernanceActions = async (
   }
 
   const publicationPlan = precomputedPlan.commentPublicationPlan;
-
   if (!publicationPlan) {
     return;
   }
@@ -42,7 +40,12 @@ export const applyQuestionResponseGovernanceActions = async (
     authorLogin: context.botLogin,
   });
 
-  if (!shouldPublishIssueQuestionResponseComment({ hasExistingQuestionReplyComment })) {
+  const publicationDecision = decideIssueQuestionResponseCommentPublication({
+    publicationPlan,
+    hasExistingQuestionReplyComment,
+  });
+
+  if (!publicationDecision.shouldCreateComment || !publicationDecision.commentBody) {
     context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment already exists. Skipping.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
@@ -55,10 +58,7 @@ export const applyQuestionResponseGovernanceActions = async (
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: buildIssueQuestionResponseComment({
-      commentPrefix: publicationPlan.commentPrefix,
-      responseBody: publicationPlan.responseBody,
-    }),
+    body: publicationDecision.commentBody,
   });
   context.incrementActionsAppliedCount();
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment created.', {

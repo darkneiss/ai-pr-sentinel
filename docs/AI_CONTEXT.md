@@ -73,6 +73,9 @@
     a precomputed plan and fail fast if it is missing (no domain-recomputation fallback in application).
   - `apply-ai-triage-governance-actions` now forwards domain plan slices directly
     (`duplicate`, `question`) without remapping execution-plan DTOs in application.
+  - Final publication decision for question-response comments (including existing-comment gate and
+    comment body construction) is now centralized in domain
+    via `decideIssueQuestionResponseCommentPublication`.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.
