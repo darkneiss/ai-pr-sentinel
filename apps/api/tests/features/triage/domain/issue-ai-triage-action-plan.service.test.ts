@@ -67,6 +67,11 @@ describe('IssueAiTriageActionPlanService', () => {
     expect(result.classification.labelsToAdd).toEqual(['kind/question']);
     expect(result.classification.labelsToRemove).toEqual(['kind/bug']);
     expect(result.duplicate.shouldProcessSignal).toBe(true);
+    expect(result.duplicate.execution).toEqual({
+      shouldApplyDuplicateLabel: true,
+      commentBody: 'AI Triage: Possible duplicate of #7 (Similarity: 91%).',
+      skipReason: null,
+    });
     expect(result.duplicate.commentPublicationPlan).toEqual({
       originalIssueNumber: 7,
       usedFallbackOriginalIssue: true,
@@ -143,6 +148,11 @@ describe('IssueAiTriageActionPlanService', () => {
     expect(result.classification.wasSuppressedByHostileTone).toBe(true);
     expect(result.classification.labelsToAdd).toEqual([]);
     expect(result.classification.labelsToRemove).toEqual(['kind/bug']);
+    expect(result.duplicate.execution).toEqual({
+      shouldApplyDuplicateLabel: false,
+      commentBody: null,
+      skipReason: 'signal_not_marked_duplicate',
+    });
     expect(result.tone.labelsToAdd).toEqual(['triage/monitor']);
   });
 });

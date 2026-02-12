@@ -2,7 +2,6 @@ import {
   AI_TRIAGE_DUPLICATE_LABEL,
 } from '../constants/ai-triage.constants';
 import { type IssueAiTriageDuplicatePlan } from '../../domain/services/issue-ai-triage-action-plan.service';
-import { decideIssueDuplicateGovernanceExecution } from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 
 const DUPLICATE_ACTION_PLAN_REQUIRED_ERROR = 'Duplicate action plan is required.';
@@ -15,11 +14,7 @@ export const applyDuplicateGovernanceActions = async (
     throw new Error(DUPLICATE_ACTION_PLAN_REQUIRED_ERROR);
   }
 
-  const duplicateExecutionDecision = decideIssueDuplicateGovernanceExecution({
-    shouldProcessSignal: precomputedPlan.shouldProcessSignal,
-    decision: precomputedPlan.decision,
-    commentPublicationPlan: precomputedPlan.commentPublicationPlan,
-  });
+  const duplicateExecutionDecision = precomputedPlan.execution;
   if (!duplicateExecutionDecision.shouldApplyDuplicateLabel) {
     if (duplicateExecutionDecision.skipReason !== 'decision_not_actionable') {
       return;

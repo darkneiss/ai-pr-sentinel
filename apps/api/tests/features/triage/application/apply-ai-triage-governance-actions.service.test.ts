@@ -103,6 +103,11 @@ describe('applyAiTriageGovernanceActions', () => {
         usedFallbackOriginalIssue: false,
       },
       commentPublicationPlan: null,
+      execution: {
+        shouldApplyDuplicateLabel: false,
+        commentBody: null,
+        skipReason: 'decision_not_actionable',
+      } as const,
     };
     const questionPlan = {
       decision: {

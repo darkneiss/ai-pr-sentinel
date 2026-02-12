@@ -1,11 +1,13 @@
 import type { AiAnalysis, AiTone } from './issue-ai-analysis-normalizer.service';
 import {
+  decideIssueDuplicateGovernanceExecution,
   decideIssueDuplicateActions,
   planIssueDuplicateCommentPublication,
   resolveFallbackDuplicateIssueNumber,
   shouldProcessIssueDuplicateSignal,
   type IssueDuplicateActionsDecision,
   type IssueDuplicateCommentPublicationPlan,
+  type IssueDuplicateGovernanceExecutionDecision,
 } from './issue-duplicate-policy.service';
 import {
   planIssueKindLabelActions,
@@ -71,6 +73,7 @@ export interface IssueAiTriageDuplicatePlan {
   shouldProcessSignal: boolean;
   decision: IssueDuplicateActionsDecision;
   commentPublicationPlan: IssueDuplicateCommentPublicationPlan | null;
+  execution: IssueDuplicateGovernanceExecutionDecision;
 }
 
 export interface IssueAiTriageQuestionPlan {
@@ -136,6 +139,11 @@ export const buildIssueAiTriageActionPlan = ({
     commentPrefix: duplicatePolicy.commentPrefix,
     similarityScore: aiAnalysis.duplicateDetection.similarityScore,
   });
+  const duplicateExecution = decideIssueDuplicateGovernanceExecution({
+    shouldProcessSignal: shouldProcessDuplicateSignal,
+    decision: duplicateDecision,
+    commentPublicationPlan: duplicateCommentPublicationPlan,
+  });
 
   const normalizedSuggestedResponse = normalizeIssueQuestionSuggestedResponse(aiAnalysis.suggestedResponse);
   const looksLikeQuestionIssue = isLikelyQuestionIssueContent({
@@ -178,6 +186,7 @@ export const buildIssueAiTriageActionPlan = ({
       shouldProcessSignal: shouldProcessDuplicateSignal,
       decision: duplicateDecision,
       commentPublicationPlan: duplicateCommentPublicationPlan,
+      execution: duplicateExecution,
     },
     question: {
       decision: questionDecision,

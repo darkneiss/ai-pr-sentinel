@@ -100,6 +100,11 @@ describe('applyDuplicateGovernanceActions', () => {
         usedFallbackOriginalIssue: false,
       },
       commentPublicationPlan: null,
+      execution: {
+        shouldApplyDuplicateLabel: false,
+        commentBody: null,
+        skipReason: 'signal_not_marked_duplicate',
+      },
     };
 
     // Act
@@ -124,6 +129,11 @@ describe('applyDuplicateGovernanceActions', () => {
         usedFallbackOriginalIssue: false,
       },
       commentPublicationPlan: null,
+      execution: {
+        shouldApplyDuplicateLabel: false,
+        commentBody: null,
+        skipReason: 'decision_not_actionable',
+      },
     };
 
     // Act
@@ -151,6 +161,11 @@ describe('applyDuplicateGovernanceActions', () => {
         originalIssueNumber: 10,
         commentBody: 'AI Triage: Possible duplicate of #10',
         usedFallbackOriginalIssue: false,
+      },
+      execution: {
+        shouldApplyDuplicateLabel: true,
+        commentBody: 'AI Triage: Possible duplicate of #10',
+        skipReason: null,
       },
     };
 
@@ -185,6 +200,11 @@ describe('applyDuplicateGovernanceActions', () => {
         commentBody: 'AI Triage: Possible duplicate of #10',
         usedFallbackOriginalIssue: false,
       },
+      execution: {
+        shouldApplyDuplicateLabel: true,
+        commentBody: 'AI Triage: Possible duplicate of #10',
+        skipReason: null,
+      },
     };
 
     // Act
@@ -208,6 +228,11 @@ describe('applyDuplicateGovernanceActions', () => {
         usedFallbackOriginalIssue: false,
       },
       commentPublicationPlan: null,
+      execution: {
+        shouldApplyDuplicateLabel: false,
+        commentBody: null,
+        skipReason: 'missing_comment_publication_plan',
+      },
     };
 
     // Act
