@@ -1,19 +1,5 @@
-export interface RecentIssueSummary {
-  number: number;
-  title: string;
-  labels: string[];
-  state: 'open' | 'closed';
-}
+import type { IssueHistoryReader } from '../../domain/ports/issue-history-reader.port';
 
-export interface IssueHistoryGateway {
-  findRecentIssues(input: {
-    repositoryFullName: string;
-    limit: number;
-  }): Promise<RecentIssueSummary[]>;
-  hasIssueCommentWithPrefix(input: {
-    repositoryFullName: string;
-    issueNumber: number;
-    bodyPrefix: string;
-    authorLogin?: string;
-  }): Promise<boolean>;
-}
+export type { RecentIssueSummary } from '../../domain/ports/issue-history-reader.port';
+
+export interface IssueHistoryGateway extends IssueHistoryReader {}
