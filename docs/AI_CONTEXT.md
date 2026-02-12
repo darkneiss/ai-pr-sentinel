@@ -8,7 +8,7 @@
 - Stack: Node.js (v22), Express, TypeScript, Jest, pnpm workspaces.
 - Architecture: Hexagonal (Domain/Application/Infrastructure) + shared kernel.
 
-## 2. Current Status (2026-02-11)
+## 2. Current Status (2026-02-12)
 
 ### Feature 001: Basic Governance
 - Status: DONE
@@ -108,10 +108,17 @@
     `decideIssueDuplicateSkippedLogDecision` (only emits for actionable/loggable skip reasons).
   - Tone monitor actions are now represented as domain-planned label operations
     (`tone.labelsToAdd`) consumed directly by application orchestration.
+  - AI triage processing decisions are now centralized in domain via
+    `issue-ai-triage-processing-policy.service.ts`:
+    - action support skip/continue result,
+    - parsing success vs fail-open result,
+    - explicit fail-open result for unhandled errors.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.
 - Adapter: `GithubRepositoryContextAdapter`.
+- Domain contract:
+  - `features/triage/domain/ports/repository-context-reader.port.ts`.
 - Current context source:
   - README content fetched from GitHub and injected into AI triage prompt.
 - Resilience:
@@ -140,6 +147,9 @@
   - `pnpm --filter api lint`: passing
   - `pnpm --filter api test`: passing
   - Coverage currently at 100% (statements, branches, functions, lines) for `apps/api`.
+  - Domain policy coverage includes:
+    - `issue-webhook-processing-policy.service.ts`
+    - `issue-ai-triage-processing-policy.service.ts`
 
 ## 7. Working Rules (Operational)
 - TDD in local is mandatory: RED -> GREEN -> REFACTOR.
@@ -166,5 +176,7 @@
   - Documents LLM endpoint configuration rules for Gemini, Groq, and Ollama.
 - `docs/adr/ADR-005-webhook-ingress-hardening.md`
   - Documents webhook ingress allowlist and delivery deduplication strategy.
+- `docs/adr/ADR-006-triage-domain-processing-policies.md`
+  - Documents centralization of triage processing decisions into domain policy services.
 - `docs/adr/README.md`
   - ADR index.

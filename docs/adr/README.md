@@ -5,3 +5,4 @@
 - [ADR-003: LLM Observability via LangSmith](./ADR-003-llm-observability-langsmith.md)
 - [ADR-004: LLM Endpoint Configuration](./ADR-004-llm-endpoint-config.md)
 - [ADR-005: Webhook Ingress Hardening (Allowlist + Delivery Idempotency)](./ADR-005-webhook-ingress-hardening.md)
+- [ADR-006: Triage Domain Processing Policies](./ADR-006-triage-domain-processing-policies.md)
