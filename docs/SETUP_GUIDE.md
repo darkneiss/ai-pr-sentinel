@@ -118,7 +118,20 @@ You need to expose your local server to GitHub.
    LLM_BASE_URL=http://127.0.0.1:11434/api/generate
    ```
 
-6. Optional: enable LangSmith observability:
+7. Optional: map AI classification labels to your repository taxonomy:
+   * These variables map AI semantic kinds (`bug|feature|question`) to GitHub labels.
+   * If not set, defaults are used:
+     * `kind/bug`
+     * `kind/feature`
+     * `kind/question`
+   * Example for GitHub default labels:
+   ```ini
+   AI_LABEL_KIND_BUG=bug
+   AI_LABEL_KIND_FEATURE=enhancement
+   AI_LABEL_KIND_QUESTION=question
+   ```
+
+8. Optional: enable LangSmith observability:
    * Set `LANGSMITH_TRACING=true`
    * Provide `LANGSMITH_API_KEY`
    * Optional: `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT`, `LANGSMITH_WORKSPACE_ID`
