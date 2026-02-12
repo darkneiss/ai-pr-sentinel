@@ -18,6 +18,20 @@ export interface IssueKindLabelActionsDecision {
   wasSuppressedByHostileTone: boolean;
 }
 
+export interface PlanIssueKindLabelActionsInput {
+  issueKind: IssueKind;
+  bugLabel: string;
+  featureLabel: string;
+  questionLabel: string;
+  classificationConfidence: number;
+  classificationConfidenceThreshold: number;
+  sentimentTone: AiTone;
+  sentimentConfidence: number;
+  sentimentConfidenceThreshold: number;
+  existingLabels: string[];
+  kindLabels: readonly string[];
+}
+
 export interface ResolveIssueKindLabelInput {
   issueKind: IssueKind;
   bugLabel: string;
@@ -74,4 +88,36 @@ export const decideIssueKindLabelActions = ({
     labelsToRemove: kindLabels.filter((label) => label !== targetKindLabel && existingLabels.includes(label)),
     wasSuppressedByHostileTone: false,
   };
+};
+
+export const planIssueKindLabelActions = ({
+  issueKind,
+  bugLabel,
+  featureLabel,
+  questionLabel,
+  classificationConfidence,
+  classificationConfidenceThreshold,
+  sentimentTone,
+  sentimentConfidence,
+  sentimentConfidenceThreshold,
+  existingLabels,
+  kindLabels,
+}: PlanIssueKindLabelActionsInput): IssueKindLabelActionsDecision => {
+  const targetKindLabel = resolveIssueKindLabel({
+    issueKind,
+    bugLabel,
+    featureLabel,
+    questionLabel,
+  });
+
+  return decideIssueKindLabelActions({
+    targetKindLabel,
+    classificationConfidence,
+    classificationConfidenceThreshold,
+    sentimentTone,
+    sentimentConfidence,
+    sentimentConfidenceThreshold,
+    existingLabels,
+    kindLabels,
+  });
 };

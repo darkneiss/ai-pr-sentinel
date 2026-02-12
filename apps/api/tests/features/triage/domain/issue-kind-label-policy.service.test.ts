@@ -1,5 +1,6 @@
 import {
   decideIssueKindLabelActions,
+  planIssueKindLabelActions,
   resolveIssueKindLabel,
 } from '../../../../src/features/triage/domain/services/issue-kind-label-policy.service';
 
@@ -92,5 +93,32 @@ describe('IssueKindLabelPolicyService', () => {
 
     // Assert
     expect(result).toBe('kind/feature');
+  });
+
+  it('should plan kind label actions from issue kind and policy thresholds', () => {
+    // Arrange
+    const input = {
+      issueKind: 'feature' as const,
+      bugLabel: 'kind/bug',
+      featureLabel: 'kind/feature',
+      questionLabel: 'kind/question',
+      classificationConfidence: 0.9,
+      classificationConfidenceThreshold: 0.8,
+      sentimentTone: 'neutral' as const,
+      sentimentConfidence: 0.6,
+      sentimentConfidenceThreshold: 0.8,
+      existingLabels: ['kind/bug'],
+      kindLabels: [...AI_KIND_LABELS],
+    };
+
+    // Act
+    const result = planIssueKindLabelActions(input);
+
+    // Assert
+    expect(result).toEqual({
+      labelsToAdd: ['kind/feature'],
+      labelsToRemove: ['kind/bug'],
+      wasSuppressedByHostileTone: false,
+    });
   });
 });
