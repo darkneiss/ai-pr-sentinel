@@ -3,7 +3,7 @@ import express, { type Express } from 'express';
 import type {
   AnalyzeIssueWithAiInput,
   AnalyzeIssueWithAiResult,
-} from '../../features/triage/application/use-cases/analyze-issue-with-ai.use-case';
+} from '../../features/triage/application/ports/issue-ai-triage-runner.port';
 import type { GovernanceGateway } from '../../features/triage/application/ports/governance-gateway.port';
 import type { RepositoryAuthorizationGateway } from '../../features/triage/application/ports/repository-authorization-gateway.port';
 import type { WebhookDeliveryGateway } from '../../features/triage/application/ports/webhook-delivery-gateway.port';

@@ -24,4 +24,39 @@ describe('RepositoryFullNameValueObject', () => {
     // Assert
     expect(run).toThrow('Invalid repository full name');
   });
+
+  it('should parse repository full name from unknown string input', () => {
+    // Arrange
+    const input: unknown = 'octo-org/ai-pr-sentinel';
+
+    // Act
+    const result = RepositoryFullName.fromUnknown(input);
+
+    // Assert
+    expect(result?.value).toBe('octo-org/ai-pr-sentinel');
+    expect(result?.owner).toBe('octo-org');
+    expect(result?.repo).toBe('ai-pr-sentinel');
+  });
+
+  it('should return null when unknown input is not a valid repository full name', () => {
+    // Arrange
+    const input: unknown = 'invalid-repository-name';
+
+    // Act
+    const result = RepositoryFullName.fromUnknown(input);
+
+    // Assert
+    expect(result).toBeNull();
+  });
+
+  it('should return null when unknown input is not a string', () => {
+    // Arrange
+    const input: unknown = { owner: 'octo-org', repo: 'ai-pr-sentinel' };
+
+    // Act
+    const result = RepositoryFullName.fromUnknown(input);
+
+    // Assert
+    expect(result).toBeNull();
+  });
 });

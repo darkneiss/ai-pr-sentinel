@@ -3,7 +3,10 @@ import {
   GOVERNANCE_ERROR_LABELS,
   TRIAGE_NEEDS_INFO_LABEL,
 } from '../constants/governance-labels.constants';
-import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from './analyze-issue-with-ai.use-case';
+import type {
+  AnalyzeIssueWithAiInput,
+  AnalyzeIssueWithAiResult,
+} from '../ports/issue-ai-triage-runner.port';
 import { type IssueIntegrityValidator } from '../../domain/services/issue-validation.service';
 import { IssueEntity } from '../../domain/entities/issue.entity';
 import { buildIssueIdentity } from '../../domain/services/issue-identity-policy.service';
