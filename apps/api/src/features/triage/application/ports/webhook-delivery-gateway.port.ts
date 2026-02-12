@@ -1,24 +1,11 @@
-export const WEBHOOK_DELIVERY_SOURCE_GITHUB = 'github' as const;
+import type { WebhookDeliveryRegistry } from '../../domain/ports/webhook-delivery-registry.port';
 
-export type WebhookDeliverySource = typeof WEBHOOK_DELIVERY_SOURCE_GITHUB;
+export {
+  WEBHOOK_DELIVERY_SOURCE_GITHUB,
+  type RegisterWebhookDeliveryInput,
+  type RegisterWebhookDeliveryResult,
+  type UnregisterWebhookDeliveryInput,
+  type WebhookDeliverySource,
+} from '../../domain/ports/webhook-delivery-registry.port';
 
-export interface RegisterWebhookDeliveryInput {
-  source: WebhookDeliverySource;
-  deliveryId: string;
-  receivedAt: Date;
-  ttlSeconds: number;
-}
-
-export interface RegisterWebhookDeliveryResult {
-  status: 'accepted' | 'duplicate';
-}
-
-export interface UnregisterWebhookDeliveryInput {
-  source: WebhookDeliverySource;
-  deliveryId: string;
-}
-
-export interface WebhookDeliveryGateway {
-  registerIfFirstSeen(input: RegisterWebhookDeliveryInput): Promise<RegisterWebhookDeliveryResult>;
-  unregister(input: UnregisterWebhookDeliveryInput): Promise<void>;
-}
+export interface WebhookDeliveryGateway extends WebhookDeliveryRegistry {}

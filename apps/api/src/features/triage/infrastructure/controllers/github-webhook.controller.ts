@@ -12,10 +12,7 @@ import {
   type WebhookDeliveryGateway,
 } from '../../application/ports/webhook-delivery-gateway.port';
 import { processIssueWebhook } from '../../application/use-cases/process-issue-webhook.use-case';
-import {
-  isValidIssueNumber,
-  isValidRepositoryFullName,
-} from '../../domain/services/issue-webhook-identity-policy.service';
+import { mapGithubIssueWebhookToProcessCommand } from '../adapters/github-issue-webhook-command.mapper';
 import { createEnvLogger, type Logger } from '../../../../shared/infrastructure/logging/env-logger';
 
 const GITHUB_DELIVERY_HEADER = 'x-github-delivery';
@@ -37,64 +34,6 @@ interface Dependencies {
   requireDeliveryId?: boolean;
   repositoryAuthorizationGateway?: RepositoryAuthorizationGateway;
 }
-
-interface GithubIssueLabel {
-  name: string;
-}
-
-interface GithubIssueWebhookPayload {
-  action: string;
-  issue: {
-    number: number;
-    title: string;
-    body: string | null;
-    user: {
-      login: string;
-    };
-    labels: GithubIssueLabel[];
-  };
-  repository: {
-    full_name: string;
-  };
-}
-
-const hasValidRepositoryFullName = (repositoryFullName: string): boolean =>
-  isValidRepositoryFullName(repositoryFullName);
-
-const hasValidIssueNumber = (issueNumber: number): boolean => isValidIssueNumber(issueNumber);
-
-const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhookPayload => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const payload = value as Record<string, unknown>;
-  const issue = payload.issue as Record<string, unknown> | undefined;
-  const repository = payload.repository as Record<string, unknown> | undefined;
-  const user = issue?.user as Record<string, unknown> | undefined;
-  const labels = issue?.labels;
-
-  return (
-    typeof payload.action === 'string' &&
-    !!issue &&
-    typeof issue.number === 'number' &&
-    hasValidIssueNumber(issue.number) &&
-    typeof issue.title === 'string' &&
-    (typeof issue.body === 'string' || issue.body === null) &&
-    !!user &&
-    typeof user.login === 'string' &&
-    Array.isArray(labels) &&
-    labels.every(
-      (label) =>
-        !!label &&
-        typeof label === 'object' &&
-        typeof (label as Record<string, unknown>).name === 'string',
-    ) &&
-    !!repository &&
-    typeof repository.full_name === 'string' &&
-    hasValidRepositoryFullName(repository.full_name)
-  );
-};
 
 export const createGithubWebhookController = ({
   governanceGateway,
@@ -143,13 +82,13 @@ export const createGithubWebhookController = ({
         }
       }
 
-      const payload: unknown = req.body;
-      if (!isGithubIssueWebhookPayload(payload)) {
+      const command = mapGithubIssueWebhookToProcessCommand(req.body);
+      if (!command) {
         res.status(400).json({ error: 'Invalid GitHub issue webhook payload' });
         return;
       }
 
-      const repositoryFullName = payload.repository.full_name;
+      const repositoryFullName = command.repositoryFullName;
       if (repositoryAuthorizationGateway && !repositoryAuthorizationGateway.isAllowed(repositoryFullName)) {
         logger.warn('GithubWebhookController repository rejected by allowlist policy.', {
           repositoryFullName,
@@ -191,17 +130,7 @@ export const createGithubWebhookController = ({
         registeredDeliveryId = deliveryId;
       }
 
-      const result = await run({
-        action: payload.action,
-        repositoryFullName,
-        issue: {
-          number: payload.issue.number,
-          title: payload.issue.title,
-          body: payload.issue.body ?? '',
-          author: payload.issue.user.login,
-          labels: payload.issue.labels.map((label) => label.name),
-        },
-      });
+      const result = await run(command);
       shouldRollbackDeliveryRegistration = false;
 
       if (result.statusCode === 204) {

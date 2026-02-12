@@ -1,3 +1,3 @@
-export interface RepositoryAuthorizationGateway {
-  isAllowed(repositoryFullName: string): boolean;
-}
+import type { RepositoryAuthorizationReader } from '../../domain/ports/repository-authorization-reader.port';
+
+export interface RepositoryAuthorizationGateway extends RepositoryAuthorizationReader {}

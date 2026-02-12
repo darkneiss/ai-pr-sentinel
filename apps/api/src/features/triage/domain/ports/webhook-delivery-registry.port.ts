@@ -1,0 +1,24 @@
+export const WEBHOOK_DELIVERY_SOURCE_GITHUB = 'github' as const;
+
+export type WebhookDeliverySource = typeof WEBHOOK_DELIVERY_SOURCE_GITHUB;
+
+export interface RegisterWebhookDeliveryInput {
+  source: WebhookDeliverySource;
+  deliveryId: string;
+  receivedAt: Date;
+  ttlSeconds: number;
+}
+
+export interface RegisterWebhookDeliveryResult {
+  status: 'accepted' | 'duplicate';
+}
+
+export interface UnregisterWebhookDeliveryInput {
+  source: WebhookDeliverySource;
+  deliveryId: string;
+}
+
+export interface WebhookDeliveryRegistry {
+  registerIfFirstSeen(input: RegisterWebhookDeliveryInput): Promise<RegisterWebhookDeliveryResult>;
+  unregister(input: UnregisterWebhookDeliveryInput): Promise<void>;
+}
