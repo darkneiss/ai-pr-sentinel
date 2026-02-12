@@ -16,6 +16,8 @@
   - Deterministic validation (title/body/author + spam rules).
   - Governance actions for invalid issues (`triage/needs-info` + comment).
   - Label cleanup when issue becomes valid.
+  - Webhook governance planning (`supported action` + `valid/invalid action plan`) is now
+    centralized in domain via `issue-webhook-governance-plan.service.ts`.
 
 ### Feature 002: AI-Enhanced Issue Triage
 - Status: DONE (MVP)

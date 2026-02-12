@@ -4,17 +4,10 @@ import {
   TRIAGE_NEEDS_INFO_LABEL,
 } from '../constants/governance-labels.constants';
 import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from './analyze-issue-with-ai.use-case';
-import {
-  validateIssueIntegrity,
-  type IssueIntegrityValidator,
-} from '../../domain/services/issue-validation.service';
+import { type IssueIntegrityValidator } from '../../domain/services/issue-validation.service';
 import { IssueEntity } from '../../domain/entities/issue.entity';
-import {
-  buildIssueValidationComment,
-  decideIssueGovernanceActions,
-} from '../../domain/services/issue-governance-policy.service';
 import { buildIssueIdentity } from '../../domain/services/issue-identity-policy.service';
-import { isIssueWebhookActionSupported } from '../../domain/services/issue-webhook-action-policy.service';
+import { buildIssueWebhookGovernancePlan } from '../../domain/services/issue-webhook-governance-plan.service';
 
 export interface ProcessIssueWebhookInput {
   action: string;
@@ -47,15 +40,11 @@ interface Dependencies {
 export const processIssueWebhook =
   ({
     governanceGateway,
-    issueIntegrityValidator = validateIssueIntegrity,
+    issueIntegrityValidator,
     analyzeIssueWithAi,
     logger = console,
   }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
-    if (!isIssueWebhookActionSupported(input.action)) {
-      return { statusCode: 204 };
-    }
-
     const issueForValidation = IssueEntity.create({
       id: buildIssueIdentity({
         repositoryFullName: input.repositoryFullName,
@@ -66,15 +55,20 @@ export const processIssueWebhook =
       author: input.issue.author,
       createdAt: new Date(),
     });
-    const validationResult = issueIntegrityValidator(issueForValidation);
-    const governanceActionsDecision = decideIssueGovernanceActions({
-      validation: validationResult,
+    const governancePlan = buildIssueWebhookGovernancePlan({
+      action: input.action,
+      issue: issueForValidation,
       existingLabels: input.issue.labels,
       governanceErrorLabels: GOVERNANCE_ERROR_LABELS,
       needsInfoLabel: TRIAGE_NEEDS_INFO_LABEL,
+      issueIntegrityValidator,
     });
 
-    if (governanceActionsDecision.shouldAddNeedsInfoLabel) {
+    if (governancePlan.shouldSkipProcessing) {
+      return { statusCode: governancePlan.statusCode };
+    }
+
+    if (governancePlan.shouldAddNeedsInfoLabel) {
       await governanceGateway.addLabels({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
@@ -82,19 +76,19 @@ export const processIssueWebhook =
       });
     }
 
-    if (governanceActionsDecision.shouldCreateValidationComment) {
+    if (governancePlan.validationCommentBody) {
       await governanceGateway.createComment({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
-        body: buildIssueValidationComment(governanceActionsDecision.validationErrors),
+        body: governancePlan.validationCommentBody,
       });
     }
 
-    if (!governanceActionsDecision.shouldLogValidatedIssue) {
-      return { statusCode: 200 };
+    if (!governancePlan.shouldLogValidatedIssue) {
+      return { statusCode: governancePlan.statusCode };
     }
 
-    for (const label of governanceActionsDecision.labelsToRemove) {
+    for (const label of governancePlan.labelsToRemove) {
       await governanceGateway.removeLabel({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
@@ -107,7 +101,7 @@ export const processIssueWebhook =
       issueNumber: input.issue.number,
     });
 
-    if (analyzeIssueWithAi && governanceActionsDecision.shouldRunAiTriage) {
+    if (analyzeIssueWithAi && governancePlan.shouldRunAiTriage) {
       try {
         logger.debug?.('ProcessIssueWebhookUseCase AI triage started.', {
           repositoryFullName: input.repositoryFullName,
@@ -140,5 +134,5 @@ export const processIssueWebhook =
       }
     }
 
-    return { statusCode: 200 };
+    return { statusCode: governancePlan.statusCode };
   };
