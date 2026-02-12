@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const SOURCE_ROOT = path.resolve(__dirname, '../../../../src/features/triage');
+const PROJECT_SRC_ROOT = path.resolve(__dirname, '../../../../src');
 const DOMAIN_ROOT = path.join(SOURCE_ROOT, 'domain');
 const APPLICATION_ROOT = path.join(SOURCE_ROOT, 'application');
 const INFRASTRUCTURE_SEGMENT = `${path.sep}features${path.sep}triage${path.sep}infrastructure${path.sep}`;
@@ -27,13 +28,16 @@ const listTypescriptFiles = (directoryPath: string): string[] => {
   });
 };
 
-const readRelativeImports = (filePath: string): string[] => {
+const readImports = (filePath: string): string[] => {
   const fileContent = fs.readFileSync(filePath, 'utf8');
   const imports: string[] = [];
 
   for (const importMatch of fileContent.matchAll(IMPORT_PATTERN)) {
     const importPath = importMatch[1];
-    if (typeof importPath === 'string' && importPath.startsWith('.')) {
+    if (
+      typeof importPath === 'string' &&
+      (importPath.startsWith('.') || importPath.startsWith('src/'))
+    ) {
       imports.push(importPath);
     }
   }
@@ -41,8 +45,13 @@ const readRelativeImports = (filePath: string): string[] => {
   return imports;
 };
 
-const resolveImportPath = (originFilePath: string, relativeImportPath: string): string =>
-  path.normalize(path.resolve(path.dirname(originFilePath), relativeImportPath));
+const resolveImportPath = (originFilePath: string, importPath: string): string => {
+  if (importPath.startsWith('src/')) {
+    return path.normalize(path.resolve(PROJECT_SRC_ROOT, importPath.replace(/^src\//, '')));
+  }
+
+  return path.normalize(path.resolve(path.dirname(originFilePath), importPath));
+};
 
 describe('TriageHexagonalBoundaries', () => {
   it('domain should not import application or infrastructure', () => {
@@ -52,14 +61,14 @@ describe('TriageHexagonalBoundaries', () => {
 
     // Act
     for (const domainFile of domainFiles) {
-      const relativeImports = readRelativeImports(domainFile);
-      for (const relativeImport of relativeImports) {
-        const resolvedImportPath = resolveImportPath(domainFile, relativeImport);
+      const imports = readImports(domainFile);
+      for (const importPath of imports) {
+        const resolvedImportPath = resolveImportPath(domainFile, importPath);
         if (
           resolvedImportPath.includes(APPLICATION_SEGMENT) ||
           resolvedImportPath.includes(INFRASTRUCTURE_SEGMENT)
         ) {
-          violations.push(`${path.relative(SOURCE_ROOT, domainFile)} -> ${relativeImport}`);
+          violations.push(`${path.relative(SOURCE_ROOT, domainFile)} -> ${importPath}`);
         }
       }
     }
@@ -75,11 +84,11 @@ describe('TriageHexagonalBoundaries', () => {
 
     // Act
     for (const applicationFile of applicationFiles) {
-      const relativeImports = readRelativeImports(applicationFile);
-      for (const relativeImport of relativeImports) {
-        const resolvedImportPath = resolveImportPath(applicationFile, relativeImport);
+      const imports = readImports(applicationFile);
+      for (const importPath of imports) {
+        const resolvedImportPath = resolveImportPath(applicationFile, importPath);
         if (resolvedImportPath.includes(INFRASTRUCTURE_SEGMENT)) {
-          violations.push(`${path.relative(SOURCE_ROOT, applicationFile)} -> ${relativeImport}`);
+          violations.push(`${path.relative(SOURCE_ROOT, applicationFile)} -> ${importPath}`);
         }
       }
     }

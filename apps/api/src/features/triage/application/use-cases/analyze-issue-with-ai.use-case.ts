@@ -21,12 +21,11 @@ import type {
 import type { IssueHistoryGateway } from '../ports/issue-history-gateway.port';
 import type { RepositoryContextGateway } from '../ports/repository-context-gateway.port';
 import { applyAiTriageGovernanceActions } from '../services/apply-ai-triage-governance-actions.service';
-import { parseAiAnalysis } from '../../domain/services/issue-ai-analysis-normalizer.service';
 import {
-  decideIssueAiTriageActionProcessing,
-  decideIssueAiTriageFailOpenResult,
-  decideIssueAiTriageParsingResult,
-} from '../../domain/services/issue-ai-triage-processing-policy.service';
+  decideIssueAiTriageWorkflowFromRawText,
+  decideIssueAiTriageWorkflowOnStart,
+  decideIssueAiTriageWorkflowOnUnhandledFailure,
+} from '../../domain/services/issue-ai-triage-workflow.service';
 import type { LLMGateway } from '../../../../shared/application/ports/llm-gateway.port';
 import type { IssueTriagePromptGateway } from '../../../../shared/application/ports/issue-triage-prompt-gateway.port';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
@@ -122,9 +121,9 @@ export const analyzeIssueWithAi =
     logger = console,
   }: Dependencies) =>
   async (input: AnalyzeIssueWithAiInput): Promise<AnalyzeIssueWithAiResult> => {
-    const actionProcessingDecision = decideIssueAiTriageActionProcessing(input.action);
-    if (actionProcessingDecision) {
-      return actionProcessingDecision;
+    const workflowStartDecision = decideIssueAiTriageWorkflowOnStart(input.action);
+    if (!workflowStartDecision.shouldContinue) {
+      return workflowStartDecision.result;
     }
 
     const triageStartedAt = Date.now();
@@ -184,17 +183,20 @@ export const analyzeIssueWithAi =
         temperature,
       });
 
-      const aiAnalysis = parseAiAnalysis(llmResult.rawText, input.issue.number);
-      const parsingResult = decideIssueAiTriageParsingResult(aiAnalysis !== undefined);
-      if (parsingResult.status === 'skipped' || !aiAnalysis) {
+      const workflowAfterLlmDecision = decideIssueAiTriageWorkflowFromRawText(
+        llmResult.rawText,
+        input.issue.number,
+      );
+      if (!workflowAfterLlmDecision.shouldApplyGovernanceActions || !workflowAfterLlmDecision.aiAnalysis) {
         logAiTriageFailures(logger, input, Date.now() - triageStartedAt, provider, model);
         logger.error('AnalyzeIssueWithAiUseCase failed parsing AI response. Applying fail-open policy.', {
           repositoryFullName: input.repositoryFullName,
           issueNumber: input.issue.number,
           ...buildSafeRawTextLogContext(llmResult.rawText, config),
         });
-        return parsingResult;
+        return workflowAfterLlmDecision.result;
       }
+      const aiAnalysis = workflowAfterLlmDecision.aiAnalysis;
 
       logger.debug?.('AnalyzeIssueWithAiUseCase normalized AI analysis.', {
         repositoryFullName: input.repositoryFullName,
@@ -232,7 +234,7 @@ export const analyzeIssueWithAi =
         logger,
       });
 
-      return parsingResult;
+      return workflowAfterLlmDecision.result;
     } catch (error: unknown) {
       logAiTriageFailures(logger, input, Date.now() - triageStartedAt, provider, model);
       logger.error('AnalyzeIssueWithAiUseCase failed. Applying fail-open policy.', {
@@ -241,6 +243,6 @@ export const analyzeIssueWithAi =
         error,
       });
 
-      return decideIssueAiTriageFailOpenResult();
+      return decideIssueAiTriageWorkflowOnUnhandledFailure();
     }
   };
