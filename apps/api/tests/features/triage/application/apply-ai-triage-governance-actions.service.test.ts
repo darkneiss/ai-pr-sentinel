@@ -118,7 +118,7 @@ describe('applyAiTriageGovernanceActions', () => {
       commentPublicationPlan: null,
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: false as const,
-        historyLookupBodyPrefix: null,
+        historyLookupBodyPrefix: 'AI Triage: Suggested',
         publicationPlan: null,
         responseSource: null,
         usedRepositoryContext: null,

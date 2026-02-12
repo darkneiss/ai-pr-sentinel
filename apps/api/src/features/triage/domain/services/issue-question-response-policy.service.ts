@@ -45,7 +45,7 @@ export interface DecideIssueQuestionResponseCommentPublicationPreparationInput {
 export type IssueQuestionResponseCommentPublicationPreparationDecision =
   | {
       shouldCheckExistingQuestionReplyComment: false;
-      historyLookupBodyPrefix: null;
+      historyLookupBodyPrefix: string;
       publicationPlan: null;
       responseSource: null;
       usedRepositoryContext: null;
@@ -306,7 +306,7 @@ export const decideIssueQuestionResponseCommentPublicationPreparation = ({
   if (!publicationPlan) {
     return {
       shouldCheckExistingQuestionReplyComment: false,
-      historyLookupBodyPrefix: null,
+      historyLookupBodyPrefix: historyCommentPrefix,
       publicationPlan: null,
       responseSource: null,
       usedRepositoryContext: null,

@@ -402,7 +402,7 @@ describe('IssueQuestionResponsePolicyService', () => {
     // Assert
     expect(result).toEqual({
       shouldCheckExistingQuestionReplyComment: false,
-      historyLookupBodyPrefix: null,
+      historyLookupBodyPrefix: 'AI Triage: Suggested',
       publicationPlan: null,
       responseSource: null,
       usedRepositoryContext: null,

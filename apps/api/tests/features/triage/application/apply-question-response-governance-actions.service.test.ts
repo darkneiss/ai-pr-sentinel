@@ -92,7 +92,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       commentPublicationPlan: null,
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: false,
-        historyLookupBodyPrefix: null,
+        historyLookupBodyPrefix: 'AI Triage: Suggested',
         publicationPlan: null,
         responseSource: null,
         usedRepositoryContext: null,
@@ -120,7 +120,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       commentPublicationPlan: null,
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: false,
-        historyLookupBodyPrefix: null,
+        historyLookupBodyPrefix: 'AI Triage: Suggested',
         publicationPlan: null,
         responseSource: null,
         usedRepositoryContext: null,
@@ -153,7 +153,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       },
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: false,
-        historyLookupBodyPrefix: null,
+        historyLookupBodyPrefix: 'AI Triage: Suggested',
         publicationPlan: null,
         responseSource: null,
         usedRepositoryContext: null,
