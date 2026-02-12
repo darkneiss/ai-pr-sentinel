@@ -6,7 +6,9 @@ const TRIAGE_RELATIVE_ROOT = path.join('src', 'features', 'triage');
 const DOMAIN_SEGMENT = `${path.sep}domain${path.sep}`;
 const APPLICATION_SEGMENT = `${path.sep}application${path.sep}`;
 const INFRASTRUCTURE_SEGMENT = `${path.sep}infrastructure${path.sep}`;
-const IMPORT_PATTERN = /import(?:\s+type)?[\s\S]*?from\s+['"]([^'"]+)['"]/g;
+const IMPORT_FROM_PATTERN = /import(?:\s+type)?[\s\S]*?from\s+['"]([^'"]+)['"]/g;
+const SIDE_EFFECT_IMPORT_PATTERN = /import\s+['"]([^'"]+)['"]/g;
+const EXPORT_FROM_PATTERN = /export(?:\s+type)?[\s\S]*?from\s+['"]([^'"]+)['"]/g;
 const SOURCE_IMPORT_PREFIX = 'src/';
 const JSON_FLAG = '--json';
 const EXIT_CODE_SUCCESS = 0;
@@ -80,14 +82,21 @@ const listTypescriptFiles = (directoryPath: string): string[] => {
 const readImports = (filePath: string): string[] => {
   const fileContent = fs.readFileSync(filePath, 'utf8');
   const imports: string[] = [];
+  const dependencyPathPatterns = [
+    IMPORT_FROM_PATTERN,
+    SIDE_EFFECT_IMPORT_PATTERN,
+    EXPORT_FROM_PATTERN,
+  ];
 
-  for (const importMatch of fileContent.matchAll(IMPORT_PATTERN)) {
-    const importPath = importMatch[1];
-    if (
-      typeof importPath === 'string' &&
-      (importPath.startsWith('.') || importPath.startsWith(SOURCE_IMPORT_PREFIX))
-    ) {
-      imports.push(importPath);
+  for (const dependencyPathPattern of dependencyPathPatterns) {
+    for (const importMatch of fileContent.matchAll(dependencyPathPattern)) {
+      const importPath = importMatch[1];
+      if (
+        typeof importPath === 'string' &&
+        (importPath.startsWith('.') || importPath.startsWith(SOURCE_IMPORT_PREFIX))
+      ) {
+        imports.push(importPath);
+      }
     }
   }
 

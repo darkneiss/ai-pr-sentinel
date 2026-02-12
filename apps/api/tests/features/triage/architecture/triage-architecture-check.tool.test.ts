@@ -135,4 +135,58 @@ describe('TriageArchitectureCheckTool', () => {
     expect(report.metrics.changeSurface.domain.averageImportsPerFile).toBe(0);
     expect(TYPESCRIPT_FILE_EXTENSION).toBe('.ts');
   });
+
+  it('should report a violation when domain uses side-effect import to infrastructure', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/illegal-side-effect-domain.service.ts',
+      "import '../../infrastructure/adapters/github.adapter';\nexport const illegalSideEffectDomain = (): string => 'x';\n",
+    );
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/infrastructure/adapters/github.adapter.ts',
+      "export const githubAdapter = (): string => 'github';\n",
+    );
+
+    // Act
+    const report = normalizeReport(analyzeTriageArchitecture(projectRootPath));
+
+    // Assert
+    expect(report.isCompliant).toBe(false);
+    expect(report.violations).toEqual([
+      'domain/services/illegal-side-effect-domain.service.ts -> ../../infrastructure/adapters/github.adapter',
+    ]);
+    expect(report.metrics.coupling.domain.importsByLayer.infrastructure).toBe(1);
+  });
+
+  it('should report a violation when application re-exports from infrastructure', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/application/services/illegal-application-re-export.service.ts',
+      "export { githubAdapter } from '../../infrastructure/adapters/github.adapter';\n",
+    );
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/infrastructure/adapters/github.adapter.ts',
+      "export const githubAdapter = (): string => 'github';\n",
+    );
+
+    // Act
+    const report = normalizeReport(analyzeTriageArchitecture(projectRootPath));
+
+    // Assert
+    expect(report.isCompliant).toBe(false);
+    expect(report.violations).toEqual([
+      'application/services/illegal-application-re-export.service.ts -> ../../infrastructure/adapters/github.adapter',
+    ]);
+    expect(report.metrics.coupling.application.importsByLayer.infrastructure).toBe(1);
+  });
 });
