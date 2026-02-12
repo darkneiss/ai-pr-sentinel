@@ -2,10 +2,6 @@ import {
   AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
   AI_DUPLICATE_COMMENT_PREFIX,
   AI_DUPLICATE_SIMILARITY_THRESHOLD,
-  AI_KIND_BUG_LABEL,
-  AI_KIND_FEATURE_LABEL,
-  AI_KIND_LABELS,
-  AI_KIND_QUESTION_LABEL,
   AI_QUESTION_AI_REPLY_COMMENT_PREFIX,
   AI_QUESTION_FALLBACK_CHECKLIST,
   AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX,
@@ -24,6 +20,7 @@ import {
   AI_TRIAGE_LOG_STEP_TONE,
   AI_TRIAGE_MONITOR_LABEL,
   type AiTriageLogStep,
+  resolveAiKindLabels,
 } from '../constants/ai-triage.constants';
 import {
   createAiTriageGovernanceActionsExecutionContext,
@@ -39,6 +36,7 @@ export const applyAiTriageGovernanceActions = async (
   input: ApplyAiTriageGovernanceActionsInput,
 ): Promise<ApplyAiTriageGovernanceActionsResult> => {
   const context = createAiTriageGovernanceActionsExecutionContext(input);
+  const aiKindLabelConfig = resolveAiKindLabels(input.config);
   const actionPlan = buildIssueAiTriageActionPlan({
     action: context.action,
     issue: {
@@ -51,10 +49,10 @@ export const applyAiTriageGovernanceActions = async (
     recentIssueNumbers: context.recentIssues.map((issue) => issue.number),
     repositoryReadme: context.repositoryReadme,
     kindPolicy: {
-      bugLabel: AI_KIND_BUG_LABEL,
-      featureLabel: AI_KIND_FEATURE_LABEL,
-      questionLabel: AI_KIND_QUESTION_LABEL,
-      kindLabels: AI_KIND_LABELS,
+      bugLabel: aiKindLabelConfig.bugLabel,
+      featureLabel: aiKindLabelConfig.featureLabel,
+      questionLabel: aiKindLabelConfig.questionLabel,
+      kindLabels: aiKindLabelConfig.kindLabels,
       classificationConfidenceThreshold: AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
       sentimentConfidenceThreshold: AI_SENTIMENT_CONFIDENCE_THRESHOLD,
     },

@@ -8,6 +8,9 @@ const LLM_TIMEOUT_ENV_VAR = 'LLM_TIMEOUT';
 export const LLM_PROVIDER_ENV_VAR = 'LLM_PROVIDER';
 export const LLM_MODEL_ENV_VAR = 'LLM_MODEL';
 export const LLM_LOG_RAW_RESPONSE_ENV_VAR = 'LLM_LOG_RAW_RESPONSE';
+export const AI_LABEL_KIND_BUG_ENV_VAR = 'AI_LABEL_KIND_BUG';
+export const AI_LABEL_KIND_FEATURE_ENV_VAR = 'AI_LABEL_KIND_FEATURE';
+export const AI_LABEL_KIND_QUESTION_ENV_VAR = 'AI_LABEL_KIND_QUESTION';
 export const LLM_RAW_TEXT_LOG_PREVIEW_CHARS = 2000;
 export const DEFAULT_LLM_PROVIDER = 'ollama';
 const AI_TIMEOUT_DEFAULT_MS = 120000;
@@ -53,6 +56,41 @@ export const AI_KIND_BUG_LABEL = 'kind/bug';
 export const AI_KIND_FEATURE_LABEL = 'kind/feature';
 export const AI_KIND_QUESTION_LABEL = 'kind/question';
 export const AI_KIND_LABELS = [AI_KIND_BUG_LABEL, AI_KIND_FEATURE_LABEL, AI_KIND_QUESTION_LABEL] as const;
+
+export type AiKindLabelConfig = {
+  bugLabel: string;
+  featureLabel: string;
+  questionLabel: string;
+  kindLabels: [string, string, string];
+};
+
+const resolveConfiguredLabel = (configuredValue: string | undefined, fallbackLabel: string): string => {
+  const normalizedConfiguredValue = configuredValue?.trim();
+  if (!normalizedConfiguredValue) {
+    return fallbackLabel;
+  }
+
+  return normalizedConfiguredValue;
+};
+
+export const resolveAiKindLabels = (config?: ConfigPort): AiKindLabelConfig => {
+  const bugLabel = resolveConfiguredLabel(config?.get(AI_LABEL_KIND_BUG_ENV_VAR), AI_KIND_BUG_LABEL);
+  const featureLabel = resolveConfiguredLabel(
+    config?.get(AI_LABEL_KIND_FEATURE_ENV_VAR),
+    AI_KIND_FEATURE_LABEL,
+  );
+  const questionLabel = resolveConfiguredLabel(
+    config?.get(AI_LABEL_KIND_QUESTION_ENV_VAR),
+    AI_KIND_QUESTION_LABEL,
+  );
+
+  return {
+    bugLabel,
+    featureLabel,
+    questionLabel,
+    kindLabels: [bugLabel, featureLabel, questionLabel],
+  };
+};
 
 export const AI_DUPLICATE_COMMENT_PREFIX = 'AI Triage: Possible duplicate of #';
 export const AI_QUESTION_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested';

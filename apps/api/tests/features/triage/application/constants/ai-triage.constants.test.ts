@@ -1,4 +1,7 @@
-import { resolveAiTimeoutMs } from '../../../../../src/features/triage/application/constants/ai-triage.constants';
+import {
+  resolveAiKindLabels,
+  resolveAiTimeoutMs,
+} from '../../../../../src/features/triage/application/constants/ai-triage.constants';
 
 describe('ai-triage.constants', () => {
   it('should use the global timeout override when provided', () => {
@@ -101,5 +104,48 @@ describe('ai-triage.constants', () => {
 
     // Assert
     expect(result).toBe(1234);
+  });
+
+  it('should resolve default AI kind labels when env mapping is not configured', () => {
+    // Arrange
+    const config = {
+      get: () => undefined,
+      getBoolean: () => undefined,
+    };
+
+    // Act
+    const result = resolveAiKindLabels(config);
+
+    // Assert
+    expect(result).toEqual({
+      bugLabel: 'kind/bug',
+      featureLabel: 'kind/feature',
+      questionLabel: 'kind/question',
+      kindLabels: ['kind/bug', 'kind/feature', 'kind/question'],
+    });
+  });
+
+  it('should resolve AI kind labels from env mapping when configured', () => {
+    // Arrange
+    const config = {
+      get: (key: string) => {
+        if (key === 'AI_LABEL_KIND_BUG') return 'bug';
+        if (key === 'AI_LABEL_KIND_FEATURE') return 'enhancement';
+        if (key === 'AI_LABEL_KIND_QUESTION') return 'question';
+        return undefined;
+      },
+      getBoolean: () => undefined,
+    };
+
+    // Act
+    const result = resolveAiKindLabels(config);
+
+    // Assert
+    expect(result).toEqual({
+      bugLabel: 'bug',
+      featureLabel: 'enhancement',
+      questionLabel: 'question',
+      kindLabels: ['bug', 'enhancement', 'question'],
+    });
   });
 });

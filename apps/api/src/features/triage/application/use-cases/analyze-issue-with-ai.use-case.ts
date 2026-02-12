@@ -229,6 +229,7 @@ export const analyzeIssueWithAi =
         issueHistoryGateway,
         questionResponseMetrics,
         botLogin,
+        config,
         llmProvider: provider,
         llmModel: model,
         logger,

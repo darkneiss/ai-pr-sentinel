@@ -6,6 +6,7 @@ import {
 } from '../../domain/services/issue-label-transition-policy.service';
 import type { AiAnalysis, AiTone } from '../../domain/services/issue-ai-analysis-normalizer.service';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
+import type { ConfigPort } from '../../../../shared/application/ports/config.port';
 
 interface Logger {
   debug?: (message: string, ...args: unknown[]) => void;
@@ -33,6 +34,7 @@ export interface ApplyAiTriageGovernanceActionsInput {
   recentIssues: RecentIssueSummary[];
   questionResponseMetrics?: QuestionResponseMetricsPort;
   botLogin?: string;
+  config?: ConfigPort;
   logger?: Logger;
 }
 
@@ -54,6 +56,7 @@ export interface AiTriageGovernanceActionsExecutionContext {
   recentIssues: RecentIssueSummary[];
   questionResponseMetrics?: QuestionResponseMetricsPort;
   botLogin?: string;
+  config?: ConfigPort;
   logger?: Logger;
   issueLabels: Set<string>;
   effectiveTone: AiTone;

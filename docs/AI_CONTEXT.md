@@ -33,7 +33,12 @@
 ### Feature 002: AI-Enhanced Issue Triage
 - Status: DONE (MVP)
 - Behavior implemented:
-  - Semantic classification (`kind/bug`, `kind/feature`, `kind/question`) with confidence threshold.
+  - Semantic classification with confidence threshold.
+    - Default labels: `kind/bug`, `kind/feature`, `kind/question`.
+    - Optional repository label mapping via config:
+      - `AI_LABEL_KIND_BUG`
+      - `AI_LABEL_KIND_FEATURE`
+      - `AI_LABEL_KIND_QUESTION`
   - Hostile-priority guard:
     - When tone is hostile with enough confidence, `kind/*` labels are suppressed/removed.
   - Duplicate detection (`triage/duplicate` + comment).

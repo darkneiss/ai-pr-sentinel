@@ -172,6 +172,57 @@ describe('AnalyzeIssueWithAiUseCase', () => {
     });
   });
 
+  it('should use configured github labels for AI kind relabeling', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    const config = {
+      get: (key: string) => {
+        if (key === 'AI_LABEL_KIND_BUG') return 'bug';
+        if (key === 'AI_LABEL_KIND_FEATURE') return 'enhancement';
+        if (key === 'AI_LABEL_KIND_QUESTION') return 'question';
+        return undefined;
+      },
+      getBoolean: () => undefined,
+    };
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'question',
+          confidence: 0.93,
+          reasoning: 'This is a usage question, not a defect.',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Tone is neutral.',
+        },
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway, config });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: ['bug'] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.removeLabel).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      label: 'bug',
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['question'],
+    });
+  });
+
   it('should map feature classification to kind/feature label', async () => {
     // Arrange
     const llmGateway = createLlmGatewayMock();
