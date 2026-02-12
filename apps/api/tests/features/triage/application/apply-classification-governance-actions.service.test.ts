@@ -87,4 +87,27 @@ describe('applyClassificationGovernanceActions', () => {
     expect(context.removeLabelIfPresent).toHaveBeenCalledWith('kind/bug');
     expect(context.addLabelIfMissing).toHaveBeenCalledWith('kind/feature');
   });
+
+  it('should emit suppression info log when classification was suppressed by hostile tone', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const precomputedDecision: IssueKindLabelActionsDecision = {
+      labelsToAdd: [],
+      labelsToRemove: ['kind/bug'],
+      wasSuppressedByHostileTone: true,
+    };
+
+    // Act
+    await applyClassificationGovernanceActions(context, precomputedDecision);
+
+    // Assert
+    expect(context.logger?.info).toHaveBeenCalledWith(
+      'AnalyzeIssueWithAiUseCase kind labels suppressed due to hostile sentiment.',
+      {
+        repositoryFullName: 'org/repo',
+        issueNumber: 42,
+        sentiment: context.aiAnalysis.sentiment,
+      },
+    );
+  });
 });

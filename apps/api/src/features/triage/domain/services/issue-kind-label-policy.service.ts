@@ -18,6 +18,20 @@ export interface IssueKindLabelActionsDecision {
   wasSuppressedByHostileTone: boolean;
 }
 
+export interface DecideIssueKindSuppressionLogDecisionInput {
+  wasSuppressedByHostileTone: boolean;
+}
+
+export type IssueKindSuppressionLogDecision =
+  | {
+      shouldLogSuppression: true;
+      skipReason: null;
+    }
+  | {
+      shouldLogSuppression: false;
+      skipReason: 'not_suppressed';
+    };
+
 export interface PlanIssueKindLabelActionsInput {
   issueKind: IssueKind;
   bugLabel: string;
@@ -122,4 +136,20 @@ export const planIssueKindLabelActions = ({
     existingLabels,
     kindLabels,
   });
+};
+
+export const decideIssueKindSuppressionLogDecision = ({
+  wasSuppressedByHostileTone,
+}: DecideIssueKindSuppressionLogDecisionInput): IssueKindSuppressionLogDecision => {
+  if (!wasSuppressedByHostileTone) {
+    return {
+      shouldLogSuppression: false,
+      skipReason: 'not_suppressed',
+    };
+  }
+
+  return {
+    shouldLogSuppression: true,
+    skipReason: null,
+  };
 };

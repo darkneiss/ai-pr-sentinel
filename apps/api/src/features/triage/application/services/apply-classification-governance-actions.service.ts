@@ -1,4 +1,5 @@
 import {
+  decideIssueKindSuppressionLogDecision,
   type IssueKindLabelActionsDecision,
 } from '../../domain/services/issue-kind-label-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
@@ -23,7 +24,10 @@ export const applyClassificationGovernanceActions = async (
     await context.addLabelIfMissing(labelToAdd);
   }
 
-  if (classificationDecision.wasSuppressedByHostileTone) {
+  const suppressionLogDecision = decideIssueKindSuppressionLogDecision({
+    wasSuppressedByHostileTone: classificationDecision.wasSuppressedByHostileTone,
+  });
+  if (suppressionLogDecision.shouldLogSuppression) {
     context.logger?.info?.('AnalyzeIssueWithAiUseCase kind labels suppressed due to hostile sentiment.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,

@@ -1,4 +1,5 @@
 import {
+  decideIssueKindSuppressionLogDecision,
   decideIssueKindLabelActions,
   planIssueKindLabelActions,
   resolveIssueKindLabel,
@@ -143,6 +144,38 @@ describe('IssueKindLabelPolicyService', () => {
       labelsToAdd: ['kind/feature'],
       labelsToRemove: ['kind/bug'],
       wasSuppressedByHostileTone: false,
+    });
+  });
+
+  it('should decide suppression log emission when kind labels were suppressed', () => {
+    // Arrange
+    const input = {
+      wasSuppressedByHostileTone: true,
+    };
+
+    // Act
+    const result = decideIssueKindSuppressionLogDecision(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldLogSuppression: true,
+      skipReason: null,
+    });
+  });
+
+  it('should skip suppression log emission when no suppression happened', () => {
+    // Arrange
+    const input = {
+      wasSuppressedByHostileTone: false,
+    };
+
+    // Act
+    const result = decideIssueKindSuppressionLogDecision(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldLogSuppression: false,
+      skipReason: 'not_suppressed',
     });
   });
 });
