@@ -7,25 +7,6 @@ import {
 } from '../../../../src/features/triage/application/use-cases/analyze-issue-with-ai.use-case';
 import type { LLMGateway } from '../../../../src/shared/application/ports/llm-gateway.port';
 
-const createLlmGatewayMock = (suggestedResponse: string): jest.Mocked<LLMGateway> => ({
-  generateJson: jest.fn().mockResolvedValue({
-    rawText: JSON.stringify({
-      classification: {
-        type: 'question',
-        confidence: 0.95,
-      },
-      duplicateDetection: {
-        isDuplicate: false,
-        similarityScore: 0.1,
-      },
-      sentiment: {
-        tone: 'neutral',
-      },
-      suggestedResponse,
-    }),
-  }),
-});
-
 const createIssueHistoryGatewayMock = (): jest.Mocked<IssueHistoryGateway> => ({
   findRecentIssues: jest.fn().mockResolvedValue([]),
   hasIssueCommentWithPrefix: jest.fn().mockResolvedValue(false),
@@ -54,20 +35,85 @@ const createInput = (overrides: Partial<AnalyzeIssueWithAiInput> = {}): AnalyzeI
   ...overrides,
 });
 
-describe('AnalyzeIssueWithAiUseCase (Repository Context Usage Log)', () => {
-  it('should log usedRepositoryContext=true when AI answer overlaps repository context', async () => {
+const createQuestionLlmGatewayMock = (suggestedResponse: string): jest.Mocked<LLMGateway> => ({
+  generateJson: jest.fn().mockResolvedValue({
+    rawText: JSON.stringify({
+      classification: {
+        type: 'question',
+        confidence: 0.95,
+      },
+      duplicateDetection: {
+        isDuplicate: false,
+        similarityScore: 0.1,
+      },
+      sentiment: {
+        tone: 'neutral',
+      },
+      suggestedResponse,
+    }),
+  }),
+});
+
+const createBugLlmGatewayMock = (): jest.Mocked<LLMGateway> => ({
+  generateJson: jest.fn().mockResolvedValue({
+    rawText: JSON.stringify({
+      classification: {
+        type: 'bug',
+        confidence: 0.95,
+        reasoning: 'Bug report',
+      },
+      duplicateDetection: {
+        isDuplicate: false,
+        originalIssueNumber: null,
+        similarityScore: 0.1,
+      },
+      sentiment: {
+        tone: 'neutral',
+        reasoning: 'Neutral tone',
+      },
+    }),
+  }),
+});
+
+describe('AnalyzeIssueWithAiUseCase (Repository Context Behavior)', () => {
+  it('should enrich prompt with README context when gateway is available', async () => {
     // Arrange
-    const llmGateway = createLlmGatewayMock(
-      '- Review governance architecture decisions.\n- Follow hexagonal contribution workflow.\n- Use triage labels as documented.',
-    );
+    const llmGateway = createBugLlmGatewayMock();
     const issueHistoryGateway = createIssueHistoryGatewayMock();
-    const repositoryContextGateway = createRepositoryContextGatewayMock(
-      '# Project\nThis repository uses hexagonal architecture and governance workflows.',
+    const repositoryContextGateway = createRepositoryContextGatewayMock('# Project setup\nUse pnpm install');
+    const governanceGateway = createGovernanceGatewayMock();
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      repositoryContextGateway,
+      governanceGateway,
+    });
+
+    // Act
+    await run(createInput({ issue: { ...createInput().issue, number: 42 } }));
+
+    // Assert
+    expect(repositoryContextGateway.findRepositoryContext).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+    });
+    expect(llmGateway.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userPrompt: expect.stringContaining('# Project setup\nUse pnpm install'),
+      }),
     );
+  });
+
+  it('should continue without repository context when gateway fails', async () => {
+    // Arrange
+    const llmGateway = createBugLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const repositoryContextGateway = createRepositoryContextGatewayMock('# Project setup\nUse pnpm install');
+    repositoryContextGateway.findRepositoryContext.mockRejectedValueOnce(new Error('readme failed'));
     const governanceGateway = createGovernanceGatewayMock();
     const logger = {
-      error: jest.fn(),
       info: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
     };
     const run = analyzeIssueWithAi({
       llmGateway,
@@ -78,7 +124,49 @@ describe('AnalyzeIssueWithAiUseCase (Repository Context Usage Log)', () => {
     });
 
     // Act
-    const result = await run(createInput());
+    const result = await run(createInput({ issue: { ...createInput().issue, number: 42 } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(logger.info).toHaveBeenCalledWith(
+      'AnalyzeIssueWithAiUseCase failed loading repository context. Continuing without it.',
+      expect.objectContaining({
+        repositoryFullName: 'org/repo',
+        issueNumber: 42,
+      }),
+    );
+    expect(llmGateway.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userPrompt: expect.stringContaining('Repository context (README excerpt):\n(none)'),
+      }),
+    );
+  });
+
+  it('should log usedRepositoryContext=true when AI answer overlaps repository context', async () => {
+    // Arrange
+    const llmGateway = createQuestionLlmGatewayMock(
+      '- Review governance architecture decisions.\n- Follow hexagonal contribution workflow.\n- Use triage labels as documented.',
+    );
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const repositoryContextGateway = createRepositoryContextGatewayMock(
+      '# Project\nThis repository uses hexagonal architecture and governance workflows.',
+    );
+    const governanceGateway = createGovernanceGatewayMock();
+    const logger = {
+      error: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      repositoryContextGateway,
+      governanceGateway,
+      logger,
+    });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, number: 61 } }));
 
     // Assert
     expect(result).toEqual({ status: 'completed' });
@@ -94,7 +182,7 @@ describe('AnalyzeIssueWithAiUseCase (Repository Context Usage Log)', () => {
 
   it('should log usedRepositoryContext=false when no repository context is available', async () => {
     // Arrange
-    const llmGateway = createLlmGatewayMock(
+    const llmGateway = createQuestionLlmGatewayMock(
       '- Share your current .env values.\n- Share exact commands and errors.\n- Describe expected vs actual behavior.',
     );
     const issueHistoryGateway = createIssueHistoryGatewayMock();
@@ -102,6 +190,7 @@ describe('AnalyzeIssueWithAiUseCase (Repository Context Usage Log)', () => {
     const logger = {
       error: jest.fn(),
       info: jest.fn(),
+      debug: jest.fn(),
     };
     const run = analyzeIssueWithAi({
       llmGateway,
@@ -127,17 +216,16 @@ describe('AnalyzeIssueWithAiUseCase (Repository Context Usage Log)', () => {
 
   it('should log usedRepositoryContext=false when repository context has no meaningful tokens', async () => {
     // Arrange
-    const llmGateway = createLlmGatewayMock(
-      '- Share architecture details.\\n- Explain governance rules.\\n- Include exact setup steps.',
+    const llmGateway = createQuestionLlmGatewayMock(
+      '- Share architecture details.\n- Explain governance rules.\n- Include exact setup steps.',
     );
     const issueHistoryGateway = createIssueHistoryGatewayMock();
-    const repositoryContextGateway = createRepositoryContextGatewayMock(
-      'this and the issue setup with repo and your',
-    );
+    const repositoryContextGateway = createRepositoryContextGatewayMock('this and the issue setup with repo and your');
     const governanceGateway = createGovernanceGatewayMock();
     const logger = {
       error: jest.fn(),
       info: jest.fn(),
+      debug: jest.fn(),
     };
     const run = analyzeIssueWithAi({
       llmGateway,
@@ -164,17 +252,18 @@ describe('AnalyzeIssueWithAiUseCase (Repository Context Usage Log)', () => {
 
   it('should log usedRepositoryContext=false when response does not overlap with repository context', async () => {
     // Arrange
-    const llmGateway = createLlmGatewayMock(
-      '- Configure database connection settings.\\n- Validate API authentication tokens.\\n- Execute migration checks.',
+    const llmGateway = createQuestionLlmGatewayMock(
+      '- Configure database connection settings.\n- Validate API authentication tokens.\n- Execute migration checks.',
     );
     const issueHistoryGateway = createIssueHistoryGatewayMock();
     const repositoryContextGateway = createRepositoryContextGatewayMock(
-      '# Project\\nThis repository focuses on governance policies and triage workflows.',
+      '# Project\nThis repository focuses on governance policies and triage workflows.',
     );
     const governanceGateway = createGovernanceGatewayMock();
     const logger = {
       error: jest.fn(),
       info: jest.fn(),
+      debug: jest.fn(),
     };
     const run = analyzeIssueWithAi({
       llmGateway,

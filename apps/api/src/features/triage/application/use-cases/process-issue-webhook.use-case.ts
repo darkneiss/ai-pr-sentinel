@@ -3,15 +3,13 @@ import {
   GOVERNANCE_ERROR_LABELS,
   TRIAGE_NEEDS_INFO_LABEL,
 } from '../constants/governance-labels.constants';
+import { applyIssueWebhookGovernanceActions } from '../services/apply-issue-webhook-governance-actions.service';
 import type {
   AnalyzeIssueWithAiInput,
   AnalyzeIssueWithAiResult,
 } from '../ports/issue-ai-triage-runner.port';
 import { type IssueIntegrityValidator } from '../../domain/services/issue-validation.service';
-import { IssueEntity } from '../../domain/entities/issue.entity';
-import { buildIssueIdentity } from '../../domain/services/issue-identity-policy.service';
-import { buildIssueWebhookGovernancePlan } from '../../domain/services/issue-webhook-governance-plan.service';
-import { isIssueWebhookActionSupported } from '../../domain/services/issue-webhook-action-policy.service';
+import { decideIssueWebhookWorkflow } from '../../domain/services/issue-webhook-workflow.service';
 
 export interface ProcessIssueWebhookInput {
   action: string;
@@ -41,8 +39,6 @@ interface Dependencies {
   };
 }
 
-const WEBHOOK_NO_CONTENT_STATUS_CODE = 204 as const;
-
 export const processIssueWebhook =
   ({
     governanceGateway,
@@ -51,80 +47,51 @@ export const processIssueWebhook =
     logger = console,
   }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
-    if (!isIssueWebhookActionSupported(input.action)) {
-      return { statusCode: WEBHOOK_NO_CONTENT_STATUS_CODE };
-    }
-
-    const issueForValidation = IssueEntity.create({
-      id: buildIssueIdentity({
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-      }).value,
-      title: input.issue.title,
-      description: input.issue.body,
-      author: input.issue.author,
-      createdAt: new Date(),
-    });
-    const governancePlan = buildIssueWebhookGovernancePlan({
+    const workflowDecision = decideIssueWebhookWorkflow({
       action: input.action,
-      issue: issueForValidation,
-      existingLabels: input.issue.labels,
+      repositoryFullName: input.repositoryFullName,
+      issue: input.issue,
       governanceErrorLabels: GOVERNANCE_ERROR_LABELS,
       needsInfoLabel: TRIAGE_NEEDS_INFO_LABEL,
       issueIntegrityValidator,
     });
 
-    for (const action of governancePlan.actions) {
-      if (action.type === 'add_label') {
-        await governanceGateway.addLabels({
+    if (workflowDecision.shouldSkipProcessing || !workflowDecision.issueWebhookIdentity || !workflowDecision.governancePlan) {
+      if (workflowDecision.reason === 'malformed_issue_identity') {
+        logger.warn?.('ProcessIssueWebhookUseCase skipping supported action due to malformed issue identity input.', {
+          action: input.action,
           repositoryFullName: input.repositoryFullName,
           issueNumber: input.issue.number,
-          labels: [action.label],
         });
-        continue;
       }
-
-      if (action.type === 'remove_label') {
-        await governanceGateway.removeLabel({
-          repositoryFullName: input.repositoryFullName,
-          issueNumber: input.issue.number,
-          label: action.label,
-        });
-        continue;
-      }
-
-      if (action.type === 'create_comment') {
-        await governanceGateway.createComment({
-          repositoryFullName: input.repositoryFullName,
-          issueNumber: input.issue.number,
-          body: action.body,
-        });
-        continue;
-      }
-
-      await governanceGateway.logValidatedIssue({
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-      });
+      return { statusCode: workflowDecision.statusCode };
     }
+    const issueWebhookIdentity = workflowDecision.issueWebhookIdentity;
+    const governancePlan = workflowDecision.governancePlan;
 
-    if (!governancePlan.shouldRunAiTriage) {
-      return { statusCode: governancePlan.statusCode };
+    await applyIssueWebhookGovernanceActions({
+      governanceGateway,
+      issueWebhookIdentity,
+      governancePlan,
+    });
+
+    if (!workflowDecision.shouldRunAiTriage) {
+      return { statusCode: workflowDecision.statusCode };
     }
 
     if (analyzeIssueWithAi) {
       try {
         logger.debug?.('ProcessIssueWebhookUseCase AI triage started.', {
-          repositoryFullName: input.repositoryFullName,
-          issueNumber: input.issue.number,
+          repositoryFullName: issueWebhookIdentity.repositoryFullName,
+          issueNumber: issueWebhookIdentity.issueNumber,
           action: input.action,
         });
 
         const aiResult = await analyzeIssueWithAi({
           action: input.action,
-          repositoryFullName: input.repositoryFullName,
+          repositoryFullName: issueWebhookIdentity.repositoryFullName,
           issue: {
-            number: input.issue.number,
+            number: issueWebhookIdentity.issueNumber,
             title: input.issue.title,
             body: input.issue.body,
             labels: input.issue.labels,
@@ -132,18 +99,18 @@ export const processIssueWebhook =
         });
 
         logger.info?.('ProcessIssueWebhookUseCase AI triage completed.', {
-          repositoryFullName: input.repositoryFullName,
-          issueNumber: input.issue.number,
+          repositoryFullName: issueWebhookIdentity.repositoryFullName,
+          issueNumber: issueWebhookIdentity.issueNumber,
           result: aiResult,
         });
       } catch (error: unknown) {
         logger.error('ProcessIssueWebhookUseCase failed running AI analysis. Applying fail-open policy.', {
-          repositoryFullName: input.repositoryFullName,
-          issueNumber: input.issue.number,
+          repositoryFullName: issueWebhookIdentity.repositoryFullName,
+          issueNumber: issueWebhookIdentity.issueNumber,
           error,
         });
       }
     }
 
-    return { statusCode: governancePlan.statusCode };
+    return { statusCode: workflowDecision.statusCode };
   };

@@ -22,32 +22,32 @@ const createInput = (overrides: Partial<AnalyzeIssueWithAiInput> = {}): AnalyzeI
   action: 'opened',
   repositoryFullName: 'org/repo',
   issue: {
-    number: 19,
-    title: 'No entiendo este repo',
-    body: 'Sigo sin entender por qué este repo parece hecho con el culo, no tienes ni idea.',
+    number: 42,
+    title: 'How do I set this up?',
+    body: 'Need a setup checklist for local development',
     labels: [],
   },
   ...overrides,
 });
 
-describe('AnalyzeIssueWithAiUseCase (Hostile Fallback Detection)', () => {
-  it('should not add triage/monitor when AI tone is neutral even if issue text is hostile', async () => {
+describe('AnalyzeIssueWithAiUseCase (Suggested Response Normalization)', () => {
+  it('should normalize suggested_response array and create question comment', async () => {
     // Arrange
     const llmGateway: jest.Mocked<LLMGateway> = {
       generateJson: jest.fn().mockResolvedValue({
         rawText: JSON.stringify({
           classification: {
-            type: 'bug',
-            confidence: 0,
+            type: 'question',
+            confidence: 0.95,
           },
           duplicateDetection: {
             isDuplicate: false,
-            originalIssueNumber: null,
-            similarityScore: 0,
+            similarityScore: 0.1,
           },
           sentiment: {
             tone: 'neutral',
           },
+          suggested_response: ['Step A', 'Step B'],
         }),
       }),
     };
@@ -64,30 +64,30 @@ describe('AnalyzeIssueWithAiUseCase (Hostile Fallback Detection)', () => {
 
     // Assert
     expect(result).toEqual({ status: 'completed' });
-    expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
-      repositoryFullName: 'org/repo',
-      issueNumber: 19,
-      labels: ['triage/monitor'],
-    });
+    expect(governanceGateway.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('Step A\nStep B'),
+      }),
+    );
   });
 
-  it('should not add triage/monitor when AI tone is neutral and text is non-hostile', async () => {
+  it('should ignore suggestedResponse array when it has no non-empty string lines', async () => {
     // Arrange
     const llmGateway: jest.Mocked<LLMGateway> = {
       generateJson: jest.fn().mockResolvedValue({
         rawText: JSON.stringify({
           classification: {
             type: 'bug',
-            confidence: 0,
+            confidence: 0.95,
           },
           duplicateDetection: {
             isDuplicate: false,
-            originalIssueNumber: null,
-            similarityScore: 0,
+            similarityScore: 0.1,
           },
           sentiment: {
             tone: 'neutral',
           },
+          suggestedResponse: ['   ', 42],
         }),
       }),
     };
@@ -103,9 +103,9 @@ describe('AnalyzeIssueWithAiUseCase (Hostile Fallback Detection)', () => {
     const result = await run(
       createInput({
         issue: {
-          number: 20,
-          title: 'No entiendo el setup',
-          body: 'Podríais explicar cómo levantarlo en local paso a paso?',
+          number: 42,
+          title: 'Build issue on startup',
+          body: 'Application fails during startup sequence.',
           labels: [],
         },
       }),
@@ -113,10 +113,11 @@ describe('AnalyzeIssueWithAiUseCase (Hostile Fallback Detection)', () => {
 
     // Assert
     expect(result).toEqual({ status: 'completed' });
-    expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
       repositoryFullName: 'org/repo',
-      issueNumber: 20,
-      labels: ['triage/monitor'],
+      issueNumber: 42,
+      labels: ['kind/bug'],
     });
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
   });
 });

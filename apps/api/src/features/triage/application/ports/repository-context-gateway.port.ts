@@ -1,7 +1,5 @@
-export interface RepositoryContext {
-  readme?: string;
-}
+import type { RepositoryContextReader } from '../../domain/ports/repository-context-reader.port';
 
-export interface RepositoryContextGateway {
-  findRepositoryContext(input: { repositoryFullName: string }): Promise<RepositoryContext>;
-}
+export type { RepositoryContext } from '../../domain/ports/repository-context-reader.port';
+
+export interface RepositoryContextGateway extends RepositoryContextReader {}

@@ -8,7 +8,7 @@
 - Stack: Node.js (v22), Express, TypeScript, Jest, pnpm workspaces.
 - Architecture: Hexagonal (Domain/Application/Infrastructure) + shared kernel.
 
-## 2. Current Status (2026-02-11)
+## 2. Current Status (2026-02-12)
 
 ### Feature 001: Basic Governance
 - Status: DONE
@@ -21,6 +21,14 @@
   - Webhook governance plan now precomputes an executable domain action list
     (`add_label` | `remove_label` | `create_comment` | `log_validated_issue`) consumed
     directly by `process-issue-webhook.use-case`.
+  - Webhook processing now uses an explicit domain workflow service
+    (`issue-webhook-workflow.service.ts`) that centralizes:
+    - skip/continue processing decision,
+    - identity resolution,
+    - issue entity creation,
+    - governance plan derivation.
+  - GitHub payload adaptation is now isolated in infrastructure anti-corruption mapper
+    (`github-issue-webhook-command.mapper.ts`) before invoking the use-case.
 
 ### Feature 002: AI-Enhanced Issue Triage
 - Status: DONE (MVP)
@@ -108,10 +116,22 @@
     `decideIssueDuplicateSkippedLogDecision` (only emits for actionable/loggable skip reasons).
   - Tone monitor actions are now represented as domain-planned label operations
     (`tone.labelsToAdd`) consumed directly by application orchestration.
+  - AI triage processing decisions are now centralized in domain via
+    `issue-ai-triage-processing-policy.service.ts`:
+    - action support skip/continue result,
+    - parsing success vs fail-open result,
+    - explicit fail-open result for unhandled errors.
+  - AI triage now also uses an explicit domain workflow
+    (`issue-ai-triage-workflow.service.ts`) for:
+    - start decision (continue vs unsupported),
+    - post-LLM decision (apply governance vs fail-open),
+    - unhandled-failure fail-open output.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.
 - Adapter: `GithubRepositoryContextAdapter`.
+- Domain contract:
+  - `features/triage/domain/ports/repository-context-reader.port.ts`.
 - Current context source:
   - README content fetched from GitHub and injected into AI triage prompt.
 - Resilience:
@@ -136,10 +156,22 @@
   - Domain + application use cases heavily unit-tested.
   - Infrastructure adapters tested with mocks.
   - Additional branch tests for normalization/fallback/error-shape paths.
+  - Architecture guard-rails validate hexagonal boundaries for both relative and
+    `src/...` absolute imports.
 - Current quality gate:
   - `pnpm --filter api lint`: passing
   - `pnpm --filter api test`: passing
+  - `pnpm --filter api architecture:check`: passing
   - Coverage currently at 100% (statements, branches, functions, lines) for `apps/api`.
+  - Domain policy coverage includes:
+    - `issue-webhook-processing-policy.service.ts`
+    - `issue-ai-triage-processing-policy.service.ts`
+  - Hexagonal guard rails are enforced by test:
+    - `tests/features/triage/architecture/triage-hexagonal-boundaries.test.ts`
+  - Dedicated architecture tool:
+    - `src/tools/architecture/triage-architecture-check.tool.ts`
+    - emits JSON coupling/change-surface metrics by layer and fails on boundary violations.
+  - CI now includes a dedicated `Architecture` job with explicit failure semantics.
 
 ## 7. Working Rules (Operational)
 - TDD in local is mandatory: RED -> GREEN -> REFACTOR.
@@ -166,5 +198,11 @@
   - Documents LLM endpoint configuration rules for Gemini, Groq, and Ollama.
 - `docs/adr/ADR-005-webhook-ingress-hardening.md`
   - Documents webhook ingress allowlist and delivery deduplication strategy.
+- `docs/adr/ADR-006-triage-domain-processing-policies.md`
+  - Documents centralization of triage processing decisions into domain policy services.
+- `docs/adr/ADR-007-webhook-acl-and-hexagonal-guardrails.md`
+  - Documents webhook anti-corruption mapper, webhook+AI domain workflows, domain ports realignment, and boundary tests.
+- `docs/adr/ADR-008-architecture-quality-gate-and-layer-metrics.md`
+  - Documents dedicated architecture CLI checks, CI architecture gate, and layer drift metrics.
 - `docs/adr/README.md`
   - ADR index.
