@@ -12,11 +12,9 @@ import {
   buildIssueQuestionFallbackResponseWhenApplicable,
   buildIssueQuestionResponseComment,
   decideIssueQuestionResponseAction,
-  detectRepositoryContextUsageInResponse,
   isLikelyQuestionIssueContent,
   normalizeIssueQuestionSuggestedResponse,
-  resolveIssueQuestionResponseCommentPrefix,
-  shouldPrepareIssueQuestionResponseComment,
+  planIssueQuestionResponseCommentPublication,
   shouldPublishIssueQuestionResponseComment,
 } from '../../domain/services/issue-question-response-policy.service';
 
@@ -44,27 +42,25 @@ export const applyQuestionResponseGovernanceActions = async (
     fallbackQuestionResponse,
   });
 
-  if (!shouldPrepareIssueQuestionResponseComment(questionResponseDecision)) {
-    return;
-  }
-
-  const responseSource: QuestionResponseSource = questionResponseDecision.responseSource;
-  const questionReplyCommentPrefix = resolveIssueQuestionResponseCommentPrefix({
-    responseSource,
+  const publicationPlan = planIssueQuestionResponseCommentPublication({
+    decision: questionResponseDecision,
+    repositoryReadme: context.repositoryReadme,
     aiSuggestedResponseCommentPrefix: AI_QUESTION_AI_REPLY_COMMENT_PREFIX,
     fallbackChecklistCommentPrefix: AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX,
   });
-  const usedRepositoryContext = detectRepositoryContextUsageInResponse({
-    suggestedResponse: questionResponseDecision.responseBody,
-    repositoryReadme: context.repositoryReadme,
-  });
+
+  if (!publicationPlan) {
+    return;
+  }
+
+  const responseSource: QuestionResponseSource = publicationPlan.responseSource;
   context.questionResponseMetrics?.increment(responseSource);
   const responseSourceMetricsSnapshot = context.questionResponseMetrics?.snapshot();
   context.logger?.info?.('AnalyzeIssueWithAiUseCase question response source selected.', {
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
     responseSource,
-    usedRepositoryContext,
+    usedRepositoryContext: publicationPlan.usedRepositoryContext,
     metrics: responseSourceMetricsSnapshot,
   });
   const hasExistingQuestionReplyComment = await context.issueHistoryGateway.hasIssueCommentWithPrefix({
@@ -88,15 +84,15 @@ export const applyQuestionResponseGovernanceActions = async (
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
     body: buildIssueQuestionResponseComment({
-      commentPrefix: questionReplyCommentPrefix,
-      responseBody: questionResponseDecision.responseBody,
+      commentPrefix: publicationPlan.commentPrefix,
+      responseBody: publicationPlan.responseBody,
     }),
   });
   context.incrementActionsAppliedCount();
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment created.', {
-    repositoryFullName: context.repositoryFullName,
-    issueNumber: context.issue.number,
-    bodyPrefix: questionReplyCommentPrefix,
-    responseSource,
-  });
+      repositoryFullName: context.repositoryFullName,
+      issueNumber: context.issue.number,
+      bodyPrefix: publicationPlan.commentPrefix,
+      responseSource,
+    });
 };

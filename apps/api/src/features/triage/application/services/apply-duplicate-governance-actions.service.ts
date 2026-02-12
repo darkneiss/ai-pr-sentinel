@@ -4,8 +4,8 @@ import {
   AI_TRIAGE_DUPLICATE_LABEL,
 } from '../constants/ai-triage.constants';
 import {
-  buildIssueDuplicateComment,
   decideIssueDuplicateActions,
+  planIssueDuplicateCommentPublication,
   resolveFallbackDuplicateIssueNumber,
   shouldProcessIssueDuplicateSignal,
 } from '../../domain/services/issue-duplicate-policy.service';
@@ -44,8 +44,12 @@ export const applyDuplicateGovernanceActions = async (
     return;
   }
 
-  const resolvedOriginalIssueNumber = duplicateDecision.resolvedOriginalIssueNumber;
-  if (resolvedOriginalIssueNumber === null) {
+  const duplicateCommentPublicationPlan = planIssueDuplicateCommentPublication({
+    decision: duplicateDecision,
+    commentPrefix: AI_DUPLICATE_COMMENT_PREFIX,
+    similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
+  });
+  if (!duplicateCommentPublicationPlan) {
     return;
   }
 
@@ -58,18 +62,14 @@ export const applyDuplicateGovernanceActions = async (
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: buildIssueDuplicateComment({
-      commentPrefix: AI_DUPLICATE_COMMENT_PREFIX,
-      originalIssueNumber: resolvedOriginalIssueNumber,
-      similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-    }),
+    body: duplicateCommentPublicationPlan.commentBody,
   });
   context.incrementActionsAppliedCount();
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase duplicate comment created.', {
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    originalIssueNumber: resolvedOriginalIssueNumber,
+    originalIssueNumber: duplicateCommentPublicationPlan.originalIssueNumber,
     similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-    usedFallbackOriginalIssue: duplicateDecision.usedFallbackOriginalIssue,
+    usedFallbackOriginalIssue: duplicateCommentPublicationPlan.usedFallbackOriginalIssue,
   });
 };

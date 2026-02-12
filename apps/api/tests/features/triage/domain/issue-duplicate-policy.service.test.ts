@@ -1,6 +1,7 @@
 import {
   buildIssueDuplicateComment,
   decideIssueDuplicateActions,
+  planIssueDuplicateCommentPublication,
   resolveFallbackDuplicateIssueNumber,
   shouldProcessIssueDuplicateSignal,
 } from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
@@ -200,5 +201,51 @@ describe('IssueDuplicatePolicyService', () => {
     // Assert
     expect(shouldProcessDuplicateSignal).toBe(true);
     expect(shouldProcessNonDuplicateSignal).toBe(false);
+  });
+
+  it('should plan duplicate comment publication when decision is actionable', () => {
+    // Arrange
+    const decision = {
+      shouldApplyDuplicateActions: true,
+      resolvedOriginalIssueNumber: 123,
+      hasSimilarityScore: true,
+      hasValidOriginalIssue: true,
+      usedFallbackOriginalIssue: false,
+    };
+
+    // Act
+    const result = planIssueDuplicateCommentPublication({
+      decision,
+      commentPrefix: 'Possible duplicate of #',
+      similarityScore: 0.914,
+    });
+
+    // Assert
+    expect(result).toEqual({
+      originalIssueNumber: 123,
+      usedFallbackOriginalIssue: false,
+      commentBody: 'Possible duplicate of #123 (Similarity: 91%).',
+    });
+  });
+
+  it('should not plan duplicate comment publication when decision is not actionable', () => {
+    // Arrange
+    const decision = {
+      shouldApplyDuplicateActions: false,
+      resolvedOriginalIssueNumber: null,
+      hasSimilarityScore: true,
+      hasValidOriginalIssue: false,
+      usedFallbackOriginalIssue: false,
+    };
+
+    // Act
+    const result = planIssueDuplicateCommentPublication({
+      decision,
+      commentPrefix: 'Possible duplicate of #',
+      similarityScore: 0.9,
+    });
+
+    // Assert
+    expect(result).toBeNull();
   });
 });

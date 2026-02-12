@@ -7,6 +7,7 @@ import {
   isLikelyQuestionIssueContent,
   normalizeIssueQuestionSuggestedResponse,
   normalizeIssueQuestionSuggestedResponseValue,
+  planIssueQuestionResponseCommentPublication,
   resolveIssueQuestionResponseCommentPrefix,
   shouldPrepareIssueQuestionResponseComment,
   shouldPublishIssueQuestionResponseComment,
@@ -341,5 +342,30 @@ describe('IssueQuestionResponsePolicyService', () => {
     // Assert
     expect(shouldPublishWithExistingComment).toBe(false);
     expect(shouldPublishWithoutExistingComment).toBe(true);
+  });
+
+  it('should plan question response publication metadata for ai suggested response', () => {
+    // Arrange
+    const decision = {
+      shouldCreateComment: true as const,
+      responseSource: 'ai_suggested_response' as const,
+      responseBody: 'Use the telemetry exporter setup from README.',
+    };
+
+    // Act
+    const result = planIssueQuestionResponseCommentPublication({
+      decision,
+      repositoryReadme: 'The telemetry exporter setup is documented here.',
+      aiSuggestedResponseCommentPrefix: '[AI]',
+      fallbackChecklistCommentPrefix: '[Fallback]',
+    });
+
+    // Assert
+    expect(result).toEqual({
+      responseSource: 'ai_suggested_response',
+      responseBody: 'Use the telemetry exporter setup from README.',
+      commentPrefix: '[AI]',
+      usedRepositoryContext: true,
+    });
   });
 });

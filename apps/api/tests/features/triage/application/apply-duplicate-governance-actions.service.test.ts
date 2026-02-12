@@ -2,20 +2,24 @@ import { applyDuplicateGovernanceActions } from '../../../../src/features/triage
 import type { AiTriageGovernanceActionsExecutionContext } from '../../../../src/features/triage/application/services/ai-triage-governance-actions-context.service';
 import {
   decideIssueDuplicateActions,
+  planIssueDuplicateCommentPublication,
   resolveFallbackDuplicateIssueNumber,
   shouldProcessIssueDuplicateSignal,
 } from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
 import type { RecentIssueSummary } from '../../../../src/features/triage/application/ports/issue-history-gateway.port';
 
 jest.mock('../../../../src/features/triage/domain/services/issue-duplicate-policy.service', () => ({
-  buildIssueDuplicateComment: jest.fn(),
   decideIssueDuplicateActions: jest.fn(),
+  planIssueDuplicateCommentPublication: jest.fn(),
   resolveFallbackDuplicateIssueNumber: jest.fn(),
   shouldProcessIssueDuplicateSignal: jest.fn(() => true),
 }));
 
 const mockedDecideIssueDuplicateActions = decideIssueDuplicateActions as jest.MockedFunction<
   typeof decideIssueDuplicateActions
+>;
+const mockedPlanIssueDuplicateCommentPublication = planIssueDuplicateCommentPublication as jest.MockedFunction<
+  typeof planIssueDuplicateCommentPublication
 >;
 const mockedResolveFallbackDuplicateIssueNumber = resolveFallbackDuplicateIssueNumber as jest.MockedFunction<
   typeof resolveFallbackDuplicateIssueNumber
@@ -105,6 +109,7 @@ describe('applyDuplicateGovernanceActions', () => {
       hasValidOriginalIssue: true,
       usedFallbackOriginalIssue: false,
     });
+    mockedPlanIssueDuplicateCommentPublication.mockReturnValue(null);
 
     // Act
     await applyDuplicateGovernanceActions(context);
@@ -113,6 +118,7 @@ describe('applyDuplicateGovernanceActions', () => {
     expect(mockedShouldProcessIssueDuplicateSignal).toHaveBeenCalledTimes(1);
     expect(mockedResolveFallbackDuplicateIssueNumber).toHaveBeenCalledTimes(1);
     expect(mockedDecideIssueDuplicateActions).toHaveBeenCalledTimes(1);
+    expect(mockedPlanIssueDuplicateCommentPublication).toHaveBeenCalledTimes(1);
     expect(context.addLabelIfMissing).not.toHaveBeenCalled();
     expect(context.governanceGateway.createComment).not.toHaveBeenCalled();
     expect(context.incrementActionsAppliedCount).not.toHaveBeenCalled();

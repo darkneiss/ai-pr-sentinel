@@ -32,6 +32,20 @@ export interface ShouldPublishIssueQuestionResponseCommentInput {
   hasExistingQuestionReplyComment: boolean;
 }
 
+export interface PlanIssueQuestionResponseCommentPublicationInput {
+  decision: IssueQuestionResponseDecision;
+  repositoryReadme: string | undefined;
+  aiSuggestedResponseCommentPrefix: string;
+  fallbackChecklistCommentPrefix: string;
+}
+
+export interface IssueQuestionResponseCommentPublicationPlan {
+  responseSource: IssueQuestionResponseSource;
+  responseBody: string;
+  commentPrefix: string;
+  usedRepositoryContext: boolean;
+}
+
 export interface DetectRepositoryContextUsageInResponseInput {
   suggestedResponse: string;
   repositoryReadme: string | undefined;
@@ -208,6 +222,34 @@ export const shouldPrepareIssueQuestionResponseComment = (
   decision: IssueQuestionResponseDecision,
 ): decision is IssueQuestionResponseCommentDecision =>
   decision.shouldCreateComment && decision.responseSource !== null && decision.responseBody.length > 0;
+
+export const planIssueQuestionResponseCommentPublication = ({
+  decision,
+  repositoryReadme,
+  aiSuggestedResponseCommentPrefix,
+  fallbackChecklistCommentPrefix,
+}: PlanIssueQuestionResponseCommentPublicationInput): IssueQuestionResponseCommentPublicationPlan | null => {
+  if (!shouldPrepareIssueQuestionResponseComment(decision)) {
+    return null;
+  }
+
+  const commentPrefix = resolveIssueQuestionResponseCommentPrefix({
+    responseSource: decision.responseSource,
+    aiSuggestedResponseCommentPrefix,
+    fallbackChecklistCommentPrefix,
+  });
+  const usedRepositoryContext = detectRepositoryContextUsageInResponse({
+    suggestedResponse: decision.responseBody,
+    repositoryReadme,
+  });
+
+  return {
+    responseSource: decision.responseSource,
+    responseBody: decision.responseBody,
+    commentPrefix,
+    usedRepositoryContext,
+  };
+};
 
 export const shouldPublishIssueQuestionResponseComment = ({
   hasExistingQuestionReplyComment,

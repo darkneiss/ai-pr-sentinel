@@ -27,6 +27,18 @@ export interface BuildIssueDuplicateCommentInput {
   similarityScore: number;
 }
 
+export interface PlanIssueDuplicateCommentPublicationInput {
+  decision: IssueDuplicateActionsDecision;
+  commentPrefix: string;
+  similarityScore: number;
+}
+
+export interface IssueDuplicateCommentPublicationPlan {
+  originalIssueNumber: number;
+  usedFallbackOriginalIssue: boolean;
+  commentBody: string;
+}
+
 export interface ShouldProcessIssueDuplicateSignalInput {
   isDuplicate: boolean;
 }
@@ -71,6 +83,26 @@ export const buildIssueDuplicateComment = ({
   similarityScore,
 }: BuildIssueDuplicateCommentInput): string =>
   `${commentPrefix}${originalIssueNumber} (Similarity: ${Math.round(similarityScore * SIMILARITY_PERCENT_MULTIPLIER)}%).`;
+
+export const planIssueDuplicateCommentPublication = ({
+  decision,
+  commentPrefix,
+  similarityScore,
+}: PlanIssueDuplicateCommentPublicationInput): IssueDuplicateCommentPublicationPlan | null => {
+  if (!decision.shouldApplyDuplicateActions || decision.resolvedOriginalIssueNumber === null) {
+    return null;
+  }
+
+  return {
+    originalIssueNumber: decision.resolvedOriginalIssueNumber,
+    usedFallbackOriginalIssue: decision.usedFallbackOriginalIssue,
+    commentBody: buildIssueDuplicateComment({
+      commentPrefix,
+      originalIssueNumber: decision.resolvedOriginalIssueNumber,
+      similarityScore,
+    }),
+  };
+};
 
 export const shouldProcessIssueDuplicateSignal = ({
   isDuplicate,
