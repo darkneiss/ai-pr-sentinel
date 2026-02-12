@@ -1,17 +1,13 @@
 import {
-  AI_DUPLICATE_COMMENT_PREFIX,
-  AI_DUPLICATE_SIMILARITY_THRESHOLD,
   AI_TRIAGE_DUPLICATE_LABEL,
 } from '../constants/ai-triage.constants';
 import {
-  decideIssueDuplicateActions,
-  planIssueDuplicateCommentPublication,
-  resolveFallbackDuplicateIssueNumber,
-  shouldProcessIssueDuplicateSignal,
   type IssueDuplicateActionsDecision,
   type IssueDuplicateCommentPublicationPlan,
 } from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
+
+const DUPLICATE_ACTION_PLAN_REQUIRED_ERROR = 'Duplicate action plan is required.';
 
 export interface DuplicateGovernanceExecutionPlan {
   shouldProcessSignal: boolean;
@@ -21,29 +17,18 @@ export interface DuplicateGovernanceExecutionPlan {
 
 export const applyDuplicateGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
-  precomputedPlan?: DuplicateGovernanceExecutionPlan,
+  precomputedPlan: DuplicateGovernanceExecutionPlan,
 ): Promise<void> => {
-  const shouldProcessSignal =
-    precomputedPlan?.shouldProcessSignal ??
-    shouldProcessIssueDuplicateSignal({ isDuplicate: context.aiAnalysis.duplicateDetection.isDuplicate });
+  if (!precomputedPlan) {
+    throw new Error(DUPLICATE_ACTION_PLAN_REQUIRED_ERROR);
+  }
+
+  const shouldProcessSignal = precomputedPlan.shouldProcessSignal;
   if (!shouldProcessSignal) {
     return;
   }
 
-  const duplicateDecision =
-    precomputedPlan?.duplicateDecision ??
-    decideIssueDuplicateActions({
-      isDuplicate: context.aiAnalysis.duplicateDetection.isDuplicate,
-      originalIssueNumber: context.aiAnalysis.duplicateDetection.originalIssueNumber,
-      similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-      hasExplicitOriginalIssueReference: context.aiAnalysis.duplicateDetection.hasExplicitOriginalIssueReference === true,
-      currentIssueNumber: context.issue.number,
-      fallbackOriginalIssueNumber: resolveFallbackDuplicateIssueNumber({
-        currentIssueNumber: context.issue.number,
-        recentIssueNumbers: context.recentIssues.map((issue) => issue.number),
-      }),
-      similarityThreshold: AI_DUPLICATE_SIMILARITY_THRESHOLD,
-    });
+  const duplicateDecision = precomputedPlan.duplicateDecision;
 
   if (!duplicateDecision.shouldApplyDuplicateActions) {
     context.logger?.info?.('AnalyzeIssueWithAiUseCase duplicate detection skipped.', {
@@ -58,13 +43,7 @@ export const applyDuplicateGovernanceActions = async (
     return;
   }
 
-  const duplicateCommentPublicationPlan =
-    precomputedPlan?.duplicateCommentPublicationPlan ??
-    planIssueDuplicateCommentPublication({
-      decision: duplicateDecision,
-      commentPrefix: AI_DUPLICATE_COMMENT_PREFIX,
-      similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-    });
+  const duplicateCommentPublicationPlan = precomputedPlan.duplicateCommentPublicationPlan;
   if (!duplicateCommentPublicationPlan) {
     return;
   }

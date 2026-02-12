@@ -57,16 +57,18 @@ const createExecutionContext = (): AiTriageGovernanceActionsExecutionContext => 
 });
 
 describe('applyClassificationGovernanceActions', () => {
-  it('should compute classification decision when precomputed plan is not provided', async () => {
+  it('should fail fast when classification plan is missing', async () => {
     // Arrange
     const context = createExecutionContext();
 
     // Act
-    await applyClassificationGovernanceActions(context);
+    const result = applyClassificationGovernanceActions(
+      context,
+      undefined as unknown as IssueKindLabelActionsDecision,
+    );
 
     // Assert
-    expect(context.removeLabelIfPresent).toHaveBeenCalledWith('kind/bug');
-    expect(context.addLabelIfMissing).toHaveBeenCalledWith('kind/question');
+    await expect(result).rejects.toThrow('Classification action plan is required.');
   });
 
   it('should use precomputed classification decision when provided', async () => {

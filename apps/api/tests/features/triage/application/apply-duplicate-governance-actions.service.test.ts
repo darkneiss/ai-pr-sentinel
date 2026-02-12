@@ -1,32 +1,7 @@
 import { applyDuplicateGovernanceActions } from '../../../../src/features/triage/application/services/apply-duplicate-governance-actions.service';
 import type { AiTriageGovernanceActionsExecutionContext } from '../../../../src/features/triage/application/services/ai-triage-governance-actions-context.service';
-import {
-  decideIssueDuplicateActions,
-  planIssueDuplicateCommentPublication,
-  resolveFallbackDuplicateIssueNumber,
-  shouldProcessIssueDuplicateSignal,
-} from '../../../../src/features/triage/domain/services/issue-duplicate-policy.service';
 import type { RecentIssueSummary } from '../../../../src/features/triage/application/ports/issue-history-gateway.port';
-
-jest.mock('../../../../src/features/triage/domain/services/issue-duplicate-policy.service', () => ({
-  decideIssueDuplicateActions: jest.fn(),
-  planIssueDuplicateCommentPublication: jest.fn(),
-  resolveFallbackDuplicateIssueNumber: jest.fn(),
-  shouldProcessIssueDuplicateSignal: jest.fn(() => true),
-}));
-
-const mockedDecideIssueDuplicateActions = decideIssueDuplicateActions as jest.MockedFunction<
-  typeof decideIssueDuplicateActions
->;
-const mockedPlanIssueDuplicateCommentPublication = planIssueDuplicateCommentPublication as jest.MockedFunction<
-  typeof planIssueDuplicateCommentPublication
->;
-const mockedResolveFallbackDuplicateIssueNumber = resolveFallbackDuplicateIssueNumber as jest.MockedFunction<
-  typeof resolveFallbackDuplicateIssueNumber
->;
-const mockedShouldProcessIssueDuplicateSignal = shouldProcessIssueDuplicateSignal as jest.MockedFunction<
-  typeof shouldProcessIssueDuplicateSignal
->;
+import type { DuplicateGovernanceExecutionPlan } from '../../../../src/features/triage/application/services/apply-duplicate-governance-actions.service';
 
 const createExecutionContext = (): AiTriageGovernanceActionsExecutionContext => {
   const recentIssues: RecentIssueSummary[] = [
@@ -98,27 +73,147 @@ describe('applyDuplicateGovernanceActions', () => {
     jest.clearAllMocks();
   });
 
-  it('should exit early when duplicate decision resolves a null original issue number', async () => {
+  it('should fail fast when duplicate governance execution plan is missing', async () => {
     // Arrange
     const context = createExecutionContext();
-    mockedResolveFallbackDuplicateIssueNumber.mockReturnValue(10);
-    mockedDecideIssueDuplicateActions.mockReturnValue({
+
+    // Act
+    const result = applyDuplicateGovernanceActions(
+      context,
+      undefined as unknown as DuplicateGovernanceExecutionPlan,
+    );
+
+    // Assert
+    await expect(result).rejects.toThrow('Duplicate action plan is required.');
+  });
+
+  it('should exit early when duplicate signal must not be processed', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: DuplicateGovernanceExecutionPlan = {
+      shouldProcessSignal: false,
+      duplicateDecision: {
+        shouldApplyDuplicateActions: false,
+        resolvedOriginalIssueNumber: null,
+        hasSimilarityScore: false,
+        hasValidOriginalIssue: false,
+        usedFallbackOriginalIssue: false,
+      },
+      duplicateCommentPublicationPlan: null,
+    };
+
+    // Act
+    await applyDuplicateGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.addLabelIfMissing).not.toHaveBeenCalled();
+    expect(context.governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(context.incrementActionsAppliedCount).not.toHaveBeenCalled();
+  });
+
+  it('should skip duplicate actions when decision says not to apply', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: DuplicateGovernanceExecutionPlan = {
+      shouldProcessSignal: true,
+      duplicateDecision: {
+        shouldApplyDuplicateActions: false,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
+      },
+      duplicateCommentPublicationPlan: null,
+    };
+
+    // Act
+    await applyDuplicateGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.addLabelIfMissing).not.toHaveBeenCalled();
+    expect(context.governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(context.incrementActionsAppliedCount).not.toHaveBeenCalled();
+  });
+
+  it('should create duplicate comment when duplicate label is added', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: DuplicateGovernanceExecutionPlan = {
+      shouldProcessSignal: true,
+      duplicateDecision: {
+        shouldApplyDuplicateActions: true,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
+      },
+      duplicateCommentPublicationPlan: {
+        originalIssueNumber: 10,
+        commentBody: 'AI Triage: Possible duplicate of #10',
+        usedFallbackOriginalIssue: false,
+      },
+    };
+
+    // Act
+    await applyDuplicateGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.addLabelIfMissing).toHaveBeenCalledWith('triage/duplicate');
+    expect(context.governanceGateway.createComment).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      body: 'AI Triage: Possible duplicate of #10',
+    });
+    expect(context.incrementActionsAppliedCount).toHaveBeenCalledTimes(1);
+  });
+
+  it('should skip duplicate comment when duplicate label already exists', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    (context.addLabelIfMissing as jest.MockedFunction<typeof context.addLabelIfMissing>).mockResolvedValue(false);
+    const plan: DuplicateGovernanceExecutionPlan = {
+      shouldProcessSignal: true,
+      duplicateDecision: {
+        shouldApplyDuplicateActions: true,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
+      },
+      duplicateCommentPublicationPlan: {
+        originalIssueNumber: 10,
+        commentBody: 'AI Triage: Possible duplicate of #10',
+        usedFallbackOriginalIssue: false,
+      },
+    };
+
+    // Act
+    await applyDuplicateGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(context.incrementActionsAppliedCount).not.toHaveBeenCalled();
+  });
+
+  it('should exit early when comment publication plan is null', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: DuplicateGovernanceExecutionPlan = {
+      shouldProcessSignal: true,
+      duplicateDecision: {
       shouldApplyDuplicateActions: true,
-      resolvedOriginalIssueNumber: null,
+      resolvedOriginalIssueNumber: 10,
       hasSimilarityScore: true,
       hasValidOriginalIssue: true,
       usedFallbackOriginalIssue: false,
-    });
-    mockedPlanIssueDuplicateCommentPublication.mockReturnValue(null);
+      },
+      duplicateCommentPublicationPlan: null,
+    };
 
     // Act
-    await applyDuplicateGovernanceActions(context);
+    await applyDuplicateGovernanceActions(context, plan);
 
     // Assert
-    expect(mockedShouldProcessIssueDuplicateSignal).toHaveBeenCalledTimes(1);
-    expect(mockedResolveFallbackDuplicateIssueNumber).toHaveBeenCalledTimes(1);
-    expect(mockedDecideIssueDuplicateActions).toHaveBeenCalledTimes(1);
-    expect(mockedPlanIssueDuplicateCommentPublication).toHaveBeenCalledTimes(1);
     expect(context.addLabelIfMissing).not.toHaveBeenCalled();
     expect(context.governanceGateway.createComment).not.toHaveBeenCalled();
     expect(context.incrementActionsAppliedCount).not.toHaveBeenCalled();
