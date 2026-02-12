@@ -9,6 +9,19 @@ export class RepositoryFullName {
   ) {}
 
   public static create(rawValue: string): RepositoryFullName {
+    const parsedRepositoryFullName = RepositoryFullName.fromUnknown(rawValue);
+    if (!parsedRepositoryFullName) {
+      throw new Error(`Invalid repository full name: "${rawValue}"`);
+    }
+
+    return parsedRepositoryFullName;
+  }
+
+  public static fromUnknown(rawValue: unknown): RepositoryFullName | null {
+    if (typeof rawValue !== 'string') {
+      return null;
+    }
+
     const normalizedValue = rawValue.trim();
     const repositoryParts = normalizedValue.split(REPOSITORY_SEPARATOR);
     const [owner, repo] = repositoryParts;
@@ -16,7 +29,7 @@ export class RepositoryFullName {
       repositoryParts.length !== REPOSITORY_PARTS_COUNT || !owner || !repo;
 
     if (hasInvalidRepositoryFormat) {
-      throw new Error(`Invalid repository full name: "${rawValue}"`);
+      return null;
     }
 
     const value = `${owner}${REPOSITORY_SEPARATOR}${repo}`;

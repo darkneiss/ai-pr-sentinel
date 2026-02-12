@@ -1,14 +1,19 @@
 import type { RequestHandler } from 'express';
 import crypto from 'node:crypto';
 
-import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../application/use-cases/analyze-issue-with-ai.use-case';
 import type { GovernanceGateway } from '../../application/ports/governance-gateway.port';
+import type {
+  AnalyzeIssueWithAiInput,
+  AnalyzeIssueWithAiResult,
+} from '../../application/ports/issue-ai-triage-runner.port';
 import type { RepositoryAuthorizationGateway } from '../../application/ports/repository-authorization-gateway.port';
 import {
   WEBHOOK_DELIVERY_SOURCE_GITHUB,
   type WebhookDeliveryGateway,
 } from '../../application/ports/webhook-delivery-gateway.port';
 import { processIssueWebhook } from '../../application/use-cases/process-issue-webhook.use-case';
+import { IssueNumber } from '../../domain/value-objects/issue-number.value-object';
+import { RepositoryFullName } from '../../domain/value-objects/repository-full-name.value-object';
 import { createEnvLogger, type Logger } from '../../../../shared/infrastructure/logging/env-logger';
 
 const GITHUB_DELIVERY_HEADER = 'x-github-delivery';
@@ -19,9 +24,6 @@ const DUPLICATE_WEBHOOK_RESPONSE = { status: 'duplicate_ignored' } as const;
 const DELIVERY_REGISTRATION_ROLLBACK_LOG = 'GithubWebhookController rolled back webhook delivery registration.';
 const DELIVERY_REGISTRATION_ROLLBACK_FAILED_LOG =
   'GithubWebhookController failed to roll back webhook delivery registration.';
-const REPOSITORY_FULL_NAME_SEPARATOR = '/';
-const REPOSITORY_FULL_NAME_PARTS_COUNT = 2;
-const ISSUE_NUMBER_MIN_VALUE = 1;
 
 interface Dependencies {
   governanceGateway: GovernanceGateway;
@@ -55,17 +57,11 @@ interface GithubIssueWebhookPayload {
 }
 
 const hasValidRepositoryFullName = (repositoryFullName: string): boolean => {
-  const normalizedRepositoryFullName = repositoryFullName.trim();
-  const repositoryParts = normalizedRepositoryFullName.split(REPOSITORY_FULL_NAME_SEPARATOR);
-  const [owner, repo] = repositoryParts;
-  const hasInvalidRepositoryFullName =
-    repositoryParts.length !== REPOSITORY_FULL_NAME_PARTS_COUNT || !owner || !repo;
-
-  return !hasInvalidRepositoryFullName;
+  return RepositoryFullName.fromUnknown(repositoryFullName) !== null;
 };
 
 const hasValidIssueNumber = (issueNumber: number): boolean =>
-  Number.isInteger(issueNumber) && issueNumber >= ISSUE_NUMBER_MIN_VALUE;
+  IssueNumber.fromUnknown(issueNumber) !== null;
 
 const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhookPayload => {
   if (!value || typeof value !== 'object') {

@@ -1,7 +1,7 @@
 import type {
   AnalyzeIssueWithAiInput,
   AnalyzeIssueWithAiResult,
-} from './features/triage/application/use-cases/analyze-issue-with-ai.use-case';
+} from './features/triage/application/ports/issue-ai-triage-runner.port';
 import type { GovernanceGateway } from './features/triage/application/ports/governance-gateway.port';
 import { createTriageWebhookComposition } from './infrastructure/composition/triage-webhook-composition.factory';
 import { createHttpApp } from './infrastructure/http/http-app.factory';

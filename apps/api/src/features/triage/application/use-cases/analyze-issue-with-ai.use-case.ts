@@ -14,6 +14,10 @@ import {
   resolveAiTimeoutMs,
 } from '../constants/ai-triage.constants';
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
+import type {
+  AnalyzeIssueWithAiInput,
+  AnalyzeIssueWithAiResult,
+} from '../ports/issue-ai-triage-runner.port';
 import type { IssueHistoryGateway } from '../ports/issue-history-gateway.port';
 import type { RepositoryContextGateway } from '../ports/repository-context-gateway.port';
 import { applyAiTriageGovernanceActions } from '../services/apply-ai-triage-governance-actions.service';
@@ -29,21 +33,10 @@ import {
   ISSUE_TRIAGE_SYSTEM_PROMPT,
 } from '../../../../shared/application/prompts/issue-triage.prompt';
 
-export interface AnalyzeIssueWithAiInput {
-  action: string;
-  repositoryFullName: string;
-  issue: {
-    number: number;
-    title: string;
-    body: string;
-    labels: string[];
-  };
-}
-
-export interface AnalyzeIssueWithAiResult {
-  status: 'completed' | 'skipped';
-  reason?: 'unsupported_action' | 'ai_unavailable';
-}
+export type {
+  AnalyzeIssueWithAiInput,
+  AnalyzeIssueWithAiResult,
+} from '../ports/issue-ai-triage-runner.port';
 
 interface Logger {
   debug?: (message: string, ...args: unknown[]) => void;

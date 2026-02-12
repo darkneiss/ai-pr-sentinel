@@ -1,4 +1,7 @@
-import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from '../../features/triage/application/use-cases/analyze-issue-with-ai.use-case';
+import type {
+  AnalyzeIssueWithAiInput,
+  AnalyzeIssueWithAiResult,
+} from '../../features/triage/application/ports/issue-ai-triage-runner.port';
 import type { GovernanceGateway } from '../../features/triage/application/ports/governance-gateway.port';
 import type { RepositoryContextGateway } from '../../features/triage/application/ports/repository-context-gateway.port';
 import type { ConfigPort } from '../../shared/application/ports/config.port';
