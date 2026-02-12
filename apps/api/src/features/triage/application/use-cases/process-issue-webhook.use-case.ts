@@ -10,8 +10,7 @@ import type {
 import { type IssueIntegrityValidator } from '../../domain/services/issue-validation.service';
 import { IssueEntity } from '../../domain/entities/issue.entity';
 import { buildIssueWebhookGovernancePlan } from '../../domain/services/issue-webhook-governance-plan.service';
-import { isIssueWebhookActionSupported } from '../../domain/services/issue-webhook-action-policy.service';
-import { parseIssueWebhookIdentity } from '../../domain/services/issue-webhook-identity-policy.service';
+import { decideIssueWebhookProcessing } from '../../domain/services/issue-webhook-processing-policy.service';
 
 export interface ProcessIssueWebhookInput {
   action: string;
@@ -41,8 +40,6 @@ interface Dependencies {
   };
 }
 
-const WEBHOOK_NO_CONTENT_STATUS_CODE = 204 as const;
-
 export const processIssueWebhook =
   ({
     governanceGateway,
@@ -51,22 +48,22 @@ export const processIssueWebhook =
     logger = console,
   }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
-    if (!isIssueWebhookActionSupported(input.action)) {
-      return { statusCode: WEBHOOK_NO_CONTENT_STATUS_CODE };
-    }
-
-    const issueWebhookIdentity = parseIssueWebhookIdentity({
+    const processingDecision = decideIssueWebhookProcessing({
+      action: input.action,
       repositoryFullName: input.repositoryFullName,
       issueNumber: input.issue.number,
     });
-    if (!issueWebhookIdentity) {
-      logger.warn?.('ProcessIssueWebhookUseCase skipping supported action due to malformed issue identity input.', {
-        action: input.action,
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-      });
-      return { statusCode: WEBHOOK_NO_CONTENT_STATUS_CODE };
+    if (processingDecision.shouldSkipProcessing || !processingDecision.identity) {
+      if (processingDecision.reason === 'malformed_issue_identity') {
+        logger.warn?.('ProcessIssueWebhookUseCase skipping supported action due to malformed issue identity input.', {
+          action: input.action,
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+        });
+      }
+      return { statusCode: processingDecision.statusCode };
     }
+    const issueWebhookIdentity = processingDecision.identity;
 
     const issueForValidation = IssueEntity.create({
       id: issueWebhookIdentity.issueId,
