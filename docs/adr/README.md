@@ -6,3 +6,4 @@
 - [ADR-004: LLM Endpoint Configuration](./ADR-004-llm-endpoint-config.md)
 - [ADR-005: Webhook Ingress Hardening (Allowlist + Delivery Idempotency)](./ADR-005-webhook-ingress-hardening.md)
 - [ADR-006: Triage Domain Processing Policies](./ADR-006-triage-domain-processing-policies.md)
+- [ADR-007: Webhook ACL + Domain Workflow + Hexagonal Guardrails](./ADR-007-webhook-acl-and-hexagonal-guardrails.md)

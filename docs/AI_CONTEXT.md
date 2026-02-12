@@ -21,6 +21,14 @@
   - Webhook governance plan now precomputes an executable domain action list
     (`add_label` | `remove_label` | `create_comment` | `log_validated_issue`) consumed
     directly by `process-issue-webhook.use-case`.
+  - Webhook processing now uses an explicit domain workflow service
+    (`issue-webhook-workflow.service.ts`) that centralizes:
+    - skip/continue processing decision,
+    - identity resolution,
+    - issue entity creation,
+    - governance plan derivation.
+  - GitHub payload adaptation is now isolated in infrastructure anti-corruption mapper
+    (`github-issue-webhook-command.mapper.ts`) before invoking the use-case.
 
 ### Feature 002: AI-Enhanced Issue Triage
 - Status: DONE (MVP)
@@ -150,6 +158,8 @@
   - Domain policy coverage includes:
     - `issue-webhook-processing-policy.service.ts`
     - `issue-ai-triage-processing-policy.service.ts`
+  - Hexagonal guard rails are enforced by test:
+    - `tests/features/triage/architecture/triage-hexagonal-boundaries.test.ts`
 
 ## 7. Working Rules (Operational)
 - TDD in local is mandatory: RED -> GREEN -> REFACTOR.
@@ -178,5 +188,7 @@
   - Documents webhook ingress allowlist and delivery deduplication strategy.
 - `docs/adr/ADR-006-triage-domain-processing-policies.md`
   - Documents centralization of triage processing decisions into domain policy services.
+- `docs/adr/ADR-007-webhook-acl-and-hexagonal-guardrails.md`
+  - Documents webhook anti-corruption mapper, domain workflow orchestration, and boundary tests.
 - `docs/adr/README.md`
   - ADR index.
