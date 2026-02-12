@@ -79,6 +79,9 @@
   - Question-response publication decisions now expose explicit domain skip reasons
     (`missing_publication_plan` | `question_reply_comment_already_exists`) for deterministic
     application logging/branching.
+  - Label transition execution decisions (`add`/`remove`) are now centralized in domain
+    (`decideIssueLabelAddExecution`, `decideIssueLabelRemoveExecution`) and consumed by the
+    AI triage application context, including explicit skip reasons in logs.
   - Duplicate execution gating (signal/decision/comment-plan readiness) is now centralized in domain
     via `decideIssueDuplicateGovernanceExecution`.
   - Duplicate execution output is now embedded in the domain action plan

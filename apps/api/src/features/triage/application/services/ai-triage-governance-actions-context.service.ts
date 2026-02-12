@@ -1,8 +1,8 @@
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import type { IssueHistoryGateway, RecentIssueSummary } from '../ports/issue-history-gateway.port';
 import {
-  shouldAddIssueLabel,
-  shouldRemoveIssueLabel,
+  decideIssueLabelAddExecution,
+  decideIssueLabelRemoveExecution,
 } from '../../domain/services/issue-label-transition-policy.service';
 import type { AiAnalysis, AiTone } from '../../domain/services/issue-ai-analysis-normalizer.service';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
@@ -74,11 +74,13 @@ export const createAiTriageGovernanceActionsExecutionContext = (
   };
 
   const addLabelIfMissing = async (label: string): Promise<boolean> => {
-    if (!shouldAddIssueLabel({ existingLabels: issueLabels, label })) {
+    const addExecutionDecision = decideIssueLabelAddExecution({ existingLabels: issueLabels, label });
+    if (!addExecutionDecision.shouldApply) {
       input.logger?.debug?.('AnalyzeIssueWithAiUseCase label already present. Skipping add.', {
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
         label,
+        skipReason: addExecutionDecision.skipReason,
       });
       return false;
     }
@@ -99,11 +101,13 @@ export const createAiTriageGovernanceActionsExecutionContext = (
   };
 
   const removeLabelIfPresent = async (label: string): Promise<void> => {
-    if (!shouldRemoveIssueLabel({ existingLabels: issueLabels, label })) {
+    const removeExecutionDecision = decideIssueLabelRemoveExecution({ existingLabels: issueLabels, label });
+    if (!removeExecutionDecision.shouldApply) {
       input.logger?.debug?.('AnalyzeIssueWithAiUseCase label not present. Skipping remove.', {
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
         label,
+        skipReason: removeExecutionDecision.skipReason,
       });
       return;
     }
