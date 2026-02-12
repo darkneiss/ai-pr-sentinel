@@ -22,23 +22,24 @@ const createInput = (overrides: Partial<AnalyzeIssueWithAiInput> = {}): AnalyzeI
   action: 'opened',
   repositoryFullName: 'org/repo',
   issue: {
-    number: 21,
-    title: 'Duda sobre la arquitectura',
-    body: 'No entiendo por qué este repo parece hecho con el culo.',
+    number: 30,
+    title: 'App crashes on startup',
+    body: 'The process exits immediately when launching in production mode.',
     labels: [],
   },
   ...overrides,
 });
 
-describe('AnalyzeIssueWithAiUseCase (Sentiment Confidence)', () => {
-  it('should trust high-confidence neutral sentiment and avoid hostile fallback labels', async () => {
+describe('AnalyzeIssueWithAiUseCase (Normalization Edge Cases)', () => {
+  it('should accept already-valid AI shape without fallback normalizers', async () => {
     // Arrange
     const llmGateway: jest.Mocked<LLMGateway> = {
       generateJson: jest.fn().mockResolvedValue({
         rawText: JSON.stringify({
           classification: {
-            type: 'question',
-            confidence: 0.9,
+            type: 'bug',
+            confidence: 0.91,
+            reasoning: 'Reproducible failure in runtime behavior.',
           },
           duplicateDetection: {
             isDuplicate: false,
@@ -47,7 +48,8 @@ describe('AnalyzeIssueWithAiUseCase (Sentiment Confidence)', () => {
           },
           sentiment: {
             tone: 'neutral',
-            confidence: 0.95,
+            confidence: 0.9,
+            reasoning: 'Technical report without toxic language.',
           },
         }),
       }),
@@ -65,49 +67,104 @@ describe('AnalyzeIssueWithAiUseCase (Sentiment Confidence)', () => {
 
     // Assert
     expect(result).toEqual({ status: 'completed' });
-    expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
       repositoryFullName: 'org/repo',
-      issueNumber: 21,
-      labels: ['triage/monitor'],
+      issueNumber: 30,
+      labels: ['kind/bug'],
     });
   });
 
-  it('should apply monitor label on high-confidence hostile sentiment even without keyword match', async () => {
+  it('should fail-open when structured payload omits duplicate shape entirely', async () => {
     // Arrange
     const llmGateway: jest.Mocked<LLMGateway> = {
       generateJson: jest.fn().mockResolvedValue({
         rawText: JSON.stringify({
           classification: {
-            type: 'bug',
+            type: 'question',
             confidence: 0.9,
           },
-          duplicateDetection: {
-            isDuplicate: false,
-            originalIssueNumber: null,
-            similarityScore: 0.1,
-          },
           sentiment: {
-            tone: 'hostile',
-            confidence: 0.92,
+            tone: 'neutral',
+            confidence: 0.8,
           },
         }),
       }),
     };
     const issueHistoryGateway = createIssueHistoryGatewayMock();
     const governanceGateway = createGovernanceGatewayMock();
+    const logger = {
+      error: jest.fn(),
+    };
     const run = analyzeIssueWithAi({
       llmGateway,
       issueHistoryGateway,
       governanceGateway,
+      logger,
     });
 
     // Act
     const result = await run(
       createInput({
         issue: {
-          number: 22,
-          title: 'Issue review',
-          body: 'Your review style is dismissive and disrespectful.',
+          number: 55,
+          title: 'How do I configure this project?',
+          body: 'I need guidance to run this repository locally.',
+          labels: [],
+        },
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
+    expect(logger.error).toHaveBeenCalledWith(
+      'AnalyzeIssueWithAiUseCase failed parsing AI response. Applying fail-open policy.',
+      expect.objectContaining({
+        repositoryFullName: 'org/repo',
+        issueNumber: 55,
+      }),
+    );
+  });
+
+  it('should normalize classification similarity fallback without duplicate block', async () => {
+    // Arrange
+    const llmGateway: jest.Mocked<LLMGateway> = {
+      generateJson: jest.fn().mockResolvedValue({
+        rawText: JSON.stringify({
+          classification: {
+            type: 'question',
+            confidence: 0.95,
+            similarityScore: 0.92,
+          },
+          sentiment: {
+            tone: 'neutral',
+          },
+          suggestedResponse:
+            '- Este repositorio es un sandbox para probar AI-PR-Sentinel.\\n- Puedes crear issues de prueba.\\n- Revisa el README para escenarios.',
+        }),
+      }),
+    };
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    const logger = {
+      error: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+    });
+
+    // Act
+    const result = await run(
+      createInput({
+        action: 'edited',
+        issue: {
+          number: 30,
+          title: 'Que se puede hacer en este repositorio?',
+          body: 'Me gustaría entender para qué sirve este proyecto.',
           labels: [],
         },
       }),
@@ -117,19 +174,20 @@ describe('AnalyzeIssueWithAiUseCase (Sentiment Confidence)', () => {
     expect(result).toEqual({ status: 'completed' });
     expect(governanceGateway.addLabels).toHaveBeenCalledWith({
       repositoryFullName: 'org/repo',
-      issueNumber: 22,
-      labels: ['triage/monitor'],
+      issueNumber: 30,
+      labels: ['kind/question'],
     });
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it('should honor legacy top-level confidence for sentiment fallback decisions', async () => {
+  it('should normalize legacy classification-only response and publish question guidance', async () => {
     // Arrange
     const llmGateway: jest.Mocked<LLMGateway> = {
       generateJson: jest.fn().mockResolvedValue({
         rawText: JSON.stringify({
           classification: 'question',
-          tone: 'neutral',
-          confidence: 0.95,
+          suggestedResponse: 'Check the README for setup guidance.',
         }),
       }),
     };
@@ -145,9 +203,9 @@ describe('AnalyzeIssueWithAiUseCase (Sentiment Confidence)', () => {
     const result = await run(
       createInput({
         issue: {
-          number: 23,
-          title: 'Consulta general',
-          body: 'Esto parece hecho con el culo, pero quiero ayuda con el setup.',
+          number: 101,
+          title: 'What is this repository for?',
+          body: 'I want to understand the purpose before contributing.',
           labels: [],
         },
       }),
@@ -155,10 +213,15 @@ describe('AnalyzeIssueWithAiUseCase (Sentiment Confidence)', () => {
 
     // Assert
     expect(result).toEqual({ status: 'completed' });
-    expect(governanceGateway.addLabels).not.toHaveBeenCalledWith({
-      repositoryFullName: 'org/repo',
-      issueNumber: 23,
-      labels: ['triage/monitor'],
-    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labels: ['kind/question'],
+      }),
+    );
+    expect(governanceGateway.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('Check the README for setup guidance.'),
+      }),
+    );
   });
 });
