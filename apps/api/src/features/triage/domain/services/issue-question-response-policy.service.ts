@@ -37,6 +37,26 @@ export interface DecideIssueQuestionResponseCommentPublicationInput {
   hasExistingQuestionReplyComment: boolean;
 }
 
+export interface DecideIssueQuestionResponseCommentPublicationPreparationInput {
+  publicationPlan: IssueQuestionResponseCommentPublicationPlan | null;
+}
+
+export type IssueQuestionResponseCommentPublicationPreparationDecision =
+  | {
+      shouldCheckExistingQuestionReplyComment: false;
+      publicationPlan: null;
+      responseSource: null;
+      usedRepositoryContext: null;
+      skipReason: 'missing_publication_plan';
+    }
+  | {
+      shouldCheckExistingQuestionReplyComment: true;
+      publicationPlan: IssueQuestionResponseCommentPublicationPlan;
+      responseSource: IssueQuestionResponseSource;
+      usedRepositoryContext: boolean;
+      skipReason: null;
+    };
+
 export type IssueQuestionResponseCommentPublicationSkipReason =
   | 'missing_publication_plan'
   | 'question_reply_comment_already_exists';
@@ -275,6 +295,28 @@ export const planIssueQuestionResponseCommentPublication = ({
 export const shouldPublishIssueQuestionResponseComment = ({
   hasExistingQuestionReplyComment,
 }: ShouldPublishIssueQuestionResponseCommentInput): boolean => !hasExistingQuestionReplyComment;
+
+export const decideIssueQuestionResponseCommentPublicationPreparation = ({
+  publicationPlan,
+}: DecideIssueQuestionResponseCommentPublicationPreparationInput): IssueQuestionResponseCommentPublicationPreparationDecision => {
+  if (!publicationPlan) {
+    return {
+      shouldCheckExistingQuestionReplyComment: false,
+      publicationPlan: null,
+      responseSource: null,
+      usedRepositoryContext: null,
+      skipReason: 'missing_publication_plan',
+    };
+  }
+
+  return {
+    shouldCheckExistingQuestionReplyComment: true,
+    publicationPlan,
+    responseSource: publicationPlan.responseSource,
+    usedRepositoryContext: publicationPlan.usedRepositoryContext,
+    skipReason: null,
+  };
+};
 
 export const decideIssueQuestionResponseCommentPublication = ({
   publicationPlan,

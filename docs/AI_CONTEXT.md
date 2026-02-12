@@ -76,6 +76,9 @@
   - Final publication decision for question-response comments (including existing-comment gate and
     comment body construction) is now centralized in domain
     via `decideIssueQuestionResponseCommentPublication`.
+  - Pre-history publication preparation for question responses (including
+    `missing_publication_plan` short-circuit) is now centralized in domain via
+    `decideIssueQuestionResponseCommentPublicationPreparation`.
   - Question-response publication decisions now expose explicit domain skip reasons
     (`missing_publication_plan` | `question_reply_comment_already_exists`) for deterministic
     application logging/branching.

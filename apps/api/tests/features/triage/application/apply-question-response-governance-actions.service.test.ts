@@ -100,6 +100,26 @@ describe('applyQuestionResponseGovernanceActions', () => {
     expect(context.incrementActionsAppliedCount).not.toHaveBeenCalled();
   });
 
+  it('should skip history lookup and metrics when publication plan is null', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: IssueAiTriageQuestionPlan = {
+      decision: {
+        shouldCreateComment: false,
+        responseSource: null,
+        responseBody: '',
+      },
+      commentPublicationPlan: null,
+    };
+
+    // Act
+    await applyQuestionResponseGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.issueHistoryGateway.hasIssueCommentWithPrefix).not.toHaveBeenCalled();
+    expect(context.questionResponseMetrics?.increment).not.toHaveBeenCalled();
+  });
+
   it('should skip publishing when a question reply comment already exists', async () => {
     // Arrange
     const context = createExecutionContext();

@@ -1,5 +1,6 @@
 import {
   buildIssueQuestionResponseComment,
+  decideIssueQuestionResponseCommentPublicationPreparation,
   decideIssueQuestionResponseCommentPublication,
   buildIssueQuestionFallbackResponse,
   buildIssueQuestionFallbackResponseWhenApplicable,
@@ -385,6 +386,54 @@ describe('IssueQuestionResponsePolicyService', () => {
       shouldCreateComment: false,
       commentBody: null,
       skipReason: 'missing_publication_plan',
+    });
+  });
+
+  it('should skip publication preparation when publication plan is missing', () => {
+    // Arrange
+    const input = {
+      publicationPlan: null,
+    };
+
+    // Act
+    const result = decideIssueQuestionResponseCommentPublicationPreparation(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCheckExistingQuestionReplyComment: false,
+      publicationPlan: null,
+      responseSource: null,
+      usedRepositoryContext: null,
+      skipReason: 'missing_publication_plan',
+    });
+  });
+
+  it('should prepare publication when publication plan is available', () => {
+    // Arrange
+    const input = {
+      publicationPlan: {
+        responseSource: 'fallback_checklist' as const,
+        responseBody: '- Share logs',
+        commentPrefix: '[Fallback]',
+        usedRepositoryContext: false,
+      },
+    };
+
+    // Act
+    const result = decideIssueQuestionResponseCommentPublicationPreparation(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCheckExistingQuestionReplyComment: true,
+      publicationPlan: {
+        responseSource: 'fallback_checklist',
+        responseBody: '- Share logs',
+        commentPrefix: '[Fallback]',
+        usedRepositoryContext: false,
+      },
+      responseSource: 'fallback_checklist',
+      usedRepositoryContext: false,
+      skipReason: null,
     });
   });
 

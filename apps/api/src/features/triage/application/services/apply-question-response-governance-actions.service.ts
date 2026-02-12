@@ -4,6 +4,7 @@ import {
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import type { QuestionResponseSource } from '../../../../shared/application/ports/question-response-metrics.port';
 import {
+  decideIssueQuestionResponseCommentPublicationPreparation,
   decideIssueQuestionResponseCommentPublication,
 } from '../../domain/services/issue-question-response-policy.service';
 import { type IssueAiTriageQuestionPlan } from '../../domain/services/issue-ai-triage-action-plan.service';
@@ -18,19 +19,29 @@ export const applyQuestionResponseGovernanceActions = async (
     throw new Error(QUESTION_RESPONSE_ACTION_PLAN_REQUIRED_ERROR);
   }
 
-  const publicationPlan = precomputedPlan.commentPublicationPlan;
-  if (!publicationPlan) {
+  const publicationPreparationDecision = decideIssueQuestionResponseCommentPublicationPreparation({
+    publicationPlan: precomputedPlan.commentPublicationPlan,
+  });
+  if (!publicationPreparationDecision.shouldCheckExistingQuestionReplyComment) {
+    context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment not published.', {
+      repositoryFullName: context.repositoryFullName,
+      issueNumber: context.issue.number,
+      bodyPrefix: AI_QUESTION_REPLY_COMMENT_PREFIX,
+      authorLogin: context.botLogin,
+      skipReason: publicationPreparationDecision.skipReason,
+    });
     return;
   }
 
-  const responseSource: QuestionResponseSource = publicationPlan.responseSource;
+  const publicationPlan = publicationPreparationDecision.publicationPlan;
+  const responseSource: QuestionResponseSource = publicationPreparationDecision.responseSource;
   context.questionResponseMetrics?.increment(responseSource);
   const responseSourceMetricsSnapshot = context.questionResponseMetrics?.snapshot();
   context.logger?.info?.('AnalyzeIssueWithAiUseCase question response source selected.', {
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
     responseSource,
-    usedRepositoryContext: publicationPlan.usedRepositoryContext,
+    usedRepositoryContext: publicationPreparationDecision.usedRepositoryContext,
     metrics: responseSourceMetricsSnapshot,
   });
   const hasExistingQuestionReplyComment = await context.issueHistoryGateway.hasIssueCommentWithPrefix({
