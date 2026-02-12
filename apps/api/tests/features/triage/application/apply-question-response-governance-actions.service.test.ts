@@ -90,6 +90,13 @@ describe('applyQuestionResponseGovernanceActions', () => {
         responseBody: '',
       },
       commentPublicationPlan: null,
+      publicationPreparation: {
+        shouldCheckExistingQuestionReplyComment: false,
+        publicationPlan: null,
+        responseSource: null,
+        usedRepositoryContext: null,
+        skipReason: 'missing_publication_plan',
+      },
     };
 
     // Act
@@ -110,6 +117,13 @@ describe('applyQuestionResponseGovernanceActions', () => {
         responseBody: '',
       },
       commentPublicationPlan: null,
+      publicationPreparation: {
+        shouldCheckExistingQuestionReplyComment: false,
+        publicationPlan: null,
+        responseSource: null,
+        usedRepositoryContext: null,
+        skipReason: 'missing_publication_plan',
+      },
     };
 
     // Act
@@ -118,6 +132,39 @@ describe('applyQuestionResponseGovernanceActions', () => {
     // Assert
     expect(context.issueHistoryGateway.hasIssueCommentWithPrefix).not.toHaveBeenCalled();
     expect(context.questionResponseMetrics?.increment).not.toHaveBeenCalled();
+  });
+
+  it('should trust precomputed preparation and skip history lookup when preparation says not to check', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: IssueAiTriageQuestionPlan = {
+      decision: {
+        shouldCreateComment: true,
+        responseSource: 'ai_suggested_response',
+        responseBody: 'Use .env.example as baseline',
+      },
+      commentPublicationPlan: {
+        responseSource: 'ai_suggested_response',
+        responseBody: 'Use .env.example as baseline',
+        commentPrefix: 'AI Triage: Suggested guidance',
+        usedRepositoryContext: false,
+      },
+      publicationPreparation: {
+        shouldCheckExistingQuestionReplyComment: false,
+        publicationPlan: null,
+        responseSource: null,
+        usedRepositoryContext: null,
+        skipReason: 'missing_publication_plan',
+      },
+    };
+
+    // Act
+    await applyQuestionResponseGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.issueHistoryGateway.hasIssueCommentWithPrefix).not.toHaveBeenCalled();
+    expect(context.questionResponseMetrics?.increment).not.toHaveBeenCalled();
+    expect(context.governanceGateway.createComment).not.toHaveBeenCalled();
   });
 
   it('should skip publishing when a question reply comment already exists', async () => {
@@ -137,6 +184,18 @@ describe('applyQuestionResponseGovernanceActions', () => {
         responseBody: 'Try setting API_URL in your .env',
         commentPrefix: 'AI Triage: Suggested guidance',
         usedRepositoryContext: false,
+      },
+      publicationPreparation: {
+        shouldCheckExistingQuestionReplyComment: true,
+        publicationPlan: {
+          responseSource: 'ai_suggested_response',
+          responseBody: 'Try setting API_URL in your .env',
+          commentPrefix: 'AI Triage: Suggested guidance',
+          usedRepositoryContext: false,
+        },
+        responseSource: 'ai_suggested_response',
+        usedRepositoryContext: false,
+        skipReason: null,
       },
     };
 
@@ -162,6 +221,18 @@ describe('applyQuestionResponseGovernanceActions', () => {
         responseBody: '- Share your current .env values',
         commentPrefix: 'AI Triage: Suggested setup checklist',
         usedRepositoryContext: true,
+      },
+      publicationPreparation: {
+        shouldCheckExistingQuestionReplyComment: true,
+        publicationPlan: {
+          responseSource: 'fallback_checklist',
+          responseBody: '- Share your current .env values',
+          commentPrefix: 'AI Triage: Suggested setup checklist',
+          usedRepositoryContext: true,
+        },
+        responseSource: 'fallback_checklist',
+        usedRepositoryContext: true,
+        skipReason: null,
       },
     };
 

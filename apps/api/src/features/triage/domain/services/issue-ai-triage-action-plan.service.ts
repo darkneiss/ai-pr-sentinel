@@ -15,10 +15,12 @@ import {
 } from './issue-kind-label-policy.service';
 import {
   buildIssueQuestionFallbackResponseWhenApplicable,
+  decideIssueQuestionResponseCommentPublicationPreparation,
   decideIssueQuestionResponseAction,
   isLikelyQuestionIssueContent,
   normalizeIssueQuestionSuggestedResponse,
   planIssueQuestionResponseCommentPublication,
+  type IssueQuestionResponseCommentPublicationPreparationDecision,
   type IssueQuestionResponseCommentPublicationPlan,
   type IssueQuestionResponseDecision,
 } from './issue-question-response-policy.service';
@@ -79,6 +81,7 @@ export interface IssueAiTriageDuplicatePlan {
 export interface IssueAiTriageQuestionPlan {
   decision: IssueQuestionResponseDecision;
   commentPublicationPlan: IssueQuestionResponseCommentPublicationPlan | null;
+  publicationPreparation: IssueQuestionResponseCommentPublicationPreparationDecision;
 }
 
 export interface IssueAiTriageTonePlan {
@@ -171,6 +174,9 @@ export const buildIssueAiTriageActionPlan = ({
     aiSuggestedResponseCommentPrefix: questionPolicy.aiSuggestedResponseCommentPrefix,
     fallbackChecklistCommentPrefix: questionPolicy.fallbackChecklistCommentPrefix,
   });
+  const questionPublicationPreparation = decideIssueQuestionResponseCommentPublicationPreparation({
+    publicationPlan: questionCommentPublicationPlan,
+  });
 
   const shouldApplyMonitorLabel = shouldApplyIssueToneMonitorLabel({
     effectiveTone: aiAnalysis.sentiment.tone,
@@ -191,6 +197,7 @@ export const buildIssueAiTriageActionPlan = ({
     question: {
       decision: questionDecision,
       commentPublicationPlan: questionCommentPublicationPlan,
+      publicationPreparation: questionPublicationPreparation,
     },
     tone: tonePlan,
   };

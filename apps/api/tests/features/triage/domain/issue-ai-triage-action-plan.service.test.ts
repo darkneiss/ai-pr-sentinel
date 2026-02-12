@@ -155,4 +155,77 @@ describe('IssueAiTriageActionPlanService', () => {
     });
     expect(result.tone.labelsToAdd).toEqual(['triage/monitor']);
   });
+
+  it('should precompute question publication preparation decision in action plan', () => {
+    // Arrange
+    const input = {
+      action: 'opened',
+      issue: {
+        number: 9,
+        title: 'Question about setup',
+        body: 'How do I configure the exporter?',
+      },
+      existingLabels: [],
+      aiAnalysis: {
+        classification: {
+          type: 'question' as const,
+          confidence: 0.92,
+          reasoning: 'Question intent detected',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.2,
+          hasExplicitOriginalIssueReference: false,
+        },
+        sentiment: {
+          tone: 'neutral' as const,
+          confidence: 0.8,
+          reasoning: 'Neutral tone',
+        },
+        suggestedResponse: 'Check the telemetry section in README.',
+      },
+      recentIssueNumbers: [],
+      repositoryReadme: 'Telemetry section documents exporter and env configuration.',
+      kindPolicy: {
+        bugLabel: 'kind/bug',
+        featureLabel: 'kind/feature',
+        questionLabel: 'kind/question',
+        kindLabels: [...ISSUE_KIND_LABELS],
+        classificationConfidenceThreshold: 0.8,
+        sentimentConfidenceThreshold: 0.75,
+      },
+      duplicatePolicy: {
+        similarityThreshold: 0.85,
+        commentPrefix: 'AI Triage: Possible duplicate of #',
+      },
+      questionPolicy: {
+        classificationConfidenceThreshold: 0.8,
+        questionSignalKeywords: [...QUESTION_SIGNAL_KEYWORDS],
+        fallbackChecklist: [...QUESTION_FALLBACK_CHECKLIST],
+        aiSuggestedResponseCommentPrefix: 'AI Triage: Suggested guidance',
+        fallbackChecklistCommentPrefix: 'AI Triage: Suggested setup checklist',
+      },
+      tonePolicy: {
+        monitorLabel: 'triage/monitor',
+      },
+    };
+
+    // Act
+    const result = buildIssueAiTriageActionPlan(input);
+
+    // Assert
+    expect(result.question.publicationPreparation).toEqual({
+      shouldCheckExistingQuestionReplyComment: true,
+      publicationPlan: {
+        responseSource: 'ai_suggested_response',
+        responseBody: 'Check the telemetry section in README.',
+        commentPrefix: 'AI Triage: Suggested guidance',
+        usedRepositoryContext: true,
+      },
+      responseSource: 'ai_suggested_response',
+      usedRepositoryContext: true,
+      skipReason: null,
+    });
+  });
 });

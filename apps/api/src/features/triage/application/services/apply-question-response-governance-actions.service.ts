@@ -4,7 +4,6 @@ import {
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import type { QuestionResponseSource } from '../../../../shared/application/ports/question-response-metrics.port';
 import {
-  decideIssueQuestionResponseCommentPublicationPreparation,
   decideIssueQuestionResponseCommentPublication,
 } from '../../domain/services/issue-question-response-policy.service';
 import { type IssueAiTriageQuestionPlan } from '../../domain/services/issue-ai-triage-action-plan.service';
@@ -19,9 +18,7 @@ export const applyQuestionResponseGovernanceActions = async (
     throw new Error(QUESTION_RESPONSE_ACTION_PLAN_REQUIRED_ERROR);
   }
 
-  const publicationPreparationDecision = decideIssueQuestionResponseCommentPublicationPreparation({
-    publicationPlan: precomputedPlan.commentPublicationPlan,
-  });
+  const publicationPreparationDecision = precomputedPlan.publicationPreparation;
   if (!publicationPreparationDecision.shouldCheckExistingQuestionReplyComment) {
     context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment not published.', {
       repositoryFullName: context.repositoryFullName,

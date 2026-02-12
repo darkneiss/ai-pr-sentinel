@@ -116,6 +116,13 @@ describe('applyAiTriageGovernanceActions', () => {
         responseBody: '',
       },
       commentPublicationPlan: null,
+      publicationPreparation: {
+        shouldCheckExistingQuestionReplyComment: false as const,
+        publicationPlan: null,
+        responseSource: null,
+        usedRepositoryContext: null,
+        skipReason: 'missing_publication_plan' as const,
+      },
     };
     mockedBuildIssueAiTriageActionPlan.mockReturnValue({
       effectiveTone: 'neutral',

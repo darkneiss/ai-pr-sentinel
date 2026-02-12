@@ -79,6 +79,9 @@
   - Pre-history publication preparation for question responses (including
     `missing_publication_plan` short-circuit) is now centralized in domain via
     `decideIssueQuestionResponseCommentPublicationPreparation`.
+  - Question-response pre-history publication preparation is now precomputed in the
+    domain action plan (`question.publicationPreparation`) and consumed directly by
+    `apply-question-response-governance-actions`.
   - Question-response publication decisions now expose explicit domain skip reasons
     (`missing_publication_plan` | `question_reply_comment_already_exists`) for deterministic
     application logging/branching.
