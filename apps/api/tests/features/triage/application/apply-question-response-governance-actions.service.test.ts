@@ -92,6 +92,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       commentPublicationPlan: null,
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: false,
+        historyLookupBodyPrefix: null,
         publicationPlan: null,
         responseSource: null,
         usedRepositoryContext: null,
@@ -119,6 +120,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       commentPublicationPlan: null,
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: false,
+        historyLookupBodyPrefix: null,
         publicationPlan: null,
         responseSource: null,
         usedRepositoryContext: null,
@@ -151,6 +153,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       },
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: false,
+        historyLookupBodyPrefix: null,
         publicationPlan: null,
         responseSource: null,
         usedRepositoryContext: null,
@@ -187,6 +190,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       },
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: true,
+        historyLookupBodyPrefix: 'AI Triage: Suggested',
         publicationPlan: {
           responseSource: 'ai_suggested_response',
           responseBody: 'Try setting API_URL in your .env',
@@ -224,6 +228,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
       },
       publicationPreparation: {
         shouldCheckExistingQuestionReplyComment: true,
+        historyLookupBodyPrefix: 'AI Triage: Suggested',
         publicationPlan: {
           responseSource: 'fallback_checklist',
           responseBody: '- Share your current .env values',
@@ -246,5 +251,47 @@ describe('applyQuestionResponseGovernanceActions', () => {
       body: 'AI Triage: Suggested setup checklist\n\n- Share your current .env values',
     });
     expect(context.incrementActionsAppliedCount).toHaveBeenCalledTimes(1);
+  });
+
+  it('should use domain-precomputed history lookup prefix when checking existing comments', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: IssueAiTriageQuestionPlan = {
+      decision: {
+        shouldCreateComment: true,
+        responseSource: 'ai_suggested_response',
+        responseBody: 'Check readme setup section',
+      },
+      commentPublicationPlan: {
+        responseSource: 'ai_suggested_response',
+        responseBody: 'Check readme setup section',
+        commentPrefix: 'AI Triage: Suggested guidance',
+        usedRepositoryContext: true,
+      },
+      publicationPreparation: {
+        shouldCheckExistingQuestionReplyComment: true,
+        historyLookupBodyPrefix: 'Custom Question Prefix',
+        publicationPlan: {
+          responseSource: 'ai_suggested_response',
+          responseBody: 'Check readme setup section',
+          commentPrefix: 'AI Triage: Suggested guidance',
+          usedRepositoryContext: true,
+        },
+        responseSource: 'ai_suggested_response',
+        usedRepositoryContext: true,
+        skipReason: null,
+      },
+    };
+
+    // Act
+    await applyQuestionResponseGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.issueHistoryGateway.hasIssueCommentWithPrefix).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      bodyPrefix: 'Custom Question Prefix',
+      authorLogin: 'sentinel-bot',
+    });
   });
 });

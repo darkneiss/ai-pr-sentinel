@@ -393,6 +393,7 @@ describe('IssueQuestionResponsePolicyService', () => {
     // Arrange
     const input = {
       publicationPlan: null,
+      historyCommentPrefix: 'AI Triage: Suggested',
     };
 
     // Act
@@ -401,6 +402,7 @@ describe('IssueQuestionResponsePolicyService', () => {
     // Assert
     expect(result).toEqual({
       shouldCheckExistingQuestionReplyComment: false,
+      historyLookupBodyPrefix: null,
       publicationPlan: null,
       responseSource: null,
       usedRepositoryContext: null,
@@ -417,6 +419,7 @@ describe('IssueQuestionResponsePolicyService', () => {
         commentPrefix: '[Fallback]',
         usedRepositoryContext: false,
       },
+      historyCommentPrefix: 'AI Triage: Suggested',
     };
 
     // Act
@@ -425,6 +428,7 @@ describe('IssueQuestionResponsePolicyService', () => {
     // Assert
     expect(result).toEqual({
       shouldCheckExistingQuestionReplyComment: true,
+      historyLookupBodyPrefix: 'AI Triage: Suggested',
       publicationPlan: {
         responseSource: 'fallback_checklist',
         responseBody: '- Share logs',

@@ -18,6 +18,9 @@
   - Label cleanup when issue becomes valid.
   - Webhook governance planning (`supported action` + `valid/invalid action plan`) is now
     centralized in domain via `issue-webhook-governance-plan.service.ts`.
+  - Webhook governance plan now precomputes an executable domain action list
+    (`add_label` | `remove_label` | `create_comment` | `log_validated_issue`) consumed
+    directly by `process-issue-webhook.use-case`.
 
 ### Feature 002: AI-Enhanced Issue Triage
 - Status: DONE (MVP)
@@ -82,6 +85,9 @@
   - Question-response pre-history publication preparation is now precomputed in the
     domain action plan (`question.publicationPreparation`) and consumed directly by
     `apply-question-response-governance-actions`.
+  - Question-response history lookup prefix is now precomputed in domain
+    (`question.publicationPreparation.historyLookupBodyPrefix`) and consumed by
+    `apply-question-response-governance-actions` when checking prior bot replies.
   - Question-response publication decisions now expose explicit domain skip reasons
     (`missing_publication_plan` | `question_reply_comment_already_exists`) for deterministic
     application logging/branching.

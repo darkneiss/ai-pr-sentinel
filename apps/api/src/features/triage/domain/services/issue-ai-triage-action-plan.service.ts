@@ -50,6 +50,7 @@ interface QuestionPolicyInput {
   classificationConfidenceThreshold: number;
   questionSignalKeywords: readonly string[];
   fallbackChecklist: readonly string[];
+  historyCommentPrefix: string;
   aiSuggestedResponseCommentPrefix: string;
   fallbackChecklistCommentPrefix: string;
 }
@@ -176,6 +177,7 @@ export const buildIssueAiTriageActionPlan = ({
   });
   const questionPublicationPreparation = decideIssueQuestionResponseCommentPublicationPreparation({
     publicationPlan: questionCommentPublicationPlan,
+    historyCommentPrefix: questionPolicy.historyCommentPrefix,
   });
 
   const shouldApplyMonitorLabel = shouldApplyIssueToneMonitorLabel({

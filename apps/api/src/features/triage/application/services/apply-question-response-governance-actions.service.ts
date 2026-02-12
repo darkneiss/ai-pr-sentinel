@@ -1,6 +1,3 @@
-import {
-  AI_QUESTION_REPLY_COMMENT_PREFIX,
-} from '../constants/ai-triage.constants';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 import type { QuestionResponseSource } from '../../../../shared/application/ports/question-response-metrics.port';
 import {
@@ -23,7 +20,7 @@ export const applyQuestionResponseGovernanceActions = async (
     context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment not published.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
-      bodyPrefix: AI_QUESTION_REPLY_COMMENT_PREFIX,
+      bodyPrefix: publicationPreparationDecision.historyLookupBodyPrefix,
       authorLogin: context.botLogin,
       skipReason: publicationPreparationDecision.skipReason,
     });
@@ -31,6 +28,7 @@ export const applyQuestionResponseGovernanceActions = async (
   }
 
   const publicationPlan = publicationPreparationDecision.publicationPlan;
+  const historyLookupBodyPrefix = publicationPreparationDecision.historyLookupBodyPrefix;
   const responseSource: QuestionResponseSource = publicationPreparationDecision.responseSource;
   context.questionResponseMetrics?.increment(responseSource);
   const responseSourceMetricsSnapshot = context.questionResponseMetrics?.snapshot();
@@ -44,7 +42,7 @@ export const applyQuestionResponseGovernanceActions = async (
   const hasExistingQuestionReplyComment = await context.issueHistoryGateway.hasIssueCommentWithPrefix({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    bodyPrefix: AI_QUESTION_REPLY_COMMENT_PREFIX,
+    bodyPrefix: historyLookupBodyPrefix,
     authorLogin: context.botLogin,
   });
 
@@ -57,7 +55,7 @@ export const applyQuestionResponseGovernanceActions = async (
     context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment not published.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
-      bodyPrefix: AI_QUESTION_REPLY_COMMENT_PREFIX,
+      bodyPrefix: historyLookupBodyPrefix,
       authorLogin: context.botLogin,
       skipReason: publicationDecision.skipReason,
     });

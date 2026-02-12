@@ -39,11 +39,13 @@ export interface DecideIssueQuestionResponseCommentPublicationInput {
 
 export interface DecideIssueQuestionResponseCommentPublicationPreparationInput {
   publicationPlan: IssueQuestionResponseCommentPublicationPlan | null;
+  historyCommentPrefix: string;
 }
 
 export type IssueQuestionResponseCommentPublicationPreparationDecision =
   | {
       shouldCheckExistingQuestionReplyComment: false;
+      historyLookupBodyPrefix: null;
       publicationPlan: null;
       responseSource: null;
       usedRepositoryContext: null;
@@ -51,6 +53,7 @@ export type IssueQuestionResponseCommentPublicationPreparationDecision =
     }
   | {
       shouldCheckExistingQuestionReplyComment: true;
+      historyLookupBodyPrefix: string;
       publicationPlan: IssueQuestionResponseCommentPublicationPlan;
       responseSource: IssueQuestionResponseSource;
       usedRepositoryContext: boolean;
@@ -298,10 +301,12 @@ export const shouldPublishIssueQuestionResponseComment = ({
 
 export const decideIssueQuestionResponseCommentPublicationPreparation = ({
   publicationPlan,
+  historyCommentPrefix,
 }: DecideIssueQuestionResponseCommentPublicationPreparationInput): IssueQuestionResponseCommentPublicationPreparationDecision => {
   if (!publicationPlan) {
     return {
       shouldCheckExistingQuestionReplyComment: false,
+      historyLookupBodyPrefix: null,
       publicationPlan: null,
       responseSource: null,
       usedRepositoryContext: null,
@@ -311,6 +316,7 @@ export const decideIssueQuestionResponseCommentPublicationPreparation = ({
 
   return {
     shouldCheckExistingQuestionReplyComment: true,
+    historyLookupBodyPrefix: historyCommentPrefix,
     publicationPlan,
     responseSource: publicationPlan.responseSource,
     usedRepositoryContext: publicationPlan.usedRepositoryContext,

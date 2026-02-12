@@ -68,40 +68,45 @@ export const processIssueWebhook =
       return { statusCode: governancePlan.statusCode };
     }
 
-    if (governancePlan.shouldAddNeedsInfoLabel) {
-      await governanceGateway.addLabels({
+    for (const action of governancePlan.actions) {
+      if (action.type === 'add_label') {
+        await governanceGateway.addLabels({
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          labels: [action.label],
+        });
+        continue;
+      }
+
+      if (action.type === 'remove_label') {
+        await governanceGateway.removeLabel({
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          label: action.label,
+        });
+        continue;
+      }
+
+      if (action.type === 'create_comment') {
+        await governanceGateway.createComment({
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          body: action.body,
+        });
+        continue;
+      }
+
+      await governanceGateway.logValidatedIssue({
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
-        labels: [TRIAGE_NEEDS_INFO_LABEL],
       });
     }
 
-    if (governancePlan.validationCommentBody) {
-      await governanceGateway.createComment({
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-        body: governancePlan.validationCommentBody,
-      });
-    }
-
-    if (!governancePlan.shouldLogValidatedIssue) {
+    if (!governancePlan.shouldRunAiTriage) {
       return { statusCode: governancePlan.statusCode };
     }
 
-    for (const label of governancePlan.labelsToRemove) {
-      await governanceGateway.removeLabel({
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-        label,
-      });
-    }
-
-    await governanceGateway.logValidatedIssue({
-      repositoryFullName: input.repositoryFullName,
-      issueNumber: input.issue.number,
-    });
-
-    if (analyzeIssueWithAi && governancePlan.shouldRunAiTriage) {
+    if (analyzeIssueWithAi) {
       try {
         logger.debug?.('ProcessIssueWebhookUseCase AI triage started.', {
           repositoryFullName: input.repositoryFullName,

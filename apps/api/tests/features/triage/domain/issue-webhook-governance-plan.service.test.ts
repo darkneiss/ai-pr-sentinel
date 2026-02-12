@@ -42,6 +42,7 @@ describe('buildIssueWebhookGovernancePlan', () => {
     const expected: IssueWebhookGovernancePlan = {
       shouldSkipProcessing: true,
       statusCode: 204,
+      actions: [],
       shouldAddNeedsInfoLabel: false,
       validationCommentBody: null,
       labelsToRemove: [],
@@ -100,5 +101,27 @@ describe('buildIssueWebhookGovernancePlan', () => {
     expect(result.labelsToRemove).toEqual(['triage/needs-info']);
     expect(result.shouldLogValidatedIssue).toBe(true);
     expect(result.shouldRunAiTriage).toBe(true);
+  });
+
+  it('should precompute executable governance actions for invalid issues', () => {
+    // Arrange
+    const issue = createIssueEntity();
+    const issueIntegrityValidator = jest.fn(() => createValidationResult(false));
+
+    // Act
+    const result = buildIssueWebhookGovernancePlan({
+      action: 'opened',
+      issue,
+      existingLabels: [],
+      governanceErrorLabels: GOVERNANCE_ERROR_LABELS,
+      needsInfoLabel: TRIAGE_NEEDS_INFO_LABEL,
+      issueIntegrityValidator,
+    });
+
+    // Assert
+    expect(result.actions).toEqual([
+      { type: 'add_label', label: 'triage/needs-info' },
+      { type: 'create_comment', body: expect.stringContaining('Issue validation failed') },
+    ]);
   });
 });

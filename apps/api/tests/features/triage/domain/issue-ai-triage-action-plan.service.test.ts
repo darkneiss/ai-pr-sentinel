@@ -52,6 +52,7 @@ describe('IssueAiTriageActionPlanService', () => {
         classificationConfidenceThreshold: 0.8,
         questionSignalKeywords: [...QUESTION_SIGNAL_KEYWORDS],
         fallbackChecklist: [...QUESTION_FALLBACK_CHECKLIST],
+        historyCommentPrefix: 'AI Triage: Suggested',
         aiSuggestedResponseCommentPrefix: 'AI Triage: Suggested guidance',
         fallbackChecklistCommentPrefix: 'AI Triage: Suggested setup checklist',
       },
@@ -133,6 +134,7 @@ describe('IssueAiTriageActionPlanService', () => {
         classificationConfidenceThreshold: 0.8,
         questionSignalKeywords: [...QUESTION_SIGNAL_KEYWORDS],
         fallbackChecklist: [...QUESTION_FALLBACK_CHECKLIST],
+        historyCommentPrefix: 'AI Triage: Suggested',
         aiSuggestedResponseCommentPrefix: 'AI Triage: Suggested guidance',
         fallbackChecklistCommentPrefix: 'AI Triage: Suggested setup checklist',
       },
@@ -203,6 +205,7 @@ describe('IssueAiTriageActionPlanService', () => {
         classificationConfidenceThreshold: 0.8,
         questionSignalKeywords: [...QUESTION_SIGNAL_KEYWORDS],
         fallbackChecklist: [...QUESTION_FALLBACK_CHECKLIST],
+        historyCommentPrefix: 'AI Triage: Suggested',
         aiSuggestedResponseCommentPrefix: 'AI Triage: Suggested guidance',
         fallbackChecklistCommentPrefix: 'AI Triage: Suggested setup checklist',
       },
@@ -217,6 +220,7 @@ describe('IssueAiTriageActionPlanService', () => {
     // Assert
     expect(result.question.publicationPreparation).toEqual({
       shouldCheckExistingQuestionReplyComment: true,
+      historyLookupBodyPrefix: 'AI Triage: Suggested',
       publicationPlan: {
         responseSource: 'ai_suggested_response',
         responseBody: 'Check the telemetry section in README.',
