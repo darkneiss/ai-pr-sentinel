@@ -74,10 +74,6 @@ export const processIssueWebhook =
       issueIntegrityValidator,
     });
 
-    if (governancePlan.shouldSkipProcessing) {
-      return { statusCode: governancePlan.statusCode };
-    }
-
     for (const action of governancePlan.actions) {
       if (action.type === 'add_label') {
         await governanceGateway.addLabels({
