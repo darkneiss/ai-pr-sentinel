@@ -16,38 +16,48 @@ import {
   normalizeIssueQuestionSuggestedResponse,
   planIssueQuestionResponseCommentPublication,
   shouldPublishIssueQuestionResponseComment,
+  type IssueQuestionResponseCommentPublicationPlan,
 } from '../../domain/services/issue-question-response-policy.service';
+
+export interface QuestionResponseGovernanceExecutionPlan {
+  questionCommentPublicationPlan: IssueQuestionResponseCommentPublicationPlan | null;
+}
 
 export const applyQuestionResponseGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
+  precomputedPlan?: QuestionResponseGovernanceExecutionPlan,
 ): Promise<void> => {
-  const normalizedSuggestedResponse = normalizeIssueQuestionSuggestedResponse(context.aiAnalysis.suggestedResponse);
-  const looksLikeQuestionIssue = isLikelyQuestionIssueContent({
-    title: context.issue.title,
-    body: context.issue.body,
-    questionSignalKeywords: AI_QUESTION_SIGNAL_KEYWORDS,
-  });
-  const fallbackQuestionResponse = buildIssueQuestionFallbackResponseWhenApplicable({
-    looksLikeQuestionIssue,
-    checklistLines: AI_QUESTION_FALLBACK_CHECKLIST,
-  });
-  const questionResponseDecision = decideIssueQuestionResponseAction({
-    action: context.action,
-    effectiveTone: context.effectiveTone,
-    classificationType: context.aiAnalysis.classification.type,
-    classificationConfidence: context.aiAnalysis.classification.confidence,
-    classificationConfidenceThreshold: AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
-    looksLikeQuestionIssue,
-    normalizedSuggestedResponse,
-    fallbackQuestionResponse,
-  });
+  const publicationPlan =
+    precomputedPlan?.questionCommentPublicationPlan ??
+    (() => {
+      const normalizedSuggestedResponse = normalizeIssueQuestionSuggestedResponse(context.aiAnalysis.suggestedResponse);
+      const looksLikeQuestionIssue = isLikelyQuestionIssueContent({
+        title: context.issue.title,
+        body: context.issue.body,
+        questionSignalKeywords: AI_QUESTION_SIGNAL_KEYWORDS,
+      });
+      const fallbackQuestionResponse = buildIssueQuestionFallbackResponseWhenApplicable({
+        looksLikeQuestionIssue,
+        checklistLines: AI_QUESTION_FALLBACK_CHECKLIST,
+      });
+      const questionResponseDecision = decideIssueQuestionResponseAction({
+        action: context.action,
+        effectiveTone: context.effectiveTone,
+        classificationType: context.aiAnalysis.classification.type,
+        classificationConfidence: context.aiAnalysis.classification.confidence,
+        classificationConfidenceThreshold: AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
+        looksLikeQuestionIssue,
+        normalizedSuggestedResponse,
+        fallbackQuestionResponse,
+      });
 
-  const publicationPlan = planIssueQuestionResponseCommentPublication({
-    decision: questionResponseDecision,
-    repositoryReadme: context.repositoryReadme,
-    aiSuggestedResponseCommentPrefix: AI_QUESTION_AI_REPLY_COMMENT_PREFIX,
-    fallbackChecklistCommentPrefix: AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX,
-  });
+      return planIssueQuestionResponseCommentPublication({
+        decision: questionResponseDecision,
+        repositoryReadme: context.repositoryReadme,
+        aiSuggestedResponseCommentPrefix: AI_QUESTION_AI_REPLY_COMMENT_PREFIX,
+        fallbackChecklistCommentPrefix: AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX,
+      });
+    })();
 
   if (!publicationPlan) {
     return;

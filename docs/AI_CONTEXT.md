@@ -65,6 +65,8 @@
   - Runtime selection by provider/version with generic fallback.
   - Legacy fallback still available in `src/shared/application/prompts/issue-triage.prompt.ts`.
   - JSON-only response contract enforced.
+  - AI triage action planning is now centralized in domain via
+    `issue-ai-triage-action-plan.service.ts`, while application services execute the precomputed plan.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.
