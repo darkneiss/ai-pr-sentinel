@@ -37,6 +37,18 @@ action execution branching:
      - domain must not import application/infrastructure
      - application must not import infrastructure
 
+6. Introduce explicit AI triage workflow domain service:
+   - `issue-ai-triage-workflow.service.ts`
+   - Centralizes AI triage start/after-LLM/fail-open decisions, keeping `analyze-issue-with-ai`
+     focused on orchestration and gateway coordination.
+
+7. Move AI triage runner contracts to domain ports:
+   - `domain/ports/issue-ai-triage-runner.port.ts`
+   - `application/ports/issue-ai-triage-runner.port.ts` now re-exports domain contracts.
+
+8. Expand boundary guard-rails to include project-absolute imports (`src/...`) in addition
+   to relative imports, preventing hidden layer violations.
+
 ## Consequences
 
 Positive:

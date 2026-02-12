@@ -121,6 +121,11 @@
     - action support skip/continue result,
     - parsing success vs fail-open result,
     - explicit fail-open result for unhandled errors.
+  - AI triage now also uses an explicit domain workflow
+    (`issue-ai-triage-workflow.service.ts`) for:
+    - start decision (continue vs unsupported),
+    - post-LLM decision (apply governance vs fail-open),
+    - unhandled-failure fail-open output.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.
@@ -151,6 +156,8 @@
   - Domain + application use cases heavily unit-tested.
   - Infrastructure adapters tested with mocks.
   - Additional branch tests for normalization/fallback/error-shape paths.
+  - Architecture guard-rails validate hexagonal boundaries for both relative and
+    `src/...` absolute imports.
 - Current quality gate:
   - `pnpm --filter api lint`: passing
   - `pnpm --filter api test`: passing
@@ -189,6 +196,6 @@
 - `docs/adr/ADR-006-triage-domain-processing-policies.md`
   - Documents centralization of triage processing decisions into domain policy services.
 - `docs/adr/ADR-007-webhook-acl-and-hexagonal-guardrails.md`
-  - Documents webhook anti-corruption mapper, domain workflow orchestration, and boundary tests.
+  - Documents webhook anti-corruption mapper, webhook+AI domain workflows, domain ports realignment, and boundary tests.
 - `docs/adr/README.md`
   - ADR index.
