@@ -1,3 +1,5 @@
+import type { IssueAiTriageProcessingResult } from '../../domain/services/issue-ai-triage-processing-policy.service';
+
 export interface AnalyzeIssueWithAiInput {
   action: string;
   repositoryFullName: string;
@@ -9,10 +11,7 @@ export interface AnalyzeIssueWithAiInput {
   };
 }
 
-export interface AnalyzeIssueWithAiResult {
-  status: 'completed' | 'skipped';
-  reason?: 'unsupported_action' | 'ai_unavailable';
-}
+export type AnalyzeIssueWithAiResult = IssueAiTriageProcessingResult;
 
 export type IssueAiTriageRunner = (
   input: AnalyzeIssueWithAiInput,

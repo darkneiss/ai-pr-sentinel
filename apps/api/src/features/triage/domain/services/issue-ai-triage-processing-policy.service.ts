@@ -1,8 +1,11 @@
 import { isIssueAiTriageActionSupported } from './issue-ai-triage-action-policy.service';
 
+export type IssueAiTriageProcessingStatus = 'completed' | 'skipped';
+export type IssueAiTriageProcessingReason = 'unsupported_action' | 'ai_unavailable';
+
 export interface IssueAiTriageProcessingResult {
-  status: 'completed' | 'skipped';
-  reason?: 'unsupported_action' | 'ai_unavailable';
+  status: IssueAiTriageProcessingStatus;
+  reason?: IssueAiTriageProcessingReason;
 }
 
 const AI_TRIAGE_FAIL_OPEN_RESULT: IssueAiTriageProcessingResult = {
