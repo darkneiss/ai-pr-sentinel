@@ -53,6 +53,7 @@ REFACTOR: Clean the code while keeping the test green. Ensure it follows DRY and
 ✅ Use safe type assertions: `unknown` instead of `any`
 ✅ Handle errors with try/catch blocks and descriptive logging
 ✅ Run `pnpm lint` and `pnpm test` before completing any task
+✅ Keep coverage at 100% in `apps/api` (statements, branches, functions, lines)
 ✅ Document architectural decisions in code (ADRs)
 ## 4. Project Setup & Stack
 Runtime: Node.js v22 (LTS).

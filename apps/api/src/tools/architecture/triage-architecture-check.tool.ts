@@ -286,7 +286,7 @@ export const analyzeTriageArchitecture = (projectRootPath: string): Architecture
   };
 };
 
-const buildHumanReadableOutput = (report: ArchitectureAnalysisReport): string => {
+export const buildArchitectureHumanReadableOutput = (report: ArchitectureAnalysisReport): string => {
   const statusLine = report.isCompliant
     ? 'Architecture check passed: no hexagonal boundary violations.'
     : `Architecture check failed: ${report.violations.length} violation(s).`;
@@ -317,25 +317,42 @@ const buildHumanReadableOutput = (report: ArchitectureAnalysisReport): string =>
   return sections.join('\n');
 };
 
-const runCli = (): number => {
-  const shouldOutputJson = process.argv.includes(JSON_FLAG);
-  const report = analyzeTriageArchitecture(process.cwd());
+type ArchitectureCheckCliOptions = {
+  argv?: string[];
+  cwd?: string;
+  outputWriter?: (output: string) => void;
+  errorWriter?: (output: string) => void;
+};
+
+export const runArchitectureCheckCli = (options: ArchitectureCheckCliOptions = {}): number => {
+  const argv = options.argv ?? process.argv;
+  const cwd = options.cwd ?? process.cwd();
+  const outputWriter = options.outputWriter ?? console.log;
+  const shouldOutputJson = argv.includes(JSON_FLAG);
+  const report = analyzeTriageArchitecture(cwd);
 
   if (shouldOutputJson) {
-    console.log(JSON.stringify(report, null, 2));
+    outputWriter(JSON.stringify(report, null, 2));
   } else {
-    console.log(buildHumanReadableOutput(report));
+    outputWriter(buildArchitectureHumanReadableOutput(report));
   }
 
   return report.isCompliant ? EXIT_CODE_SUCCESS : EXIT_CODE_FAILURE;
 };
 
-if (require.main === module) {
+export const runArchitectureCheckCliSafely = (options: ArchitectureCheckCliOptions = {}): number => {
+  const errorWriter = options.errorWriter ?? console.error;
+
   try {
-    process.exitCode = runCli();
+    return runArchitectureCheckCli(options);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'unknown_error';
-    console.error(`Architecture check tool failed: ${errorMessage}`);
-    process.exitCode = EXIT_CODE_FAILURE;
+    errorWriter(`Architecture check tool failed: ${errorMessage}`);
+    return EXIT_CODE_FAILURE;
   }
+};
+
+/* istanbul ignore next */
+if (require.main === module) {
+  process.exitCode = runArchitectureCheckCliSafely();
 }

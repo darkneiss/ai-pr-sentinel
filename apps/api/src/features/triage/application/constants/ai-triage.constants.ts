@@ -3,11 +3,27 @@ import type { ConfigPort } from '../../../../shared/application/ports/config.por
 export const AI_CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.8;
 export const AI_SENTIMENT_CONFIDENCE_THRESHOLD = 0.75;
 export const AI_DUPLICATE_SIMILARITY_THRESHOLD = 0.85;
+export const AI_CLASSIFICATION_CONFIDENCE_THRESHOLD_ENV_VAR = 'AI_CLASSIFICATION_CONFIDENCE_THRESHOLD';
+export const AI_SENTIMENT_CONFIDENCE_THRESHOLD_ENV_VAR = 'AI_SENTIMENT_CONFIDENCE_THRESHOLD';
+export const AI_DUPLICATE_SIMILARITY_THRESHOLD_ENV_VAR = 'AI_DUPLICATE_SIMILARITY_THRESHOLD';
 export const AI_RECENT_ISSUES_LIMIT = 15;
 const LLM_TIMEOUT_ENV_VAR = 'LLM_TIMEOUT';
+export const AI_TEMPERATURE_ENV_VAR = 'AI_TEMPERATURE';
 export const LLM_PROVIDER_ENV_VAR = 'LLM_PROVIDER';
 export const LLM_MODEL_ENV_VAR = 'LLM_MODEL';
 export const LLM_LOG_RAW_RESPONSE_ENV_VAR = 'LLM_LOG_RAW_RESPONSE';
+export const AI_LABEL_KIND_BUG_ENV_VAR = 'AI_LABEL_KIND_BUG';
+export const AI_LABEL_KIND_FEATURE_ENV_VAR = 'AI_LABEL_KIND_FEATURE';
+export const AI_LABEL_KIND_QUESTION_ENV_VAR = 'AI_LABEL_KIND_QUESTION';
+export const AI_LABEL_DOCUMENTATION_ENV_VAR = 'AI_LABEL_DOCUMENTATION';
+export const AI_LABEL_HELP_WANTED_ENV_VAR = 'AI_LABEL_HELP_WANTED';
+export const AI_LABEL_GOOD_FIRST_ISSUE_ENV_VAR = 'AI_LABEL_GOOD_FIRST_ISSUE';
+export const AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD_ENV_VAR =
+  'AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD';
+export const AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD_ENV_VAR =
+  'AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD';
+export const AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD_ENV_VAR =
+  'AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD';
 export const LLM_RAW_TEXT_LOG_PREVIEW_CHARS = 2000;
 export const DEFAULT_LLM_PROVIDER = 'ollama';
 const AI_TIMEOUT_DEFAULT_MS = 120000;
@@ -53,6 +69,130 @@ export const AI_KIND_BUG_LABEL = 'kind/bug';
 export const AI_KIND_FEATURE_LABEL = 'kind/feature';
 export const AI_KIND_QUESTION_LABEL = 'kind/question';
 export const AI_KIND_LABELS = [AI_KIND_BUG_LABEL, AI_KIND_FEATURE_LABEL, AI_KIND_QUESTION_LABEL] as const;
+export const AI_DOCUMENTATION_LABEL = 'documentation';
+export const AI_HELP_WANTED_LABEL = 'help wanted';
+export const AI_GOOD_FIRST_ISSUE_LABEL = 'good first issue';
+
+export const AI_DOCUMENTATION_LABEL_CONFIDENCE_THRESHOLD = 0.9;
+export const AI_HELP_WANTED_LABEL_CONFIDENCE_THRESHOLD = 0.9;
+export const AI_GOOD_FIRST_ISSUE_LABEL_CONFIDENCE_THRESHOLD = 0.95;
+
+export type AiKindLabelConfig = {
+  bugLabel: string;
+  featureLabel: string;
+  questionLabel: string;
+  kindLabels: [string, string, string];
+};
+
+export type AiCurationLabelConfig = {
+  documentationLabel: string;
+  helpWantedLabel: string;
+  goodFirstIssueLabel: string;
+};
+
+export type AiCurationConfidenceThresholdConfig = {
+  documentationConfidenceThreshold: number;
+  helpWantedConfidenceThreshold: number;
+  goodFirstIssueConfidenceThreshold: number;
+};
+
+export type AiDecisionThresholdConfig = {
+  classificationConfidenceThreshold: number;
+  sentimentConfidenceThreshold: number;
+  duplicateSimilarityThreshold: number;
+};
+
+const resolveConfiguredLabel = (configuredValue: string | undefined, fallbackLabel: string): string => {
+  const normalizedConfiguredValue = configuredValue?.trim();
+  if (!normalizedConfiguredValue) {
+    return fallbackLabel;
+  }
+
+  return normalizedConfiguredValue;
+};
+
+const parseConfidenceThresholdOverride = (configuredValue: string | undefined): number | undefined => {
+  if (!configuredValue) {
+    return undefined;
+  }
+
+  const parsed = Number(configuredValue);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    return undefined;
+  }
+
+  return parsed;
+};
+
+export const resolveAiKindLabels = (config?: ConfigPort): AiKindLabelConfig => {
+  const bugLabel = resolveConfiguredLabel(config?.get(AI_LABEL_KIND_BUG_ENV_VAR), AI_KIND_BUG_LABEL);
+  const featureLabel = resolveConfiguredLabel(
+    config?.get(AI_LABEL_KIND_FEATURE_ENV_VAR),
+    AI_KIND_FEATURE_LABEL,
+  );
+  const questionLabel = resolveConfiguredLabel(
+    config?.get(AI_LABEL_KIND_QUESTION_ENV_VAR),
+    AI_KIND_QUESTION_LABEL,
+  );
+
+  return {
+    bugLabel,
+    featureLabel,
+    questionLabel,
+    kindLabels: [bugLabel, featureLabel, questionLabel],
+  };
+};
+
+export const resolveAiCurationLabels = (config?: ConfigPort): AiCurationLabelConfig => {
+  return {
+    documentationLabel: resolveConfiguredLabel(
+      config?.get(AI_LABEL_DOCUMENTATION_ENV_VAR),
+      AI_DOCUMENTATION_LABEL,
+    ),
+    helpWantedLabel: resolveConfiguredLabel(
+      config?.get(AI_LABEL_HELP_WANTED_ENV_VAR),
+      AI_HELP_WANTED_LABEL,
+    ),
+    goodFirstIssueLabel: resolveConfiguredLabel(
+      config?.get(AI_LABEL_GOOD_FIRST_ISSUE_ENV_VAR),
+      AI_GOOD_FIRST_ISSUE_LABEL,
+    ),
+  };
+};
+
+export const resolveAiCurationConfidenceThresholds = (
+  config?: ConfigPort,
+): AiCurationConfidenceThresholdConfig => {
+  return {
+    documentationConfidenceThreshold:
+      parseConfidenceThresholdOverride(config?.get(AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD_ENV_VAR)) ??
+      AI_DOCUMENTATION_LABEL_CONFIDENCE_THRESHOLD,
+    helpWantedConfidenceThreshold:
+      parseConfidenceThresholdOverride(config?.get(AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD_ENV_VAR)) ??
+      AI_HELP_WANTED_LABEL_CONFIDENCE_THRESHOLD,
+    goodFirstIssueConfidenceThreshold:
+      parseConfidenceThresholdOverride(config?.get(AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD_ENV_VAR)) ??
+      AI_GOOD_FIRST_ISSUE_LABEL_CONFIDENCE_THRESHOLD,
+  };
+};
+
+export const resolveAiDecisionThresholds = (config?: ConfigPort): AiDecisionThresholdConfig => {
+  return {
+    classificationConfidenceThreshold:
+      parseConfidenceThresholdOverride(config?.get(AI_CLASSIFICATION_CONFIDENCE_THRESHOLD_ENV_VAR)) ??
+      AI_CLASSIFICATION_CONFIDENCE_THRESHOLD,
+    sentimentConfidenceThreshold:
+      parseConfidenceThresholdOverride(config?.get(AI_SENTIMENT_CONFIDENCE_THRESHOLD_ENV_VAR)) ??
+      AI_SENTIMENT_CONFIDENCE_THRESHOLD,
+    duplicateSimilarityThreshold:
+      parseConfidenceThresholdOverride(config?.get(AI_DUPLICATE_SIMILARITY_THRESHOLD_ENV_VAR)) ??
+      AI_DUPLICATE_SIMILARITY_THRESHOLD,
+  };
+};
+
+export const resolveAiTemperature = (config?: ConfigPort): number => {
+  return parseConfidenceThresholdOverride(config?.get(AI_TEMPERATURE_ENV_VAR)) ?? AI_TEMPERATURE;
+};
 
 export const AI_DUPLICATE_COMMENT_PREFIX = 'AI Triage: Possible duplicate of #';
 export const AI_QUESTION_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested';

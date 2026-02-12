@@ -25,6 +25,7 @@ import {
   type IssueQuestionResponseDecision,
 } from './issue-question-response-policy.service';
 import { shouldApplyIssueToneMonitorLabel } from './issue-tone-monitor-policy.service';
+import { planIssueCurationLabels, type IssueCurationLabelPlan } from './issue-curation-label-policy.service';
 
 interface IssueInput {
   number: number;
@@ -59,6 +60,15 @@ interface TonePolicyInput {
   monitorLabel: string;
 }
 
+interface CurationPolicyInput {
+  documentationLabel: string;
+  helpWantedLabel: string;
+  goodFirstIssueLabel: string;
+  documentationConfidenceThreshold: number;
+  helpWantedConfidenceThreshold: number;
+  goodFirstIssueConfidenceThreshold: number;
+}
+
 export interface BuildIssueAiTriageActionPlanInput {
   action: string;
   issue: IssueInput;
@@ -70,6 +80,7 @@ export interface BuildIssueAiTriageActionPlanInput {
   duplicatePolicy: DuplicatePolicyInput;
   questionPolicy: QuestionPolicyInput;
   tonePolicy: TonePolicyInput;
+  curationPolicy: CurationPolicyInput;
 }
 
 export interface IssueAiTriageDuplicatePlan {
@@ -95,6 +106,7 @@ export interface IssueAiTriageActionPlan {
   duplicate: IssueAiTriageDuplicatePlan;
   question: IssueAiTriageQuestionPlan;
   tone: IssueAiTriageTonePlan;
+  curation: IssueCurationLabelPlan;
 }
 
 export const buildIssueAiTriageActionPlan = ({
@@ -108,6 +120,7 @@ export const buildIssueAiTriageActionPlan = ({
   duplicatePolicy,
   questionPolicy,
   tonePolicy,
+  curationPolicy,
 }: BuildIssueAiTriageActionPlanInput): IssueAiTriageActionPlan => {
   const classification = planIssueKindLabelActions({
     issueKind: aiAnalysis.classification.type,
@@ -186,6 +199,21 @@ export const buildIssueAiTriageActionPlan = ({
   const tonePlan: IssueAiTriageTonePlan = {
     labelsToAdd: shouldApplyMonitorLabel ? [tonePolicy.monitorLabel] : [],
   };
+  const curation = planIssueCurationLabels({
+    labelRecommendations: aiAnalysis.labelRecommendations,
+    existingLabels,
+    documentationLabel: curationPolicy.documentationLabel,
+    helpWantedLabel: curationPolicy.helpWantedLabel,
+    goodFirstIssueLabel: curationPolicy.goodFirstIssueLabel,
+    documentationConfidenceThreshold: curationPolicy.documentationConfidenceThreshold,
+    helpWantedConfidenceThreshold: curationPolicy.helpWantedConfidenceThreshold,
+    goodFirstIssueConfidenceThreshold: curationPolicy.goodFirstIssueConfidenceThreshold,
+    classificationType: aiAnalysis.classification.type,
+    classificationConfidence: aiAnalysis.classification.confidence,
+    classificationConfidenceThreshold: questionPolicy.classificationConfidenceThreshold,
+    sentimentTone: aiAnalysis.sentiment.tone,
+    isLikelyDuplicate: duplicateDecision.shouldApplyDuplicateActions,
+  });
 
   return {
     effectiveTone: aiAnalysis.sentiment.tone,
@@ -202,5 +230,6 @@ export const buildIssueAiTriageActionPlan = ({
       publicationPreparation: questionPublicationPreparation,
     },
     tone: tonePlan,
+    curation,
   };
 };

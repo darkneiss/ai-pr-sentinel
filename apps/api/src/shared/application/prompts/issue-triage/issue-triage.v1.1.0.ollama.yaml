@@ -19,6 +19,11 @@ user_prompt_template: |
     "classification": {"type": "bug|feature|question", "confidence": 0-1, "reasoning": "..."},
     "duplicateDetection": {"isDuplicate": true|false, "originalIssueNumber": number|null, "similarityScore": 0-1, "hasExplicitOriginalIssueReference": true|false},
     "sentiment": {"tone": "positive|neutral|hostile", "confidence": 0-1, "reasoning": "..."},
+    "labelRecommendations": {
+      "documentation": {"shouldApply": true|false, "confidence": 0-1, "reasoning": "..."},
+      "helpWanted": {"shouldApply": true|false, "confidence": 0-1, "reasoning": "..."},
+      "goodFirstIssue": {"shouldApply": true|false, "confidence": 0-1, "reasoning": "..."}
+    },
     "suggestedResponse": "..."
   }
 
@@ -28,4 +33,5 @@ user_prompt_template: |
   - If unsure between question and bug, choose question and lower confidence.
   - If you can answer using repository context, set suggestedResponse to 3-6 short checklist bullets.
   - If you cannot answer from repository context, set suggestedResponse to "" (empty string).
+  - Fill labelRecommendations only for high-confidence suggestions; otherwise omit it.
   - Do not invent fields. Return only JSON.

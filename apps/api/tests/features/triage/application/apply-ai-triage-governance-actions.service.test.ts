@@ -137,6 +137,9 @@ describe('applyAiTriageGovernanceActions', () => {
       tone: {
         labelsToAdd: [],
       },
+      curation: {
+        labelsToAdd: [],
+      },
     });
 
     // Act
@@ -148,5 +151,226 @@ describe('applyAiTriageGovernanceActions', () => {
     expect(mockedApplyQuestionResponseGovernanceActions).toHaveBeenCalledTimes(1);
     expect(mockedApplyDuplicateGovernanceActions.mock.calls[0]?.[1]).toBe(duplicatePlan);
     expect(mockedApplyQuestionResponseGovernanceActions.mock.calls[0]?.[1]).toBe(questionPlan);
+  });
+
+  it('should apply planned curation labels after triage orchestration', async () => {
+    // Arrange
+    const input = createInput();
+    mockedBuildIssueAiTriageActionPlan.mockReturnValue({
+      effectiveTone: 'neutral',
+      classification: {
+        labelsToAdd: [],
+        labelsToRemove: [],
+        wasSuppressedByHostileTone: false,
+      },
+      duplicate: {
+        shouldProcessSignal: false,
+        decision: {
+          shouldApplyDuplicateActions: false,
+          resolvedOriginalIssueNumber: null,
+          hasSimilarityScore: false,
+          hasValidOriginalIssue: false,
+          usedFallbackOriginalIssue: false,
+        },
+        commentPublicationPlan: null,
+        execution: {
+          shouldApplyDuplicateLabel: false,
+          commentBody: null,
+          skipReason: 'signal_not_marked_duplicate',
+        },
+      },
+      question: {
+        decision: {
+          shouldCreateComment: false,
+          responseSource: null,
+          responseBody: '',
+        },
+        commentPublicationPlan: null,
+        publicationPreparation: {
+          shouldCheckExistingQuestionReplyComment: false,
+          historyLookupBodyPrefix: 'AI Triage: Suggested',
+          publicationPlan: null,
+          responseSource: null,
+          usedRepositoryContext: null,
+          skipReason: 'missing_publication_plan',
+        },
+      },
+      tone: {
+        labelsToAdd: [],
+      },
+      curation: {
+        labelsToAdd: ['documentation', 'help wanted'],
+      },
+    });
+
+    // Act
+    await applyAiTriageGovernanceActions(input);
+
+    // Assert
+    expect(input.governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['documentation'],
+    });
+    expect(input.governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['help wanted'],
+    });
+  });
+
+  it('should pass curation confidence thresholds from env config into action plan', async () => {
+    // Arrange
+    const input = createInput();
+    input.config = {
+      get: (key: string) => {
+        if (key === 'AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD') return '0.86';
+        if (key === 'AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD') return '0.8';
+        if (key === 'AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD') return '0.93';
+        return undefined;
+      },
+      getBoolean: () => undefined,
+    };
+    mockedBuildIssueAiTriageActionPlan.mockReturnValue({
+      effectiveTone: 'neutral',
+      classification: {
+        labelsToAdd: [],
+        labelsToRemove: [],
+        wasSuppressedByHostileTone: false,
+      },
+      duplicate: {
+        shouldProcessSignal: false,
+        decision: {
+          shouldApplyDuplicateActions: false,
+          resolvedOriginalIssueNumber: null,
+          hasSimilarityScore: false,
+          hasValidOriginalIssue: false,
+          usedFallbackOriginalIssue: false,
+        },
+        commentPublicationPlan: null,
+        execution: {
+          shouldApplyDuplicateLabel: false,
+          commentBody: null,
+          skipReason: 'signal_not_marked_duplicate',
+        },
+      },
+      question: {
+        decision: {
+          shouldCreateComment: false,
+          responseSource: null,
+          responseBody: '',
+        },
+        commentPublicationPlan: null,
+        publicationPreparation: {
+          shouldCheckExistingQuestionReplyComment: false,
+          historyLookupBodyPrefix: 'AI Triage: Suggested',
+          publicationPlan: null,
+          responseSource: null,
+          usedRepositoryContext: null,
+          skipReason: 'missing_publication_plan',
+        },
+      },
+      tone: {
+        labelsToAdd: [],
+      },
+      curation: {
+        labelsToAdd: [],
+      },
+    });
+
+    // Act
+    await applyAiTriageGovernanceActions(input);
+
+    // Assert
+    expect(mockedBuildIssueAiTriageActionPlan).toHaveBeenCalledTimes(1);
+    expect(mockedBuildIssueAiTriageActionPlan.mock.calls[0]?.[0].curationPolicy).toEqual({
+      documentationLabel: 'documentation',
+      helpWantedLabel: 'help wanted',
+      goodFirstIssueLabel: 'good first issue',
+      documentationConfidenceThreshold: 0.86,
+      helpWantedConfidenceThreshold: 0.8,
+      goodFirstIssueConfidenceThreshold: 0.93,
+    });
+  });
+
+  it('should pass core ai decision thresholds from env config into action plan', async () => {
+    // Arrange
+    const input = createInput();
+    input.config = {
+      get: (key: string) => {
+        if (key === 'AI_CLASSIFICATION_CONFIDENCE_THRESHOLD') return '0.7';
+        if (key === 'AI_SENTIMENT_CONFIDENCE_THRESHOLD') return '0.65';
+        if (key === 'AI_DUPLICATE_SIMILARITY_THRESHOLD') return '0.88';
+        return undefined;
+      },
+      getBoolean: () => undefined,
+    };
+    mockedBuildIssueAiTriageActionPlan.mockReturnValue({
+      effectiveTone: 'neutral',
+      classification: {
+        labelsToAdd: [],
+        labelsToRemove: [],
+        wasSuppressedByHostileTone: false,
+      },
+      duplicate: {
+        shouldProcessSignal: false,
+        decision: {
+          shouldApplyDuplicateActions: false,
+          resolvedOriginalIssueNumber: null,
+          hasSimilarityScore: false,
+          hasValidOriginalIssue: false,
+          usedFallbackOriginalIssue: false,
+        },
+        commentPublicationPlan: null,
+        execution: {
+          shouldApplyDuplicateLabel: false,
+          commentBody: null,
+          skipReason: 'signal_not_marked_duplicate',
+        },
+      },
+      question: {
+        decision: {
+          shouldCreateComment: false,
+          responseSource: null,
+          responseBody: '',
+        },
+        commentPublicationPlan: null,
+        publicationPreparation: {
+          shouldCheckExistingQuestionReplyComment: false,
+          historyLookupBodyPrefix: 'AI Triage: Suggested',
+          publicationPlan: null,
+          responseSource: null,
+          usedRepositoryContext: null,
+          skipReason: 'missing_publication_plan',
+        },
+      },
+      tone: {
+        labelsToAdd: [],
+      },
+      curation: {
+        labelsToAdd: [],
+      },
+    });
+
+    // Act
+    await applyAiTriageGovernanceActions(input);
+
+    // Assert
+    expect(mockedBuildIssueAiTriageActionPlan).toHaveBeenCalledTimes(1);
+    expect(mockedBuildIssueAiTriageActionPlan.mock.calls[0]?.[0].kindPolicy).toEqual({
+      bugLabel: 'kind/bug',
+      featureLabel: 'kind/feature',
+      questionLabel: 'kind/question',
+      kindLabels: ['kind/bug', 'kind/feature', 'kind/question'],
+      classificationConfidenceThreshold: 0.7,
+      sentimentConfidenceThreshold: 0.65,
+    });
+    expect(mockedBuildIssueAiTriageActionPlan.mock.calls[0]?.[0].duplicatePolicy).toEqual({
+      similarityThreshold: 0.88,
+      commentPrefix: 'AI Triage: Possible duplicate of #',
+    });
+    expect(mockedBuildIssueAiTriageActionPlan.mock.calls[0]?.[0].questionPolicy).toMatchObject({
+      classificationConfidenceThreshold: 0.7,
+    });
   });
 });

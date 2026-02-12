@@ -1,7 +1,6 @@
 import {
   AI_MAX_TOKENS,
   AI_RECENT_ISSUES_LIMIT,
-  AI_TEMPERATURE,
   AI_TRIAGE_LOG_EVENT_FAILED,
   AI_TRIAGE_LOG_STATUS_FAILED,
   AI_TRIAGE_LOG_STEPS,
@@ -11,6 +10,7 @@ import {
   LLM_MODEL_ENV_VAR,
   LLM_PROVIDER_ENV_VAR,
   LLM_RAW_TEXT_LOG_PREVIEW_CHARS,
+  resolveAiTemperature,
   resolveAiTimeoutMs,
 } from '../constants/ai-triage.constants';
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
@@ -172,7 +172,7 @@ export const analyzeIssueWithAi =
           })
         : buildIssueTriageUserPrompt(promptInput);
       const maxTokens = resolvedPrompt?.config?.maxTokens ?? AI_MAX_TOKENS;
-      const temperature = resolvedPrompt?.config?.temperature ?? AI_TEMPERATURE;
+      const temperature = resolvedPrompt?.config?.temperature ?? resolveAiTemperature(config);
       const timeoutMs = resolveAiTimeoutMs(config);
 
       const llmResult = await llmGateway.generateJson({
@@ -229,6 +229,7 @@ export const analyzeIssueWithAi =
         issueHistoryGateway,
         questionResponseMetrics,
         botLogin,
+        config,
         llmProvider: provider,
         llmModel: model,
         logger,

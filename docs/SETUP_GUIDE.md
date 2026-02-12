@@ -118,7 +118,71 @@ You need to expose your local server to GitHub.
    LLM_BASE_URL=http://127.0.0.1:11434/api/generate
    ```
 
-6. Optional: enable LangSmith observability:
+6. Optional: override AI temperature globally:
+   * Variable: `AI_TEMPERATURE`
+   * Range: `0` to `1`
+   * Default: `0.1`
+   * Applies to all providers when prompt config does not define temperature.
+   * Example:
+   ```ini
+   AI_TEMPERATURE=0.2
+   ```
+
+7. Optional: map AI classification labels to your repository taxonomy:
+   * These variables map AI semantic kinds (`bug|feature|question`) to GitHub labels.
+   * If not set, defaults are used:
+     * `kind/bug`
+     * `kind/feature`
+     * `kind/question`
+   * Example for GitHub default labels:
+   ```ini
+   AI_LABEL_KIND_BUG=bug
+   AI_LABEL_KIND_FEATURE=enhancement
+   AI_LABEL_KIND_QUESTION=question
+   ```
+
+8. Optional: map conservative AI curation recommendations to GitHub labels:
+   * These variables map optional AI recommendations (`documentation`, `help wanted`, `good first issue`) to labels.
+   * The bot only applies them with high confidence and conservative domain rules.
+   * If not set, defaults are used:
+     * `documentation`
+     * `help wanted`
+     * `good first issue`
+   * Example:
+   ```ini
+   AI_LABEL_DOCUMENTATION=documentation
+   AI_LABEL_HELP_WANTED=help wanted
+   AI_LABEL_GOOD_FIRST_ISSUE=good first issue
+   ```
+
+9. Optional: tune AI curation confidence thresholds:
+   * Use values between `0` and `1`.
+   * Higher values are more conservative.
+   * Defaults:
+     * `AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD=0.9`
+     * `AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD=0.9`
+     * `AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD=0.95`
+   * Example (slightly less strict for `help wanted`):
+   ```ini
+   AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD=0.9
+   AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD=0.8
+   AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD=0.95
+   ```
+
+10. Optional: tune core AI decision thresholds:
+   * Use values between `0` and `1`.
+   * Defaults:
+     * `AI_CLASSIFICATION_CONFIDENCE_THRESHOLD=0.8`
+     * `AI_SENTIMENT_CONFIDENCE_THRESHOLD=0.75`
+     * `AI_DUPLICATE_SIMILARITY_THRESHOLD=0.85`
+   * Example:
+   ```ini
+   AI_CLASSIFICATION_CONFIDENCE_THRESHOLD=0.75
+   AI_SENTIMENT_CONFIDENCE_THRESHOLD=0.7
+   AI_DUPLICATE_SIMILARITY_THRESHOLD=0.85
+   ```
+
+11. Optional: enable LangSmith observability:
    * Set `LANGSMITH_TRACING=true`
    * Provide `LANGSMITH_API_KEY`
    * Optional: `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT`, `LANGSMITH_WORKSPACE_ID`

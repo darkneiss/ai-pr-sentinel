@@ -33,7 +33,30 @@
 ### Feature 002: AI-Enhanced Issue Triage
 - Status: DONE (MVP)
 - Behavior implemented:
-  - Semantic classification (`kind/bug`, `kind/feature`, `kind/question`) with confidence threshold.
+  - Semantic classification with confidence threshold.
+    - Thresholds are configurable via env:
+      - `AI_CLASSIFICATION_CONFIDENCE_THRESHOLD`
+      - `AI_SENTIMENT_CONFIDENCE_THRESHOLD`
+      - `AI_DUPLICATE_SIMILARITY_THRESHOLD`
+    - Default labels: `kind/bug`, `kind/feature`, `kind/question`.
+    - Optional repository label mapping via config:
+      - `AI_LABEL_KIND_BUG`
+      - `AI_LABEL_KIND_FEATURE`
+      - `AI_LABEL_KIND_QUESTION`
+  - Conservative curation label recommendations from AI analysis:
+    - Optional labels:
+      - `documentation`
+      - `help wanted`
+      - `good first issue`
+    - Optional repository label mapping via config:
+      - `AI_LABEL_DOCUMENTATION`
+      - `AI_LABEL_HELP_WANTED`
+      - `AI_LABEL_GOOD_FIRST_ISSUE`
+    - Confidence thresholds are configurable via env:
+      - `AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD`
+      - `AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD`
+      - `AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD`
+    - Applied only with high-confidence thresholds and conservative domain conditions.
   - Hostile-priority guard:
     - When tone is hostile with enough confidence, `kind/*` labels are suppressed/removed.
   - Duplicate detection (`triage/duplicate` + comment).
@@ -73,9 +96,10 @@
     - Ollama: `LLM_BASE_URL` is the full `/api/generate` endpoint (no path appended).
     - Gemini: `LLM_BASE_URL` is a base URL; the adapter appends `/models/{LLM_MODEL}:generateContent` only when `/models/` is missing.
     - Gemini API key is sent via the `x-goog-api-key` header (no query param).
-- Prompting:
+  - Prompting:
   - Versioned YAML registry under `src/shared/application/prompts/issue-triage/`.
   - Runtime selection by provider/version with generic fallback.
+  - Global AI temperature override is available via `AI_TEMPERATURE` (used when prompt config does not set temperature).
   - Legacy fallback still available in `src/shared/application/prompts/issue-triage.prompt.ts`.
   - JSON-only response contract enforced.
   - AI triage action planning is now centralized in domain via

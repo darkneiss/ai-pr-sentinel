@@ -32,13 +32,23 @@ user_prompt_template: |
   - Use "question" when the issue is asking for information, usage, setup, or clarification.
   - Use "bug" only when there is a malfunction, error message, crash, regression, or incorrect behavior.
   - If unsure between "question" and "bug", choose "question" and lower confidence.
-  Return a JSON object with classification, duplicate detection, tone and suggestedResponse fields.
+  Return a JSON object with classification, duplicate detection, tone, optional labelRecommendations, and suggestedResponse fields.
+  If you include labelRecommendations, it MUST be an object (never an array) with this shape:
+  "labelRecommendations": {
+    "documentation": {"shouldApply": true|false, "confidence": 0-1, "reasoning": "..."},
+    "helpWanted": {"shouldApply": true|false, "confidence": 0-1, "reasoning": "..."},
+    "goodFirstIssue": {"shouldApply": true|false, "confidence": 0-1, "reasoning": "..."}
+  }
+  Include only high-confidence suggestions:
+  - documentation: docs/readme/tutorial clarification or documentation-improvement requests.
+  - helpWanted: issue likely needs community collaboration.
+  - goodFirstIssue: beginner-friendly and low-risk task.
   If classification.type is question, suggestedResponse is mandatory and must contain 3-6 checklist bullets.
   If <repository_context> is not "(none)", suggestedResponse must reference concrete repository context and avoid generic boilerplate.
   If repository context is missing or insufficient, state that explicitly in suggestedResponse and ask for missing project details.
   If classification.type is not question, suggestedResponse must be empty or omitted.
   Use exactly these enums: classification.type in ["bug","feature","question"], sentiment.tone in ["positive","neutral","hostile"].
   Use confidence and similarityScore as numbers between 0 and 1.
-  Do not invent fields. Do not return markdown. Return only valid JSON.
+  Do not invent fields beyond the contract. Do not return markdown. Return only valid JSON.
 output_contract: |
-  JSON with classification, duplicateDetection, sentiment, suggestedResponse
+  JSON with classification, duplicateDetection, sentiment, optional labelRecommendations, suggestedResponse
