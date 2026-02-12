@@ -80,6 +80,8 @@
     via `decideIssueDuplicateGovernanceExecution`.
   - Duplicate execution output is now embedded in the domain action plan
     (`duplicate.execution`) and consumed directly by `apply-duplicate-governance-actions`.
+  - Final duplicate-comment publication gate (execution actionable + newly added duplicate label)
+    is now centralized in domain via `decideIssueDuplicateCommentExecution`.
   - Tone monitor actions are now represented as domain-planned label operations
     (`tone.labelsToAdd`) consumed directly by application orchestration.
 

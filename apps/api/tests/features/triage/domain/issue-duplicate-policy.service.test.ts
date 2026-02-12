@@ -1,5 +1,6 @@
 import {
   buildIssueDuplicateComment,
+  decideIssueDuplicateCommentExecution,
   decideIssueDuplicateGovernanceExecution,
   decideIssueDuplicateActions,
   planIssueDuplicateCommentPublication,
@@ -353,6 +354,72 @@ describe('IssueDuplicatePolicyService', () => {
     // Assert
     expect(result).toEqual({
       shouldApplyDuplicateLabel: true,
+      commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
+      skipReason: null,
+    });
+  });
+
+  it('should skip duplicate comment execution when governance execution is not actionable', () => {
+    // Arrange
+    const input = {
+      execution: {
+        shouldApplyDuplicateLabel: false as const,
+        commentBody: null,
+        skipReason: 'decision_not_actionable' as const,
+      },
+      wasDuplicateLabelAdded: false,
+    };
+
+    // Act
+    const result = decideIssueDuplicateCommentExecution(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCreateComment: false,
+      commentBody: null,
+      skipReason: 'execution_not_actionable',
+    });
+  });
+
+  it('should skip duplicate comment execution when duplicate label already exists', () => {
+    // Arrange
+    const input = {
+      execution: {
+        shouldApplyDuplicateLabel: true as const,
+        commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
+        skipReason: null,
+      },
+      wasDuplicateLabelAdded: false,
+    };
+
+    // Act
+    const result = decideIssueDuplicateCommentExecution(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCreateComment: false,
+      commentBody: null,
+      skipReason: 'duplicate_label_already_present',
+    });
+  });
+
+  it('should create duplicate comment when governance execution is actionable and label was added', () => {
+    // Arrange
+    const input = {
+      execution: {
+        shouldApplyDuplicateLabel: true as const,
+        commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
+        skipReason: null,
+      },
+      wasDuplicateLabelAdded: true,
+    };
+
+    // Act
+    const result = decideIssueDuplicateCommentExecution(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldCreateComment: true,
       commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
       skipReason: null,
     });

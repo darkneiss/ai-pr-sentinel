@@ -2,6 +2,7 @@ import {
   AI_TRIAGE_DUPLICATE_LABEL,
 } from '../constants/ai-triage.constants';
 import { type IssueAiTriageDuplicatePlan } from '../../domain/services/issue-ai-triage-action-plan.service';
+import { decideIssueDuplicateCommentExecution } from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 
 const DUPLICATE_ACTION_PLAN_REQUIRED_ERROR = 'Duplicate action plan is required.';
@@ -34,15 +35,19 @@ export const applyDuplicateGovernanceActions = async (
   }
 
   const wasDuplicateLabelAdded = await context.addLabelIfMissing(AI_TRIAGE_DUPLICATE_LABEL);
+  const duplicateCommentExecutionDecision = decideIssueDuplicateCommentExecution({
+    execution: duplicateExecutionDecision,
+    wasDuplicateLabelAdded,
+  });
 
-  if (!wasDuplicateLabelAdded) {
+  if (!duplicateCommentExecutionDecision.shouldCreateComment || !duplicateCommentExecutionDecision.commentBody) {
     return;
   }
 
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: duplicateExecutionDecision.commentBody,
+    body: duplicateCommentExecutionDecision.commentBody,
   });
   context.incrementActionsAppliedCount();
   const duplicateCommentPublicationPlan = precomputedPlan.commentPublicationPlan;

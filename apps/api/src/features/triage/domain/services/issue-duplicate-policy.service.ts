@@ -66,6 +66,27 @@ export type IssueDuplicateGovernanceExecutionDecision =
       skipReason: null;
     };
 
+export interface DecideIssueDuplicateCommentExecutionInput {
+  execution: IssueDuplicateGovernanceExecutionDecision;
+  wasDuplicateLabelAdded: boolean;
+}
+
+export type IssueDuplicateCommentExecutionSkipReason =
+  | 'execution_not_actionable'
+  | 'duplicate_label_already_present';
+
+export type IssueDuplicateCommentExecutionDecision =
+  | {
+      shouldCreateComment: false;
+      commentBody: null;
+      skipReason: IssueDuplicateCommentExecutionSkipReason;
+    }
+  | {
+      shouldCreateComment: true;
+      commentBody: string;
+      skipReason: null;
+    };
+
 const SIMILARITY_PERCENT_MULTIPLIER = 100;
 
 export const resolveFallbackDuplicateIssueNumber = ({
@@ -163,6 +184,33 @@ export const decideIssueDuplicateGovernanceExecution = ({
   return {
     shouldApplyDuplicateLabel: true,
     commentBody: commentPublicationPlan.commentBody,
+    skipReason: null,
+  };
+};
+
+export const decideIssueDuplicateCommentExecution = ({
+  execution,
+  wasDuplicateLabelAdded,
+}: DecideIssueDuplicateCommentExecutionInput): IssueDuplicateCommentExecutionDecision => {
+  if (!execution.shouldApplyDuplicateLabel) {
+    return {
+      shouldCreateComment: false,
+      commentBody: null,
+      skipReason: 'execution_not_actionable',
+    };
+  }
+
+  if (!wasDuplicateLabelAdded) {
+    return {
+      shouldCreateComment: false,
+      commentBody: null,
+      skipReason: 'duplicate_label_already_present',
+    };
+  }
+
+  return {
+    shouldCreateComment: true,
+    commentBody: execution.commentBody,
     skipReason: null,
   };
 };
