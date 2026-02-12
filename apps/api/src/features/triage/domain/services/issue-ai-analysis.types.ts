@@ -1,6 +1,18 @@
 export type AiIssueKind = 'bug' | 'feature' | 'question';
 export type AiTone = 'positive' | 'neutral' | 'hostile';
 
+export interface AiLabelRecommendation {
+  shouldApply: boolean;
+  confidence: number;
+  reasoning?: string;
+}
+
+export interface AiLabelRecommendations {
+  documentation?: AiLabelRecommendation;
+  helpWanted?: AiLabelRecommendation;
+  goodFirstIssue?: AiLabelRecommendation;
+}
+
 export interface AiAnalysis {
   classification: {
     type: AiIssueKind;
@@ -18,6 +30,7 @@ export interface AiAnalysis {
     confidence: number;
     reasoning: string;
   };
+  labelRecommendations?: AiLabelRecommendations;
   suggestedResponse?: string;
 }
 

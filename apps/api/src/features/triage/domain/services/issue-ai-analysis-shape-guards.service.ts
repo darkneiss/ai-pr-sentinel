@@ -1,10 +1,36 @@
 import {
   type AiAnalysis,
+  type AiLabelRecommendation,
+  type AiLabelRecommendations,
   isAiIssueKind,
   isAiTone,
   isConfidence,
   isObjectRecord,
 } from './issue-ai-analysis.types';
+
+const isAiLabelRecommendation = (value: unknown): value is AiLabelRecommendation => {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.shouldApply === 'boolean' &&
+    isConfidence(value.confidence) &&
+    (value.reasoning === undefined || typeof value.reasoning === 'string')
+  );
+};
+
+const isAiLabelRecommendations = (value: unknown): value is AiLabelRecommendations => {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+
+  return (
+    (value.documentation === undefined || isAiLabelRecommendation(value.documentation)) &&
+    (value.helpWanted === undefined || isAiLabelRecommendation(value.helpWanted)) &&
+    (value.goodFirstIssue === undefined || isAiLabelRecommendation(value.goodFirstIssue))
+  );
+};
 
 export const isAiAnalysis = (value: unknown): value is AiAnalysis => {
   if (!isObjectRecord(value)) {
@@ -40,6 +66,16 @@ export const isAiAnalysis = (value: unknown): value is AiAnalysis => {
     value.suggestedResponse === undefined ||
     value.suggestedResponse === null ||
     typeof value.suggestedResponse === 'string';
+  const isValidLabelRecommendations =
+    value.labelRecommendations === undefined ||
+    value.labelRecommendations === null ||
+    isAiLabelRecommendations(value.labelRecommendations);
 
-  return isValidClassification && isValidDuplicateDetection && isValidSentiment && isValidSuggestedResponse;
+  return (
+    isValidClassification &&
+    isValidDuplicateDetection &&
+    isValidSentiment &&
+    isValidSuggestedResponse &&
+    isValidLabelRecommendations
+  );
 };

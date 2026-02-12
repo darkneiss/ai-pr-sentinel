@@ -1,5 +1,7 @@
 import {
   type AiAnalysis,
+  type AiLabelRecommendation,
+  type AiLabelRecommendations,
   isConfidence,
   isObjectRecord,
   normalizeAiIssueKind,
@@ -10,6 +12,55 @@ import {
   parseIssueNumberFromReference,
 } from './issue-reference-parser-policy.service';
 import { normalizeIssueQuestionSuggestedResponseValue } from './issue-question-response-policy.service';
+
+const normalizeLabelRecommendation = (value: unknown): AiLabelRecommendation | undefined => {
+  if (!isObjectRecord(value)) {
+    return undefined;
+  }
+
+  if (typeof value.shouldApply !== 'boolean' || !isConfidence(value.confidence)) {
+    return undefined;
+  }
+
+  return {
+    shouldApply: value.shouldApply,
+    confidence: value.confidence,
+    reasoning: typeof value.reasoning === 'string' ? value.reasoning : undefined,
+  };
+};
+
+const normalizeLabelRecommendations = (value: Record<string, unknown>): AiLabelRecommendations | undefined => {
+  const recommendationsRaw = value.labelRecommendations ?? value.label_recommendations;
+
+  if (!recommendationsRaw) {
+    return undefined;
+  }
+
+  const recommendationsFromArray = Array.isArray(recommendationsRaw) ? recommendationsRaw : undefined;
+  const recommendationsFromObject = isObjectRecord(recommendationsRaw) ? recommendationsRaw : undefined;
+
+  const documentation = normalizeLabelRecommendation(
+    recommendationsFromObject?.documentation ?? recommendationsFromObject?.docs ?? recommendationsFromArray?.[0],
+  );
+  const helpWanted = normalizeLabelRecommendation(
+    recommendationsFromObject?.helpWanted ?? recommendationsFromObject?.help_wanted ?? recommendationsFromArray?.[1],
+  );
+  const goodFirstIssue = normalizeLabelRecommendation(
+    recommendationsFromObject?.goodFirstIssue ??
+      recommendationsFromObject?.good_first_issue ??
+      recommendationsFromArray?.[2],
+  );
+
+  if (!documentation && !helpWanted && !goodFirstIssue) {
+    return undefined;
+  }
+
+  return {
+    documentation,
+    helpWanted,
+    goodFirstIssue,
+  };
+};
 
 export const normalizeStructuredAiAnalysis = (
   value: Record<string, unknown>,
@@ -118,6 +169,7 @@ export const normalizeStructuredAiAnalysis = (
       reasoning:
         typeof sentimentRaw.reasoning === 'string' ? sentimentRaw.reasoning : 'Structured-format AI response',
     },
+    labelRecommendations: normalizeLabelRecommendations(value),
     suggestedResponse:
       normalizeIssueQuestionSuggestedResponseValue(value.suggestedResponse) ??
       normalizeIssueQuestionSuggestedResponseValue(value.suggested_response),

@@ -260,6 +260,73 @@ describe('AnalyzeIssueWithAiUseCase', () => {
     });
   });
 
+  it('should apply curated labels from high-confidence AI recommendations', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    llmGateway.generateJson.mockResolvedValueOnce({
+      rawText: JSON.stringify({
+        classification: {
+          type: 'feature',
+          confidence: 0.95,
+          reasoning: 'Feature-level docs improvement',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+        },
+        sentiment: {
+          tone: 'neutral',
+          reasoning: 'Tone is neutral.',
+          confidence: 0.8,
+        },
+        labelRecommendations: {
+          documentation: {
+            shouldApply: true,
+            confidence: 0.95,
+          },
+          helpWanted: {
+            shouldApply: true,
+            confidence: 0.93,
+          },
+          goodFirstIssue: {
+            shouldApply: true,
+            confidence: 0.97,
+          },
+        },
+      }),
+    });
+    const run = analyzeIssueWithAi({ llmGateway, issueHistoryGateway, governanceGateway });
+
+    // Act
+    const result = await run(createInput({ issue: { ...createInput().issue, labels: [] } }));
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['kind/feature'],
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['documentation'],
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['help wanted'],
+    });
+    expect(governanceGateway.addLabels).toHaveBeenCalledWith({
+      repositoryFullName: 'org/repo',
+      issueNumber: 42,
+      labels: ['good first issue'],
+    });
+  });
+
   it('should skip kind relabel when classification confidence is low', async () => {
     // Arrange
     const llmGateway = createLlmGatewayMock();
@@ -445,6 +512,45 @@ describe('AnalyzeIssueWithAiUseCase', () => {
         userPrompt: expect.stringContaining('Title: Login fails intermittently'),
         maxTokens: 321,
         temperature: 0.42,
+      }),
+    );
+  });
+
+  it('should use AI_TEMPERATURE env value when prompt config does not define temperature', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    const config = {
+      get: (key: string) => (key === 'AI_TEMPERATURE' ? '0.33' : undefined),
+      getBoolean: () => undefined,
+    };
+    const issueTriagePromptGateway = {
+      getPrompt: () => ({
+        version: '1.0.0',
+        provider: 'generic',
+        systemPrompt: 'System prompt from registry',
+        userPromptTemplate: 'Title: {{issue_title}}',
+        config: { maxTokens: 321 },
+      }),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      issueTriagePromptGateway,
+      governanceGateway,
+      config,
+    });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'completed' });
+    expect(llmGateway.generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxTokens: 321,
+        temperature: 0.33,
       }),
     );
   });

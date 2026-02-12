@@ -59,6 +59,14 @@ describe('IssueAiTriageActionPlanService', () => {
       tonePolicy: {
         monitorLabel: 'triage/monitor',
       },
+      curationPolicy: {
+        documentationLabel: 'documentation',
+        helpWantedLabel: 'help wanted',
+        goodFirstIssueLabel: 'good first issue',
+        documentationConfidenceThreshold: 0.9,
+        helpWantedConfidenceThreshold: 0.9,
+        goodFirstIssueConfidenceThreshold: 0.95,
+      },
     };
 
     // Act
@@ -85,6 +93,7 @@ describe('IssueAiTriageActionPlanService', () => {
       usedRepositoryContext: true,
     });
     expect(result.tone.labelsToAdd).toEqual([]);
+    expect(result.curation.labelsToAdd).toEqual([]);
   });
 
   it('should suppress kind labels and activate monitor label on hostile high-confidence tone', () => {
@@ -141,6 +150,14 @@ describe('IssueAiTriageActionPlanService', () => {
       tonePolicy: {
         monitorLabel: 'triage/monitor',
       },
+      curationPolicy: {
+        documentationLabel: 'documentation',
+        helpWantedLabel: 'help wanted',
+        goodFirstIssueLabel: 'good first issue',
+        documentationConfidenceThreshold: 0.9,
+        helpWantedConfidenceThreshold: 0.9,
+        goodFirstIssueConfidenceThreshold: 0.95,
+      },
     };
 
     // Act
@@ -156,6 +173,7 @@ describe('IssueAiTriageActionPlanService', () => {
       skipReason: 'signal_not_marked_duplicate',
     });
     expect(result.tone.labelsToAdd).toEqual(['triage/monitor']);
+    expect(result.curation.labelsToAdd).toEqual([]);
   });
 
   it('should precompute question publication preparation decision in action plan', () => {
@@ -212,6 +230,14 @@ describe('IssueAiTriageActionPlanService', () => {
       tonePolicy: {
         monitorLabel: 'triage/monitor',
       },
+      curationPolicy: {
+        documentationLabel: 'documentation',
+        helpWantedLabel: 'help wanted',
+        goodFirstIssueLabel: 'good first issue',
+        documentationConfidenceThreshold: 0.9,
+        helpWantedConfidenceThreshold: 0.9,
+        goodFirstIssueConfidenceThreshold: 0.95,
+      },
     };
 
     // Act
@@ -231,5 +257,89 @@ describe('IssueAiTriageActionPlanService', () => {
       usedRepositoryContext: true,
       skipReason: null,
     });
+  });
+
+  it('should plan curated github labels when AI recommendations are high-confidence', () => {
+    // Arrange
+    const input = {
+      action: 'opened',
+      issue: {
+        number: 15,
+        title: 'How to document onboarding setup?',
+        body: 'Please improve the setup docs and we can help with implementation.',
+      },
+      existingLabels: [],
+      aiAnalysis: {
+        classification: {
+          type: 'feature' as const,
+          confidence: 0.93,
+          reasoning: 'Feature request around docs quality',
+        },
+        duplicateDetection: {
+          isDuplicate: false,
+          originalIssueNumber: null,
+          similarityScore: 0.1,
+          hasExplicitOriginalIssueReference: false,
+        },
+        sentiment: {
+          tone: 'neutral' as const,
+          confidence: 0.8,
+          reasoning: 'Neutral tone',
+        },
+        labelRecommendations: {
+          documentation: {
+            shouldApply: true,
+            confidence: 0.95,
+          },
+          helpWanted: {
+            shouldApply: true,
+            confidence: 0.92,
+          },
+          goodFirstIssue: {
+            shouldApply: true,
+            confidence: 0.96,
+          },
+        },
+      },
+      recentIssueNumbers: [],
+      repositoryReadme: 'Readme content',
+      kindPolicy: {
+        bugLabel: 'kind/bug',
+        featureLabel: 'kind/feature',
+        questionLabel: 'kind/question',
+        kindLabels: [...ISSUE_KIND_LABELS],
+        classificationConfidenceThreshold: 0.8,
+        sentimentConfidenceThreshold: 0.75,
+      },
+      duplicatePolicy: {
+        similarityThreshold: 0.85,
+        commentPrefix: 'AI Triage: Possible duplicate of #',
+      },
+      questionPolicy: {
+        classificationConfidenceThreshold: 0.8,
+        questionSignalKeywords: [...QUESTION_SIGNAL_KEYWORDS],
+        fallbackChecklist: [...QUESTION_FALLBACK_CHECKLIST],
+        historyCommentPrefix: 'AI Triage: Suggested',
+        aiSuggestedResponseCommentPrefix: 'AI Triage: Suggested guidance',
+        fallbackChecklistCommentPrefix: 'AI Triage: Suggested setup checklist',
+      },
+      tonePolicy: {
+        monitorLabel: 'triage/monitor',
+      },
+      curationPolicy: {
+        documentationLabel: 'documentation',
+        helpWantedLabel: 'help wanted',
+        goodFirstIssueLabel: 'good first issue',
+        documentationConfidenceThreshold: 0.9,
+        helpWantedConfidenceThreshold: 0.9,
+        goodFirstIssueConfidenceThreshold: 0.95,
+      },
+    };
+
+    // Act
+    const result = buildIssueAiTriageActionPlan(input);
+
+    // Assert
+    expect(result.curation.labelsToAdd).toEqual(['documentation', 'help wanted', 'good first issue']);
   });
 });
