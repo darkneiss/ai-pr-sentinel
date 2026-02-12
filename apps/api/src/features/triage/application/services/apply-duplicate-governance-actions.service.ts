@@ -1,23 +1,14 @@
 import {
   AI_TRIAGE_DUPLICATE_LABEL,
 } from '../constants/ai-triage.constants';
-import {
-  type IssueDuplicateActionsDecision,
-  type IssueDuplicateCommentPublicationPlan,
-} from '../../domain/services/issue-duplicate-policy.service';
+import { type IssueAiTriageDuplicatePlan } from '../../domain/services/issue-ai-triage-action-plan.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 
 const DUPLICATE_ACTION_PLAN_REQUIRED_ERROR = 'Duplicate action plan is required.';
 
-export interface DuplicateGovernanceExecutionPlan {
-  shouldProcessSignal: boolean;
-  duplicateDecision: IssueDuplicateActionsDecision;
-  duplicateCommentPublicationPlan: IssueDuplicateCommentPublicationPlan | null;
-}
-
 export const applyDuplicateGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
-  precomputedPlan: DuplicateGovernanceExecutionPlan,
+  precomputedPlan: IssueAiTriageDuplicatePlan,
 ): Promise<void> => {
   if (!precomputedPlan) {
     throw new Error(DUPLICATE_ACTION_PLAN_REQUIRED_ERROR);
@@ -28,7 +19,7 @@ export const applyDuplicateGovernanceActions = async (
     return;
   }
 
-  const duplicateDecision = precomputedPlan.duplicateDecision;
+  const duplicateDecision = precomputedPlan.decision;
 
   if (!duplicateDecision.shouldApplyDuplicateActions) {
     context.logger?.info?.('AnalyzeIssueWithAiUseCase duplicate detection skipped.', {
@@ -43,7 +34,7 @@ export const applyDuplicateGovernanceActions = async (
     return;
   }
 
-  const duplicateCommentPublicationPlan = precomputedPlan.duplicateCommentPublicationPlan;
+  const duplicateCommentPublicationPlan = precomputedPlan.commentPublicationPlan;
   if (!duplicateCommentPublicationPlan) {
     return;
   }

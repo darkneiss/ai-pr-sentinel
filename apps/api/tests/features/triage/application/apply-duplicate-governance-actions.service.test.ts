@@ -1,7 +1,7 @@
 import { applyDuplicateGovernanceActions } from '../../../../src/features/triage/application/services/apply-duplicate-governance-actions.service';
 import type { AiTriageGovernanceActionsExecutionContext } from '../../../../src/features/triage/application/services/ai-triage-governance-actions-context.service';
 import type { RecentIssueSummary } from '../../../../src/features/triage/application/ports/issue-history-gateway.port';
-import type { DuplicateGovernanceExecutionPlan } from '../../../../src/features/triage/application/services/apply-duplicate-governance-actions.service';
+import type { IssueAiTriageDuplicatePlan } from '../../../../src/features/triage/domain/services/issue-ai-triage-action-plan.service';
 
 const createExecutionContext = (): AiTriageGovernanceActionsExecutionContext => {
   const recentIssues: RecentIssueSummary[] = [
@@ -80,7 +80,7 @@ describe('applyDuplicateGovernanceActions', () => {
     // Act
     const result = applyDuplicateGovernanceActions(
       context,
-      undefined as unknown as DuplicateGovernanceExecutionPlan,
+      undefined as unknown as IssueAiTriageDuplicatePlan,
     );
 
     // Assert
@@ -90,16 +90,16 @@ describe('applyDuplicateGovernanceActions', () => {
   it('should exit early when duplicate signal must not be processed', async () => {
     // Arrange
     const context = createExecutionContext();
-    const plan: DuplicateGovernanceExecutionPlan = {
+    const plan: IssueAiTriageDuplicatePlan = {
       shouldProcessSignal: false,
-      duplicateDecision: {
+      decision: {
         shouldApplyDuplicateActions: false,
         resolvedOriginalIssueNumber: null,
         hasSimilarityScore: false,
         hasValidOriginalIssue: false,
         usedFallbackOriginalIssue: false,
       },
-      duplicateCommentPublicationPlan: null,
+      commentPublicationPlan: null,
     };
 
     // Act
@@ -114,16 +114,16 @@ describe('applyDuplicateGovernanceActions', () => {
   it('should skip duplicate actions when decision says not to apply', async () => {
     // Arrange
     const context = createExecutionContext();
-    const plan: DuplicateGovernanceExecutionPlan = {
+    const plan: IssueAiTriageDuplicatePlan = {
       shouldProcessSignal: true,
-      duplicateDecision: {
+      decision: {
         shouldApplyDuplicateActions: false,
         resolvedOriginalIssueNumber: 10,
         hasSimilarityScore: true,
         hasValidOriginalIssue: true,
         usedFallbackOriginalIssue: false,
       },
-      duplicateCommentPublicationPlan: null,
+      commentPublicationPlan: null,
     };
 
     // Act
@@ -138,16 +138,16 @@ describe('applyDuplicateGovernanceActions', () => {
   it('should create duplicate comment when duplicate label is added', async () => {
     // Arrange
     const context = createExecutionContext();
-    const plan: DuplicateGovernanceExecutionPlan = {
+    const plan: IssueAiTriageDuplicatePlan = {
       shouldProcessSignal: true,
-      duplicateDecision: {
+      decision: {
         shouldApplyDuplicateActions: true,
         resolvedOriginalIssueNumber: 10,
         hasSimilarityScore: true,
         hasValidOriginalIssue: true,
         usedFallbackOriginalIssue: false,
       },
-      duplicateCommentPublicationPlan: {
+      commentPublicationPlan: {
         originalIssueNumber: 10,
         commentBody: 'AI Triage: Possible duplicate of #10',
         usedFallbackOriginalIssue: false,
@@ -171,16 +171,16 @@ describe('applyDuplicateGovernanceActions', () => {
     // Arrange
     const context = createExecutionContext();
     (context.addLabelIfMissing as jest.MockedFunction<typeof context.addLabelIfMissing>).mockResolvedValue(false);
-    const plan: DuplicateGovernanceExecutionPlan = {
+    const plan: IssueAiTriageDuplicatePlan = {
       shouldProcessSignal: true,
-      duplicateDecision: {
+      decision: {
         shouldApplyDuplicateActions: true,
         resolvedOriginalIssueNumber: 10,
         hasSimilarityScore: true,
         hasValidOriginalIssue: true,
         usedFallbackOriginalIssue: false,
       },
-      duplicateCommentPublicationPlan: {
+      commentPublicationPlan: {
         originalIssueNumber: 10,
         commentBody: 'AI Triage: Possible duplicate of #10',
         usedFallbackOriginalIssue: false,
@@ -198,16 +198,16 @@ describe('applyDuplicateGovernanceActions', () => {
   it('should exit early when comment publication plan is null', async () => {
     // Arrange
     const context = createExecutionContext();
-    const plan: DuplicateGovernanceExecutionPlan = {
+    const plan: IssueAiTriageDuplicatePlan = {
       shouldProcessSignal: true,
-      duplicateDecision: {
-      shouldApplyDuplicateActions: true,
-      resolvedOriginalIssueNumber: 10,
-      hasSimilarityScore: true,
-      hasValidOriginalIssue: true,
-      usedFallbackOriginalIssue: false,
+      decision: {
+        shouldApplyDuplicateActions: true,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
       },
-      duplicateCommentPublicationPlan: null,
+      commentPublicationPlan: null,
     };
 
     // Act

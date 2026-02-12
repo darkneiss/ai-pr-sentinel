@@ -1,6 +1,6 @@
 import { applyQuestionResponseGovernanceActions } from '../../../../src/features/triage/application/services/apply-question-response-governance-actions.service';
 import type { AiTriageGovernanceActionsExecutionContext } from '../../../../src/features/triage/application/services/ai-triage-governance-actions-context.service';
-import type { QuestionResponseGovernanceExecutionPlan } from '../../../../src/features/triage/application/services/apply-question-response-governance-actions.service';
+import type { IssueAiTriageQuestionPlan } from '../../../../src/features/triage/domain/services/issue-ai-triage-action-plan.service';
 
 const createExecutionContext = (): AiTriageGovernanceActionsExecutionContext => ({
   action: 'opened',
@@ -73,7 +73,7 @@ describe('applyQuestionResponseGovernanceActions', () => {
     // Act
     const result = applyQuestionResponseGovernanceActions(
       context,
-      undefined as unknown as QuestionResponseGovernanceExecutionPlan,
+      undefined as unknown as IssueAiTriageQuestionPlan,
     );
 
     // Assert
@@ -83,8 +83,13 @@ describe('applyQuestionResponseGovernanceActions', () => {
   it('should skip when publication plan is null', async () => {
     // Arrange
     const context = createExecutionContext();
-    const plan: QuestionResponseGovernanceExecutionPlan = {
-      questionCommentPublicationPlan: null,
+    const plan: IssueAiTriageQuestionPlan = {
+      decision: {
+        shouldCreateComment: false,
+        responseSource: null,
+        responseBody: '',
+      },
+      commentPublicationPlan: null,
     };
 
     // Act
@@ -101,8 +106,13 @@ describe('applyQuestionResponseGovernanceActions', () => {
     (context.issueHistoryGateway.hasIssueCommentWithPrefix as jest.MockedFunction<
       typeof context.issueHistoryGateway.hasIssueCommentWithPrefix
     >).mockResolvedValue(true);
-    const plan: QuestionResponseGovernanceExecutionPlan = {
-      questionCommentPublicationPlan: {
+    const plan: IssueAiTriageQuestionPlan = {
+      decision: {
+        shouldCreateComment: true,
+        responseSource: 'ai_suggested_response',
+        responseBody: 'Try setting API_URL in your .env',
+      },
+      commentPublicationPlan: {
         responseSource: 'ai_suggested_response',
         responseBody: 'Try setting API_URL in your .env',
         commentPrefix: 'AI Triage: Suggested guidance',
@@ -121,8 +131,13 @@ describe('applyQuestionResponseGovernanceActions', () => {
   it('should publish question response comment when not already present', async () => {
     // Arrange
     const context = createExecutionContext();
-    const plan: QuestionResponseGovernanceExecutionPlan = {
-      questionCommentPublicationPlan: {
+    const plan: IssueAiTriageQuestionPlan = {
+      decision: {
+        shouldCreateComment: true,
+        responseSource: 'fallback_checklist',
+        responseBody: '- Share your current .env values',
+      },
+      commentPublicationPlan: {
         responseSource: 'fallback_checklist',
         responseBody: '- Share your current .env values',
         commentPrefix: 'AI Triage: Suggested setup checklist',

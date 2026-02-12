@@ -125,11 +125,7 @@ export const applyAiTriageGovernanceActions = async (
   });
 
   await runStep(AI_TRIAGE_LOG_STEP_DUPLICATE, async () => {
-    await applyDuplicateGovernanceActions(context, {
-      shouldProcessSignal: actionPlan.duplicate.shouldProcessSignal,
-      duplicateDecision: actionPlan.duplicate.decision,
-      duplicateCommentPublicationPlan: actionPlan.duplicate.commentPublicationPlan,
-    });
+    await applyDuplicateGovernanceActions(context, actionPlan.duplicate);
   });
 
   await runStep(AI_TRIAGE_LOG_STEP_TONE, async () => {
@@ -140,9 +136,7 @@ export const applyAiTriageGovernanceActions = async (
     await context.addLabelIfMissing(actionPlan.tone.monitorLabel);
   });
 
-  await applyQuestionResponseGovernanceActions(context, {
-    questionCommentPublicationPlan: actionPlan.question.commentPublicationPlan,
-  });
+  await applyQuestionResponseGovernanceActions(context, actionPlan.question);
 
   if (context.actionsAppliedCount === 0) {
     context.logger?.debug?.('AnalyzeIssueWithAiUseCase no governance actions were applied.', {

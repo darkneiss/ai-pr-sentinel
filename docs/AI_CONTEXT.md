@@ -71,6 +71,8 @@
     `issue-ai-triage-action-plan.service.ts`, while application services execute the precomputed plan.
   - Application action executors (`apply-classification/duplicate/question-response`) now require
     a precomputed plan and fail fast if it is missing (no domain-recomputation fallback in application).
+  - `apply-ai-triage-governance-actions` now forwards domain plan slices directly
+    (`duplicate`, `question`) without remapping execution-plan DTOs in application.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.
