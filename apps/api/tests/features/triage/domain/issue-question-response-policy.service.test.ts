@@ -384,6 +384,7 @@ describe('IssueQuestionResponsePolicyService', () => {
     expect(result).toEqual({
       shouldCreateComment: false,
       commentBody: null,
+      skipReason: 'missing_publication_plan',
     });
   });
 
@@ -406,6 +407,7 @@ describe('IssueQuestionResponsePolicyService', () => {
     expect(result).toEqual({
       shouldCreateComment: false,
       commentBody: null,
+      skipReason: 'question_reply_comment_already_exists',
     });
   });
 
@@ -428,6 +430,7 @@ describe('IssueQuestionResponsePolicyService', () => {
     expect(result).toEqual({
       shouldCreateComment: true,
       commentBody: '[Fallback]\n\n- Share logs',
+      skipReason: null,
     });
   });
 });

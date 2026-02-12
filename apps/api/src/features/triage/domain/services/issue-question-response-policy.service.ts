@@ -37,10 +37,21 @@ export interface DecideIssueQuestionResponseCommentPublicationInput {
   hasExistingQuestionReplyComment: boolean;
 }
 
-export interface IssueQuestionResponseCommentPublicationDecision {
-  shouldCreateComment: boolean;
-  commentBody: string | null;
-}
+export type IssueQuestionResponseCommentPublicationSkipReason =
+  | 'missing_publication_plan'
+  | 'question_reply_comment_already_exists';
+
+export type IssueQuestionResponseCommentPublicationDecision =
+  | {
+      shouldCreateComment: false;
+      commentBody: null;
+      skipReason: IssueQuestionResponseCommentPublicationSkipReason;
+    }
+  | {
+      shouldCreateComment: true;
+      commentBody: string;
+      skipReason: null;
+    };
 
 export interface PlanIssueQuestionResponseCommentPublicationInput {
   decision: IssueQuestionResponseDecision;
@@ -273,6 +284,7 @@ export const decideIssueQuestionResponseCommentPublication = ({
     return {
       shouldCreateComment: false,
       commentBody: null,
+      skipReason: 'missing_publication_plan',
     };
   }
 
@@ -280,6 +292,7 @@ export const decideIssueQuestionResponseCommentPublication = ({
     return {
       shouldCreateComment: false,
       commentBody: null,
+      skipReason: 'question_reply_comment_already_exists',
     };
   }
 
@@ -289,6 +302,7 @@ export const decideIssueQuestionResponseCommentPublication = ({
       commentPrefix: publicationPlan.commentPrefix,
       responseBody: publicationPlan.responseBody,
     }),
+    skipReason: null,
   };
 };
 

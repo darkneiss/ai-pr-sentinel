@@ -45,12 +45,13 @@ export const applyQuestionResponseGovernanceActions = async (
     hasExistingQuestionReplyComment,
   });
 
-  if (!publicationDecision.shouldCreateComment || !publicationDecision.commentBody) {
-    context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment already exists. Skipping.', {
+  if (!publicationDecision.shouldCreateComment) {
+    context.logger?.debug?.('AnalyzeIssueWithAiUseCase question reply comment not published.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
       bodyPrefix: AI_QUESTION_REPLY_COMMENT_PREFIX,
       authorLogin: context.botLogin,
+      skipReason: publicationDecision.skipReason,
     });
     return;
   }
