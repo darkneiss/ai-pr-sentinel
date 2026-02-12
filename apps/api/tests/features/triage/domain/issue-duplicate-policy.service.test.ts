@@ -1,5 +1,6 @@
 import {
   buildIssueDuplicateComment,
+  decideIssueDuplicateGovernanceExecution,
   decideIssueDuplicateActions,
   planIssueDuplicateCommentPublication,
   resolveFallbackDuplicateIssueNumber,
@@ -247,5 +248,113 @@ describe('IssueDuplicatePolicyService', () => {
 
     // Assert
     expect(result).toBeNull();
+  });
+
+  it('should skip duplicate governance execution when duplicate signal is disabled', () => {
+    // Arrange
+    const input = {
+      shouldProcessSignal: false,
+      decision: {
+        shouldApplyDuplicateActions: true,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
+      },
+      commentPublicationPlan: {
+        originalIssueNumber: 10,
+        usedFallbackOriginalIssue: false,
+        commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
+      },
+    };
+
+    // Act
+    const result = decideIssueDuplicateGovernanceExecution(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldApplyDuplicateLabel: false,
+      commentBody: null,
+      skipReason: 'signal_not_marked_duplicate',
+    });
+  });
+
+  it('should skip duplicate governance execution when duplicate decision is not actionable', () => {
+    // Arrange
+    const input = {
+      shouldProcessSignal: true,
+      decision: {
+        shouldApplyDuplicateActions: false,
+        resolvedOriginalIssueNumber: null,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: false,
+        usedFallbackOriginalIssue: false,
+      },
+      commentPublicationPlan: null,
+    };
+
+    // Act
+    const result = decideIssueDuplicateGovernanceExecution(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldApplyDuplicateLabel: false,
+      commentBody: null,
+      skipReason: 'decision_not_actionable',
+    });
+  });
+
+  it('should skip duplicate governance execution when publication plan is missing', () => {
+    // Arrange
+    const input = {
+      shouldProcessSignal: true,
+      decision: {
+        shouldApplyDuplicateActions: true,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
+      },
+      commentPublicationPlan: null,
+    };
+
+    // Act
+    const result = decideIssueDuplicateGovernanceExecution(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldApplyDuplicateLabel: false,
+      commentBody: null,
+      skipReason: 'missing_comment_publication_plan',
+    });
+  });
+
+  it('should mark duplicate governance execution as actionable when all gates pass', () => {
+    // Arrange
+    const input = {
+      shouldProcessSignal: true,
+      decision: {
+        shouldApplyDuplicateActions: true,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
+      },
+      commentPublicationPlan: {
+        originalIssueNumber: 10,
+        usedFallbackOriginalIssue: false,
+        commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
+      },
+    };
+
+    // Act
+    const result = decideIssueDuplicateGovernanceExecution(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldApplyDuplicateLabel: true,
+      commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
+      skipReason: null,
+    });
   });
 });

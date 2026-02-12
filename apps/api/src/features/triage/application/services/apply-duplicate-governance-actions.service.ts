@@ -2,6 +2,7 @@ import {
   AI_TRIAGE_DUPLICATE_LABEL,
 } from '../constants/ai-triage.constants';
 import { type IssueAiTriageDuplicatePlan } from '../../domain/services/issue-ai-triage-action-plan.service';
+import { decideIssueDuplicateGovernanceExecution } from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
 
 const DUPLICATE_ACTION_PLAN_REQUIRED_ERROR = 'Duplicate action plan is required.';
@@ -14,14 +15,17 @@ export const applyDuplicateGovernanceActions = async (
     throw new Error(DUPLICATE_ACTION_PLAN_REQUIRED_ERROR);
   }
 
-  const shouldProcessSignal = precomputedPlan.shouldProcessSignal;
-  if (!shouldProcessSignal) {
-    return;
-  }
+  const duplicateExecutionDecision = decideIssueDuplicateGovernanceExecution({
+    shouldProcessSignal: precomputedPlan.shouldProcessSignal,
+    decision: precomputedPlan.decision,
+    commentPublicationPlan: precomputedPlan.commentPublicationPlan,
+  });
+  if (!duplicateExecutionDecision.shouldApplyDuplicateLabel) {
+    if (duplicateExecutionDecision.skipReason !== 'decision_not_actionable') {
+      return;
+    }
 
-  const duplicateDecision = precomputedPlan.decision;
-
-  if (!duplicateDecision.shouldApplyDuplicateActions) {
+    const duplicateDecision = precomputedPlan.decision;
     context.logger?.info?.('AnalyzeIssueWithAiUseCase duplicate detection skipped.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
@@ -34,11 +38,6 @@ export const applyDuplicateGovernanceActions = async (
     return;
   }
 
-  const duplicateCommentPublicationPlan = precomputedPlan.commentPublicationPlan;
-  if (!duplicateCommentPublicationPlan) {
-    return;
-  }
-
   const wasDuplicateLabelAdded = await context.addLabelIfMissing(AI_TRIAGE_DUPLICATE_LABEL);
 
   if (!wasDuplicateLabelAdded) {
@@ -48,14 +47,15 @@ export const applyDuplicateGovernanceActions = async (
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: duplicateCommentPublicationPlan.commentBody,
+    body: duplicateExecutionDecision.commentBody,
   });
   context.incrementActionsAppliedCount();
+  const duplicateCommentPublicationPlan = precomputedPlan.commentPublicationPlan;
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase duplicate comment created.', {
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    originalIssueNumber: duplicateCommentPublicationPlan.originalIssueNumber,
+    originalIssueNumber: duplicateCommentPublicationPlan?.originalIssueNumber,
     similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-    usedFallbackOriginalIssue: duplicateCommentPublicationPlan.usedFallbackOriginalIssue,
+    usedFallbackOriginalIssue: duplicateCommentPublicationPlan?.usedFallbackOriginalIssue === true,
   });
 };

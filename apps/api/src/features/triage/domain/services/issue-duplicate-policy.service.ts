@@ -43,6 +43,29 @@ export interface ShouldProcessIssueDuplicateSignalInput {
   isDuplicate: boolean;
 }
 
+export interface DecideIssueDuplicateGovernanceExecutionInput {
+  shouldProcessSignal: boolean;
+  decision: IssueDuplicateActionsDecision;
+  commentPublicationPlan: IssueDuplicateCommentPublicationPlan | null;
+}
+
+export type IssueDuplicateGovernanceExecutionSkipReason =
+  | 'signal_not_marked_duplicate'
+  | 'decision_not_actionable'
+  | 'missing_comment_publication_plan';
+
+export type IssueDuplicateGovernanceExecutionDecision =
+  | {
+      shouldApplyDuplicateLabel: false;
+      commentBody: null;
+      skipReason: IssueDuplicateGovernanceExecutionSkipReason;
+    }
+  | {
+      shouldApplyDuplicateLabel: true;
+      commentBody: string;
+      skipReason: null;
+    };
+
 const SIMILARITY_PERCENT_MULTIPLIER = 100;
 
 export const resolveFallbackDuplicateIssueNumber = ({
@@ -107,3 +130,39 @@ export const planIssueDuplicateCommentPublication = ({
 export const shouldProcessIssueDuplicateSignal = ({
   isDuplicate,
 }: ShouldProcessIssueDuplicateSignalInput): boolean => isDuplicate;
+
+export const decideIssueDuplicateGovernanceExecution = ({
+  shouldProcessSignal,
+  decision,
+  commentPublicationPlan,
+}: DecideIssueDuplicateGovernanceExecutionInput): IssueDuplicateGovernanceExecutionDecision => {
+  if (!shouldProcessSignal) {
+    return {
+      shouldApplyDuplicateLabel: false,
+      commentBody: null,
+      skipReason: 'signal_not_marked_duplicate',
+    };
+  }
+
+  if (!decision.shouldApplyDuplicateActions) {
+    return {
+      shouldApplyDuplicateLabel: false,
+      commentBody: null,
+      skipReason: 'decision_not_actionable',
+    };
+  }
+
+  if (!commentPublicationPlan) {
+    return {
+      shouldApplyDuplicateLabel: false,
+      commentBody: null,
+      skipReason: 'missing_comment_publication_plan',
+    };
+  }
+
+  return {
+    shouldApplyDuplicateLabel: true,
+    commentBody: commentPublicationPlan.commentBody,
+    skipReason: null,
+  };
+};

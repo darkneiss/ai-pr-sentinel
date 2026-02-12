@@ -76,6 +76,8 @@
   - Final publication decision for question-response comments (including existing-comment gate and
     comment body construction) is now centralized in domain
     via `decideIssueQuestionResponseCommentPublication`.
+  - Duplicate execution gating (signal/decision/comment-plan readiness) is now centralized in domain
+    via `decideIssueDuplicateGovernanceExecution`.
 
 ## 4. Repository Context Enrichment
 - New port: `RepositoryContextGateway`.
