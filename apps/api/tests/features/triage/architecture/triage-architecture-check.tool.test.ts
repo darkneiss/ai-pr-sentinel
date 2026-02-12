@@ -5,6 +5,9 @@ import path from 'node:path';
 import {
   analyzeTriageArchitecture,
   type ArchitectureAnalysisReport,
+  buildArchitectureHumanReadableOutput,
+  runArchitectureCheckCli,
+  runArchitectureCheckCliSafely,
 } from '../../../../src/tools/architecture/triage-architecture-check.tool';
 
 const TYPESCRIPT_FILE_EXTENSION = '.ts';
@@ -188,5 +191,307 @@ describe('TriageArchitectureCheckTool', () => {
       'application/services/illegal-application-re-export.service.ts -> ../../infrastructure/adapters/github.adapter',
     ]);
     expect(report.metrics.coupling.application.importsByLayer.infrastructure).toBe(1);
+  });
+
+  it('should count src absolute imports outside triage as external dependencies', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "import { prompt } from 'src/shared/application/prompts/prompt';\nexport const domainService = (): string => prompt;\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/shared/application/prompts/prompt.ts',
+      "export const prompt = 'ok';\n",
+    );
+
+    // Act
+    const report = analyzeTriageArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(true);
+    expect(report.metrics.coupling.domain.importsByLayer.external).toBe(1);
+  });
+
+  it('should resolve file and index import paths for metrics and violations', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/application/services/use-index.service.ts',
+      "export { adapter } from '../../infrastructure/adapters/indexed';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/with-ts-extension.service.ts',
+      "import { adapter } from '../../infrastructure/adapters/direct.adapter.ts';\nexport const withTsExtension = (): string => adapter;\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/infrastructure/adapters/indexed/index.ts',
+      "export const adapter = 'indexed';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/infrastructure/adapters/direct.adapter.ts',
+      "export const adapter = 'direct';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/shared/ignored.ts',
+      "export const ignored = 'ignored';\n",
+    );
+
+    // Act
+    const report = normalizeReport(analyzeTriageArchitecture(projectRootPath));
+
+    // Assert
+    expect(report.isCompliant).toBe(false);
+    expect(report.violations).toEqual([
+      'application/services/use-index.service.ts -> ../../infrastructure/adapters/indexed',
+      'domain/services/with-ts-extension.service.ts -> ../../infrastructure/adapters/direct.adapter.ts',
+    ]);
+    expect(report.metrics.changeSurface.infrastructure.fileCount).toBe(2);
+  });
+
+  it('should render human readable output for compliant and non-compliant reports', () => {
+    // Arrange
+    const compliantReport: ArchitectureAnalysisReport = {
+      isCompliant: true,
+      violations: [],
+      metrics: {
+        coupling: {
+          domain: { internalImports: 0, importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 } },
+          application: { internalImports: 0, importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 } },
+          infrastructure: { internalImports: 0, importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 } },
+        },
+        changeSurface: {
+          domain: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+          application: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+          infrastructure: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+        },
+      },
+    };
+    const nonCompliantReport: ArchitectureAnalysisReport = {
+      ...compliantReport,
+      isCompliant: false,
+      violations: ['domain/x.ts -> ../../infrastructure/y'],
+    };
+
+    // Act
+    const compliantOutput = buildArchitectureHumanReadableOutput(compliantReport);
+    const nonCompliantOutput = buildArchitectureHumanReadableOutput(nonCompliantReport);
+
+    // Assert
+    expect(compliantOutput).toContain('Architecture check passed');
+    expect(nonCompliantOutput).toContain('Architecture check failed: 1 violation(s).');
+    expect(nonCompliantOutput).toContain('Violations:');
+    expect(nonCompliantOutput).toContain('- domain/x.ts -> ../../infrastructure/y');
+  });
+
+  it('should run cli in json and text modes and return status code', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const outputs: string[] = [];
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "export const domainService = 'ok';\n",
+    );
+
+    // Act
+    const jsonExitCode = runArchitectureCheckCli({
+      argv: ['node', 'tool', '--json'],
+      cwd: projectRootPath,
+      outputWriter: (output) => outputs.push(output),
+    });
+    const textExitCode = runArchitectureCheckCli({
+      argv: ['node', 'tool'],
+      cwd: projectRootPath,
+      outputWriter: (output) => outputs.push(output),
+    });
+
+    // Assert
+    expect(jsonExitCode).toBe(0);
+    expect(textExitCode).toBe(0);
+    expect(outputs[0]).toContain('"isCompliant": true');
+    expect(outputs[1]).toContain('Architecture check passed');
+  });
+
+  it('should return failure and error output when safe cli execution throws', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const errors: string[] = [];
+
+    // Act
+    const exitCode = runArchitectureCheckCliSafely({
+      argv: ['node', 'tool'],
+      cwd: projectRootPath,
+      errorWriter: (errorOutput) => errors.push(errorOutput),
+    });
+
+    // Assert
+    expect(exitCode).toBe(1);
+    expect(errors[0]).toContain('Architecture check tool failed:');
+  });
+
+  it('should treat unresolved imports and triage shared imports as external', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "import '../../shared/shared-module';\nimport './missing-module';\nexport const domainService = 'ok';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/shared/shared-module.ts',
+      "export const shared = 'shared';\n",
+    );
+
+    // Act
+    const report = analyzeTriageArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(true);
+    expect(report.metrics.coupling.domain.importsByLayer.external).toBe(2);
+  });
+
+  it('should ignore non-local imports while parsing dependencies', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "import fs from 'node:fs';\nexport const domainService = (): number => fs.constants.O_RDONLY;\n",
+    );
+
+    // Act
+    const report = analyzeTriageArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.metrics.changeSurface.domain.importCount).toBe(0);
+  });
+
+  it('should run cli using default argv, cwd and output writer', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const originalArgv = process.argv;
+    const originalCwd = process.cwd();
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "export const domainService = 'ok';\n",
+    );
+
+    process.argv = ['node', 'tool'];
+    process.chdir(projectRootPath);
+
+    // Act
+    const exitCode = runArchitectureCheckCli();
+
+    // Assert
+    expect(exitCode).toBe(0);
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Architecture check passed'));
+
+    process.argv = originalArgv;
+    process.chdir(originalCwd);
+    consoleLogSpy.mockRestore();
+  });
+
+  it('should return non-zero cli exit code when architecture is not compliant', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/invalid.service.ts',
+      "import '../../infrastructure/adapters/github.adapter';\nexport const invalid = 'invalid';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/infrastructure/adapters/github.adapter.ts',
+      "export const adapter = 'github';\n",
+    );
+
+    // Act
+    const exitCode = runArchitectureCheckCli({
+      argv: ['node', 'tool'],
+      cwd: projectRootPath,
+      outputWriter: () => undefined,
+    });
+
+    // Assert
+    expect(exitCode).toBe(1);
+  });
+
+  it('should emit unknown_error when safe cli catches a non-error throw', () => {
+    // Arrange
+    const errors: string[] = [];
+    const readdirSpy = jest.spyOn(fs, 'readdirSync').mockImplementation(() => {
+      throw 'boom';
+    });
+
+    // Act
+    const exitCode = runArchitectureCheckCliSafely({
+      cwd: createTempProject(),
+      argv: ['node', 'tool'],
+      errorWriter: (errorOutput) => errors.push(errorOutput),
+    });
+
+    // Assert
+    expect(exitCode).toBe(1);
+    expect(errors[0]).toContain('unknown_error');
+    readdirSpy.mockRestore();
+  });
+
+  it('should return safe cli success code when execution succeeds', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "export const domainService = 'ok';\n",
+    );
+
+    // Act
+    const exitCode = runArchitectureCheckCliSafely({
+      cwd: projectRootPath,
+      argv: ['node', 'tool'],
+      outputWriter: () => undefined,
+    });
+
+    // Assert
+    expect(exitCode).toBe(0);
+  });
+
+  it('should use default error writer and error message when safe cli catches Error', () => {
+    // Arrange
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const readdirSpy = jest.spyOn(fs, 'readdirSync').mockImplementation(() => {
+      throw new Error('forced_error');
+    });
+
+    // Act
+    const exitCode = runArchitectureCheckCliSafely();
+
+    // Assert
+    expect(exitCode).toBe(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Architecture check tool failed: forced_error'),
+    );
+
+    readdirSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 });
