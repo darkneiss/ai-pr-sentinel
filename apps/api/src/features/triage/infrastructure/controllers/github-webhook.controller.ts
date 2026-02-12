@@ -12,8 +12,10 @@ import {
   type WebhookDeliveryGateway,
 } from '../../application/ports/webhook-delivery-gateway.port';
 import { processIssueWebhook } from '../../application/use-cases/process-issue-webhook.use-case';
-import { IssueNumber } from '../../domain/value-objects/issue-number.value-object';
-import { RepositoryFullName } from '../../domain/value-objects/repository-full-name.value-object';
+import {
+  isValidIssueNumber,
+  isValidRepositoryFullName,
+} from '../../domain/services/issue-webhook-identity-policy.service';
 import { createEnvLogger, type Logger } from '../../../../shared/infrastructure/logging/env-logger';
 
 const GITHUB_DELIVERY_HEADER = 'x-github-delivery';
@@ -56,12 +58,10 @@ interface GithubIssueWebhookPayload {
   };
 }
 
-const hasValidRepositoryFullName = (repositoryFullName: string): boolean => {
-  return RepositoryFullName.fromUnknown(repositoryFullName) !== null;
-};
+const hasValidRepositoryFullName = (repositoryFullName: string): boolean =>
+  isValidRepositoryFullName(repositoryFullName);
 
-const hasValidIssueNumber = (issueNumber: number): boolean =>
-  IssueNumber.fromUnknown(issueNumber) !== null;
+const hasValidIssueNumber = (issueNumber: number): boolean => isValidIssueNumber(issueNumber);
 
 const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhookPayload => {
   if (!value || typeof value !== 'object') {

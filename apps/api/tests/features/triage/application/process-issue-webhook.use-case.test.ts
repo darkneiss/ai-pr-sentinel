@@ -201,6 +201,45 @@ describe('ProcessIssueWebhookUseCase', () => {
     expect(analyzeIssueWithAi).not.toHaveBeenCalled();
   });
 
+  it('should skip supported actions when issue identity input is malformed', async () => {
+    // Arrange
+    const governanceGateway = createGatewayMock();
+    const analyzeIssueWithAi = createAiAnalyzerMock();
+    const issueIntegrityValidator: jest.MockedFunction<IssueIntegrityValidator> = jest
+      .fn()
+      .mockReturnValue({
+        isValid: true,
+        errors: [],
+      });
+    const run = processIssueWebhook({
+      governanceGateway,
+      issueIntegrityValidator,
+      analyzeIssueWithAi,
+    });
+
+    // Act
+    const result = await run({
+      action: 'opened',
+      repositoryFullName: 'invalid-repository-name',
+      issue: {
+        number: 3.5,
+        title: 'any',
+        body: 'any',
+        author: 'dev_user',
+        labels: [],
+      },
+    });
+
+    // Assert
+    expect(result).toEqual({ statusCode: 204 });
+    expect(issueIntegrityValidator).not.toHaveBeenCalled();
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+    expect(analyzeIssueWithAi).not.toHaveBeenCalled();
+  });
+
   it('should continue and return 200 when ai analyzer throws unexpectedly', async () => {
     // Arrange
     const governanceGateway = createGatewayMock();
