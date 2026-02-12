@@ -145,6 +145,54 @@ describe('GithubWebhookController integration', () => {
     expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
   });
 
+  it('should return 400 when repository full_name has invalid owner/repo format', async () => {
+    // Arrange
+    const { app, governanceGateway } = setup();
+    const payloadWithInvalidRepository = createPayload({
+      repository: {
+        full_name: 'invalid-repository-name',
+      },
+    });
+
+    // Act
+    const response = await request(app).post(WEBHOOK_ROUTE).send(payloadWithInvalidRepository);
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid GitHub issue webhook payload' });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+  });
+
+  it('should return 400 when issue number is not a positive integer', async () => {
+    // Arrange
+    const { app, governanceGateway } = setup();
+    const payloadWithInvalidIssueNumber = createPayload({
+      issue: {
+        number: 12.5,
+        title: 'Bug in login flow',
+        body: 'The app crashes when the user logs in from Safari in private mode.',
+        user: {
+          login: 'dev_user',
+        },
+        labels: [],
+      },
+    });
+
+    // Act
+    const response = await request(app).post(WEBHOOK_ROUTE).send(payloadWithInvalidIssueNumber);
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid GitHub issue webhook payload' });
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.removeLabel).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+    expect(governanceGateway.logValidatedIssue).not.toHaveBeenCalled();
+  });
+
   it('should accept null issue body from GitHub payloads', async () => {
     // Arrange
     const { app, governanceGateway } = setup();

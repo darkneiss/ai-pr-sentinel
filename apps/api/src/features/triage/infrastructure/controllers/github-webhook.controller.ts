@@ -19,6 +19,9 @@ const DUPLICATE_WEBHOOK_RESPONSE = { status: 'duplicate_ignored' } as const;
 const DELIVERY_REGISTRATION_ROLLBACK_LOG = 'GithubWebhookController rolled back webhook delivery registration.';
 const DELIVERY_REGISTRATION_ROLLBACK_FAILED_LOG =
   'GithubWebhookController failed to roll back webhook delivery registration.';
+const REPOSITORY_FULL_NAME_SEPARATOR = '/';
+const REPOSITORY_FULL_NAME_PARTS_COUNT = 2;
+const ISSUE_NUMBER_MIN_VALUE = 1;
 
 interface Dependencies {
   governanceGateway: GovernanceGateway;
@@ -51,6 +54,19 @@ interface GithubIssueWebhookPayload {
   };
 }
 
+const hasValidRepositoryFullName = (repositoryFullName: string): boolean => {
+  const normalizedRepositoryFullName = repositoryFullName.trim();
+  const repositoryParts = normalizedRepositoryFullName.split(REPOSITORY_FULL_NAME_SEPARATOR);
+  const [owner, repo] = repositoryParts;
+  const hasInvalidRepositoryFullName =
+    repositoryParts.length !== REPOSITORY_FULL_NAME_PARTS_COUNT || !owner || !repo;
+
+  return !hasInvalidRepositoryFullName;
+};
+
+const hasValidIssueNumber = (issueNumber: number): boolean =>
+  Number.isInteger(issueNumber) && issueNumber >= ISSUE_NUMBER_MIN_VALUE;
+
 const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhookPayload => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -66,6 +82,7 @@ const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhoo
     typeof payload.action === 'string' &&
     !!issue &&
     typeof issue.number === 'number' &&
+    hasValidIssueNumber(issue.number) &&
     typeof issue.title === 'string' &&
     (typeof issue.body === 'string' || issue.body === null) &&
     !!user &&
@@ -78,7 +95,8 @@ const isGithubIssueWebhookPayload = (value: unknown): value is GithubIssueWebhoo
         typeof (label as Record<string, unknown>).name === 'string',
     ) &&
     !!repository &&
-    typeof repository.full_name === 'string'
+    typeof repository.full_name === 'string' &&
+    hasValidRepositoryFullName(repository.full_name)
   );
 };
 
