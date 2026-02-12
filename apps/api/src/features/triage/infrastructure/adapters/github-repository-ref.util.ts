@@ -1,5 +1,4 @@
-const REPOSITORY_SEPARATOR = '/';
-const REPOSITORY_PARTS_COUNT = 2;
+import { RepositoryFullName } from '../../domain/value-objects/repository-full-name.value-object';
 
 export interface RepositoryRef {
   owner: string;
@@ -7,14 +6,9 @@ export interface RepositoryRef {
 }
 
 export const parseRepositoryRef = (repositoryFullName: string): RepositoryRef => {
-  const repositoryParts = repositoryFullName.split(REPOSITORY_SEPARATOR);
-  const [owner, repo] = repositoryParts;
-  const isInvalidRepository =
-    repositoryParts.length !== REPOSITORY_PARTS_COUNT || !owner || !repo;
-
-  if (isInvalidRepository) {
-    throw new Error(`Invalid repository full name: "${repositoryFullName}"`);
-  }
+  const parsedRepositoryFullName = RepositoryFullName.create(repositoryFullName);
+  const owner = parsedRepositoryFullName.owner;
+  const repo = parsedRepositoryFullName.repo;
 
   return { owner, repo };
 };

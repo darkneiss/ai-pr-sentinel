@@ -1,6 +1,10 @@
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import type { IssueHistoryGateway, RecentIssueSummary } from '../ports/issue-history-gateway.port';
-import type { AiAnalysis, AiTone } from './ai-analysis-normalizer.service';
+import {
+  decideIssueLabelAddExecution,
+  decideIssueLabelRemoveExecution,
+} from '../../domain/services/issue-label-transition-policy.service';
+import type { AiAnalysis, AiTone } from '../../domain/services/issue-ai-analysis-normalizer.service';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
 
 interface Logger {
@@ -70,11 +74,13 @@ export const createAiTriageGovernanceActionsExecutionContext = (
   };
 
   const addLabelIfMissing = async (label: string): Promise<boolean> => {
-    if (issueLabels.has(label)) {
+    const addExecutionDecision = decideIssueLabelAddExecution({ existingLabels: issueLabels, label });
+    if (!addExecutionDecision.shouldApply) {
       input.logger?.debug?.('AnalyzeIssueWithAiUseCase label already present. Skipping add.', {
         repositoryFullName: input.repositoryFullName,
         issueNumber: input.issue.number,
         label,
+        skipReason: addExecutionDecision.skipReason,
       });
       return false;
     }
@@ -95,6 +101,17 @@ export const createAiTriageGovernanceActionsExecutionContext = (
   };
 
   const removeLabelIfPresent = async (label: string): Promise<void> => {
+    const removeExecutionDecision = decideIssueLabelRemoveExecution({ existingLabels: issueLabels, label });
+    if (!removeExecutionDecision.shouldApply) {
+      input.logger?.debug?.('AnalyzeIssueWithAiUseCase label not present. Skipping remove.', {
+        repositoryFullName: input.repositoryFullName,
+        issueNumber: input.issue.number,
+        label,
+        skipReason: removeExecutionDecision.skipReason,
+      });
+      return;
+    }
+
     await input.governanceGateway.removeLabel({
       repositoryFullName: input.repositoryFullName,
       issueNumber: input.issue.number,

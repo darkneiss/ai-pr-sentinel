@@ -4,12 +4,12 @@ import {
   isObjectRecord,
   normalizeAiIssueKind,
   normalizeAiTone,
-} from './ai-analysis.types';
+} from './issue-ai-analysis.types';
 import {
-  normalizeSuggestedResponse,
-  parseFirstValidDuplicateIssue,
+  parseFirstValidDuplicateIssueReference,
   parseIssueNumberFromReference,
-} from './ai-analysis-reference-parser.service';
+} from './issue-reference-parser-policy.service';
+import { normalizeIssueQuestionSuggestedResponseValue } from './issue-question-response-policy.service';
 
 export const normalizeStructuredAiAnalysis = (
   value: Record<string, unknown>,
@@ -59,12 +59,18 @@ export const normalizeStructuredAiAnalysis = (
     parseIssueNumberFromReference(duplicateDetectionRaw?.duplicateIssueId) ??
     parseIssueNumberFromReference(duplicateDetectionRaw?.similarIssueId) ??
     parseIssueNumberFromReference(duplicateDetectionRaw?.original_issue_number) ??
-    parseFirstValidDuplicateIssue(duplicateDetectionRaw?.duplicate_of, currentIssueNumber) ??
+    parseFirstValidDuplicateIssueReference({
+      duplicateOf: duplicateDetectionRaw?.duplicate_of,
+      currentIssueNumber,
+    }) ??
     parseIssueNumberFromReference(value.originalIssueNumber) ??
     parseIssueNumberFromReference(value.duplicateIssueId) ??
     parseIssueNumberFromReference(value.similarIssueId) ??
     parseIssueNumberFromReference(value.original_issue_number) ??
-    parseFirstValidDuplicateIssue(value.duplicate_of, currentIssueNumber);
+    parseFirstValidDuplicateIssueReference({
+      duplicateOf: value.duplicate_of,
+      currentIssueNumber,
+    });
   const hasExplicitOriginalIssueReference =
     duplicateDetectionRaw?.originalIssueNumber !== undefined ||
     duplicateDetectionRaw?.duplicateIssueId !== undefined ||
@@ -113,6 +119,7 @@ export const normalizeStructuredAiAnalysis = (
         typeof sentimentRaw.reasoning === 'string' ? sentimentRaw.reasoning : 'Structured-format AI response',
     },
     suggestedResponse:
-      normalizeSuggestedResponse(value.suggestedResponse) ?? normalizeSuggestedResponse(value.suggested_response),
+      normalizeIssueQuestionSuggestedResponseValue(value.suggestedResponse) ??
+      normalizeIssueQuestionSuggestedResponseValue(value.suggested_response),
   };
 };

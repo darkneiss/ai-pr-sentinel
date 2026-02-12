@@ -4,14 +4,11 @@ import {
   TRIAGE_NEEDS_INFO_LABEL,
 } from '../constants/governance-labels.constants';
 import type { AnalyzeIssueWithAiInput, AnalyzeIssueWithAiResult } from './analyze-issue-with-ai.use-case';
-import {
-  validateIssueIntegrity,
-  type IssueIntegrityValidator,
-} from '../../domain/services/issue-validation.service';
-
-const SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
-
-type SupportedAction = (typeof SUPPORTED_ACTIONS)[number];
+import { type IssueIntegrityValidator } from '../../domain/services/issue-validation.service';
+import { IssueEntity } from '../../domain/entities/issue.entity';
+import { buildIssueIdentity } from '../../domain/services/issue-identity-policy.service';
+import { buildIssueWebhookGovernancePlan } from '../../domain/services/issue-webhook-governance-plan.service';
+import { isIssueWebhookActionSupported } from '../../domain/services/issue-webhook-action-policy.service';
 
 export interface ProcessIssueWebhookInput {
   action: string;
@@ -41,67 +38,80 @@ interface Dependencies {
   };
 }
 
-const isSupportedAction = (action: string): action is SupportedAction =>
-  SUPPORTED_ACTIONS.includes(action as SupportedAction);
-
-const buildValidationComment = (errors: string[]): string => {
-  const lines = errors.map((error) => `- ${error}`);
-  return ['Issue validation failed. Please fix the following items:', ...lines].join('\n');
-};
+const WEBHOOK_NO_CONTENT_STATUS_CODE = 204 as const;
 
 export const processIssueWebhook =
   ({
     governanceGateway,
-    issueIntegrityValidator = validateIssueIntegrity,
+    issueIntegrityValidator,
     analyzeIssueWithAi,
     logger = console,
   }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
-    if (!isSupportedAction(input.action)) {
-      return { statusCode: 204 };
+    if (!isIssueWebhookActionSupported(input.action)) {
+      return { statusCode: WEBHOOK_NO_CONTENT_STATUS_CODE };
     }
 
-    const validationResult = issueIntegrityValidator({
-      id: `${input.repositoryFullName}#${input.issue.number}`,
+    const issueForValidation = IssueEntity.create({
+      id: buildIssueIdentity({
+        repositoryFullName: input.repositoryFullName,
+        issueNumber: input.issue.number,
+      }).value,
       title: input.issue.title,
       description: input.issue.body,
       author: input.issue.author,
       createdAt: new Date(),
     });
+    const governancePlan = buildIssueWebhookGovernancePlan({
+      action: input.action,
+      issue: issueForValidation,
+      existingLabels: input.issue.labels,
+      governanceErrorLabels: GOVERNANCE_ERROR_LABELS,
+      needsInfoLabel: TRIAGE_NEEDS_INFO_LABEL,
+      issueIntegrityValidator,
+    });
 
-    if (!validationResult.isValid) {
-      const hasNeedsInfoLabel = input.issue.labels.includes(TRIAGE_NEEDS_INFO_LABEL);
-      if (hasNeedsInfoLabel) {
-        return { statusCode: 200 };
+    if (governancePlan.shouldSkipProcessing) {
+      return { statusCode: governancePlan.statusCode };
+    }
+
+    for (const action of governancePlan.actions) {
+      if (action.type === 'add_label') {
+        await governanceGateway.addLabels({
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          labels: [action.label],
+        });
+        continue;
       }
 
-      await governanceGateway.addLabels({
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-        labels: [TRIAGE_NEEDS_INFO_LABEL],
-      });
-      await governanceGateway.createComment({
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-        body: buildValidationComment(validationResult.errors),
-      });
+      if (action.type === 'remove_label') {
+        await governanceGateway.removeLabel({
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          label: action.label,
+        });
+        continue;
+      }
 
-      return { statusCode: 200 };
+      if (action.type === 'create_comment') {
+        await governanceGateway.createComment({
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          body: action.body,
+        });
+        continue;
+      }
+
+      await governanceGateway.logValidatedIssue({
+        repositoryFullName: input.repositoryFullName,
+        issueNumber: input.issue.number,
+      });
     }
 
-    const labelsToRemove = GOVERNANCE_ERROR_LABELS.filter((label) => input.issue.labels.includes(label));
-    for (const label of labelsToRemove) {
-      await governanceGateway.removeLabel({
-        repositoryFullName: input.repositoryFullName,
-        issueNumber: input.issue.number,
-        label,
-      });
+    if (!governancePlan.shouldRunAiTriage) {
+      return { statusCode: governancePlan.statusCode };
     }
-
-    await governanceGateway.logValidatedIssue({
-      repositoryFullName: input.repositoryFullName,
-      issueNumber: input.issue.number,
-    });
 
     if (analyzeIssueWithAi) {
       try {
@@ -136,5 +146,5 @@ export const processIssueWebhook =
       }
     }
 
-    return { statusCode: 200 };
+    return { statusCode: governancePlan.statusCode };
   };

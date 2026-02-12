@@ -1,65 +1,67 @@
-import { AI_DUPLICATE_SIMILARITY_THRESHOLD, AI_TRIAGE_DUPLICATE_LABEL } from '../constants/ai-triage.constants';
-import { isValidOriginalIssueNumber } from './ai-analysis-normalizer.service';
+import {
+  AI_TRIAGE_DUPLICATE_LABEL,
+} from '../constants/ai-triage.constants';
+import { type IssueAiTriageDuplicatePlan } from '../../domain/services/issue-ai-triage-action-plan.service';
+import {
+  decideIssueDuplicateCommentExecution,
+  decideIssueDuplicateSkippedLogDecision,
+} from '../../domain/services/issue-duplicate-policy.service';
 import type { AiTriageGovernanceActionsExecutionContext } from './ai-triage-governance-actions-context.service';
-import { buildDuplicateComment } from './issue-triage-labels.service';
 
-const resolveFallbackOriginalIssueNumber = (context: AiTriageGovernanceActionsExecutionContext): number | null => {
-  const recentIssue = context.recentIssues.find((issue) => issue.number !== context.issue.number);
-  return recentIssue?.number ?? null;
-};
+const DUPLICATE_ACTION_PLAN_REQUIRED_ERROR = 'Duplicate action plan is required.';
 
 export const applyDuplicateGovernanceActions = async (
   context: AiTriageGovernanceActionsExecutionContext,
+  precomputedPlan: IssueAiTriageDuplicatePlan,
 ): Promise<void> => {
-  if (!context.aiAnalysis.duplicateDetection.isDuplicate) {
-    return;
+  if (!precomputedPlan) {
+    throw new Error(DUPLICATE_ACTION_PLAN_REQUIRED_ERROR);
   }
 
-  const originalIssueNumber = context.aiAnalysis.duplicateDetection.originalIssueNumber;
-  const hasSimilarityScore =
-    context.aiAnalysis.duplicateDetection.similarityScore >= AI_DUPLICATE_SIMILARITY_THRESHOLD;
-  const hasExplicitOriginalIssueReference =
-    context.aiAnalysis.duplicateDetection.hasExplicitOriginalIssueReference === true;
-  const shouldApplyFallbackOriginalIssue = originalIssueNumber === null && hasSimilarityScore;
-  const shouldApplyFallbackWithoutReference = shouldApplyFallbackOriginalIssue && !hasExplicitOriginalIssueReference;
-  const fallbackOriginalIssueNumber = shouldApplyFallbackOriginalIssue
-    ? resolveFallbackOriginalIssueNumber(context)
-    : null;
-  const resolvedOriginalIssueNumber = shouldApplyFallbackWithoutReference
-    ? fallbackOriginalIssueNumber
-    : originalIssueNumber;
-  const hasValidOriginalIssue = isValidOriginalIssueNumber(resolvedOriginalIssueNumber, context.issue.number);
+  const duplicateExecutionDecision = precomputedPlan.execution;
+  if (!duplicateExecutionDecision.shouldApplyDuplicateLabel) {
+    const skippedLogDecision = decideIssueDuplicateSkippedLogDecision({
+      execution: duplicateExecutionDecision,
+    });
+    if (!skippedLogDecision.shouldLogSkippedDuplicate) {
+      return;
+    }
 
-  if (!hasValidOriginalIssue || !hasSimilarityScore) {
+    const duplicateDecision = precomputedPlan.decision;
     context.logger?.info?.('AnalyzeIssueWithAiUseCase duplicate detection skipped.', {
       repositoryFullName: context.repositoryFullName,
       issueNumber: context.issue.number,
-      originalIssueNumber: resolvedOriginalIssueNumber,
+      originalIssueNumber: duplicateDecision.resolvedOriginalIssueNumber,
       similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-      hasValidOriginalIssue,
-      hasSimilarityScore,
-      usedFallbackOriginalIssue: shouldApplyFallbackWithoutReference && resolvedOriginalIssueNumber !== null,
+      hasValidOriginalIssue: duplicateDecision.hasValidOriginalIssue,
+      hasSimilarityScore: duplicateDecision.hasSimilarityScore,
+      usedFallbackOriginalIssue: duplicateDecision.usedFallbackOriginalIssue,
     });
     return;
   }
 
   const wasDuplicateLabelAdded = await context.addLabelIfMissing(AI_TRIAGE_DUPLICATE_LABEL);
+  const duplicateCommentExecutionDecision = decideIssueDuplicateCommentExecution({
+    execution: duplicateExecutionDecision,
+    wasDuplicateLabelAdded,
+  });
 
-  if (!wasDuplicateLabelAdded) {
+  if (!duplicateCommentExecutionDecision.shouldCreateComment || !duplicateCommentExecutionDecision.commentBody) {
     return;
   }
 
   await context.governanceGateway.createComment({
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    body: buildDuplicateComment(resolvedOriginalIssueNumber, context.aiAnalysis.duplicateDetection.similarityScore),
+    body: duplicateCommentExecutionDecision.commentBody,
   });
   context.incrementActionsAppliedCount();
+  const duplicateCommentPublicationPlan = precomputedPlan.commentPublicationPlan;
   context.logger?.debug?.('AnalyzeIssueWithAiUseCase duplicate comment created.', {
     repositoryFullName: context.repositoryFullName,
     issueNumber: context.issue.number,
-    originalIssueNumber: resolvedOriginalIssueNumber,
+    originalIssueNumber: duplicateCommentPublicationPlan?.originalIssueNumber,
     similarityScore: context.aiAnalysis.duplicateDetection.similarityScore,
-    usedFallbackOriginalIssue: shouldApplyFallbackWithoutReference && resolvedOriginalIssueNumber !== null,
+    usedFallbackOriginalIssue: duplicateCommentPublicationPlan?.usedFallbackOriginalIssue === true,
   });
 };

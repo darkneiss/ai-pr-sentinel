@@ -4,7 +4,7 @@ import {
   isAiTone,
   isConfidence,
   isObjectRecord,
-} from './ai-analysis.types';
+} from './issue-ai-analysis.types';
 
 export const isAiAnalysis = (value: unknown): value is AiAnalysis => {
   if (!isObjectRecord(value)) {

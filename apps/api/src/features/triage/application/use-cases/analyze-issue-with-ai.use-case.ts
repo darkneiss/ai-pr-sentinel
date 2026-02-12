@@ -1,7 +1,6 @@
 import {
   AI_MAX_TOKENS,
   AI_RECENT_ISSUES_LIMIT,
-  AI_SUPPORTED_ACTIONS,
   AI_TEMPERATURE,
   AI_TRIAGE_LOG_EVENT_FAILED,
   AI_TRIAGE_LOG_STATUS_FAILED,
@@ -17,8 +16,9 @@ import {
 import type { GovernanceGateway } from '../ports/governance-gateway.port';
 import type { IssueHistoryGateway } from '../ports/issue-history-gateway.port';
 import type { RepositoryContextGateway } from '../ports/repository-context-gateway.port';
-import { parseAiAnalysis } from '../services/ai-analysis-normalizer.service';
 import { applyAiTriageGovernanceActions } from '../services/apply-ai-triage-governance-actions.service';
+import { isIssueAiTriageActionSupported } from '../../domain/services/issue-ai-triage-action-policy.service';
+import { parseAiAnalysis } from '../../domain/services/issue-ai-analysis-normalizer.service';
 import type { LLMGateway } from '../../../../shared/application/ports/llm-gateway.port';
 import type { IssueTriagePromptGateway } from '../../../../shared/application/ports/issue-triage-prompt-gateway.port';
 import type { QuestionResponseMetricsPort } from '../../../../shared/application/ports/question-response-metrics.port';
@@ -28,8 +28,6 @@ import {
   buildIssueTriageUserPrompt,
   ISSUE_TRIAGE_SYSTEM_PROMPT,
 } from '../../../../shared/application/prompts/issue-triage.prompt';
-
-type AiSupportedAction = (typeof AI_SUPPORTED_ACTIONS)[number];
 
 export interface AnalyzeIssueWithAiInput {
   action: string;
@@ -64,9 +62,6 @@ interface Dependencies {
   config?: ConfigPort;
   logger?: Logger;
 }
-
-const isSupportedAction = (action: string): action is AiSupportedAction =>
-  AI_SUPPORTED_ACTIONS.includes(action as AiSupportedAction);
 
 const resolveAiProvider = (config?: ConfigPort): string =>
   (config?.get(LLM_PROVIDER_ENV_VAR) ?? DEFAULT_LLM_PROVIDER).toLowerCase();
@@ -130,7 +125,7 @@ export const analyzeIssueWithAi =
     logger = console,
   }: Dependencies) =>
   async (input: AnalyzeIssueWithAiInput): Promise<AnalyzeIssueWithAiResult> => {
-    if (!isSupportedAction(input.action)) {
+    if (!isIssueAiTriageActionSupported(input.action)) {
       return { status: 'skipped', reason: 'unsupported_action' };
     }
 

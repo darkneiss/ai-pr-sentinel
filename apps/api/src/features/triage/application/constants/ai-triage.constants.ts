@@ -47,8 +47,6 @@ export const resolveAiTimeoutMs = (config?: ConfigPort): number => {
   }
 };
 
-export const AI_SUPPORTED_ACTIONS = ['opened', 'edited'] as const;
-
 export const AI_TRIAGE_DUPLICATE_LABEL = 'triage/duplicate';
 export const AI_TRIAGE_MONITOR_LABEL = 'triage/monitor';
 export const AI_KIND_BUG_LABEL = 'kind/bug';

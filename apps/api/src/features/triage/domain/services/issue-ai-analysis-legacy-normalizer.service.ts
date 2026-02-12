@@ -4,11 +4,11 @@ import {
   isObjectRecord,
   normalizeAiIssueKind,
   normalizeAiTone,
-} from './ai-analysis.types';
+} from './issue-ai-analysis.types';
 import {
-  parseFirstValidDuplicateIssue,
+  parseFirstValidDuplicateIssueReference,
   parseIssueNumberFromReference,
-} from './ai-analysis-reference-parser.service';
+} from './issue-reference-parser-policy.service';
 
 export const normalizeLegacyAiAnalysis = (
   value: Record<string, unknown>,
@@ -22,10 +22,10 @@ export const normalizeLegacyAiAnalysis = (
   const explicitLegacyOriginalIssue =
     parseIssueNumberFromReference(duplicateDetectionRaw?.original_issue_number) ??
     parseIssueNumberFromReference(duplicateDetectionRaw?.originalIssueNumber);
-  const legacyDuplicateIssueNumber = parseFirstValidDuplicateIssue(
-    explicitLegacyOriginalIssue ?? duplicateDetectionRaw?.duplicate_of,
+  const legacyDuplicateIssueNumber = parseFirstValidDuplicateIssueReference({
+    duplicateOf: explicitLegacyOriginalIssue ?? duplicateDetectionRaw?.duplicate_of,
     currentIssueNumber,
-  );
+  });
   const hasExplicitOriginalIssueReference =
     !!duplicateDetectionRaw &&
     (duplicateDetectionRaw.original_issue_number !== undefined ||

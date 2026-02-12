@@ -70,4 +70,44 @@ describe('InMemoryWebhookDeliveryAdapter', () => {
     // Assert
     expect(result).toEqual({ status: 'accepted' });
   });
+
+  it('should accept same delivery id again after ttl expiration', async () => {
+    // Arrange
+    const adapter = createInMemoryWebhookDeliveryAdapter();
+    const registerInput = createRegisterInput({
+      receivedAt: new Date(0),
+      ttlSeconds: 1,
+    });
+    const dateNowSpy = jest.spyOn(Date, 'now');
+
+    try {
+      dateNowSpy.mockReturnValueOnce(1_000);
+      await adapter.registerIfFirstSeen(registerInput);
+      dateNowSpy.mockReturnValueOnce(2_500);
+
+      // Act
+      const result = await adapter.registerIfFirstSeen(registerInput);
+
+      // Assert
+      expect(result).toEqual({ status: 'accepted' });
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  it('should accept delivery registration when receivedAt date is invalid', async () => {
+    // Arrange
+    const adapter = createInMemoryWebhookDeliveryAdapter();
+
+    // Act
+    const result = await adapter.registerIfFirstSeen(
+      createRegisterInput({
+        deliveryId: 'delivery-invalid-date',
+        receivedAt: new Date(Number.NaN),
+      }),
+    );
+
+    // Assert
+    expect(result).toEqual({ status: 'accepted' });
+  });
 });

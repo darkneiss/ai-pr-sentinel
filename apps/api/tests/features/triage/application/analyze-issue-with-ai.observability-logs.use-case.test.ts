@@ -12,6 +12,7 @@ import {
   AI_TRIAGE_LOG_STATUS_COMPLETED,
   AI_TRIAGE_LOG_STATUS_FAILED,
   AI_TRIAGE_LOG_STATUS_STARTED,
+  AI_TRIAGE_LOG_STEP_CLASSIFICATION,
   AI_TRIAGE_LOG_STEPS,
   type AiTriageLogStep,
   LLM_MODEL_ENV_VAR,
@@ -198,5 +199,57 @@ describe('AnalyzeIssueWithAiUseCase (Observability Logs)', () => {
         }),
       );
     });
+  });
+
+  it('should include error context in failed logs when governance actions fail', async () => {
+    // Arrange
+    const llmGateway = createLlmGatewayMock();
+    const issueHistoryGateway = createIssueHistoryGatewayMock();
+    const governanceGateway = createGovernanceGatewayMock();
+    governanceGateway.addLabels.mockRejectedValueOnce(new Error('github api error'));
+    const logger = createLogger();
+    const config = {
+      get: (key: string) => {
+        if (key === LLM_PROVIDER_ENV_VAR) {
+          return 'groq';
+        }
+        if (key === LLM_MODEL_ENV_VAR) {
+          return 'openai/gpt-oss-20b';
+        }
+        return undefined;
+      },
+      getBoolean: () => undefined,
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+      config,
+    });
+    const input = createInput({
+      issue: {
+        ...createInput().issue,
+        labels: [],
+      },
+    });
+
+    // Act
+    const result = await run(input);
+
+    // Assert
+    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
+    const failedEvents = logger.debug.mock.calls.filter(([message]) => message === AI_TRIAGE_LOG_EVENT_FAILED);
+    const classificationFailedContext = failedEvents.find(
+      ([, context]) => (context as { step?: string }).step === AI_TRIAGE_LOG_STEP_CLASSIFICATION,
+    )?.[1] as Record<string, unknown> | undefined;
+
+    expect(classificationFailedContext).toEqual(
+      expect.objectContaining({
+        step: AI_TRIAGE_LOG_STEP_CLASSIFICATION,
+        status: AI_TRIAGE_LOG_STATUS_FAILED,
+        error: expect.any(Error),
+      }),
+    );
   });
 });
