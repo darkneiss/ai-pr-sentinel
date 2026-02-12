@@ -8,6 +8,7 @@ import { type IssueIntegrityValidator } from '../../domain/services/issue-valida
 import { IssueEntity } from '../../domain/entities/issue.entity';
 import { buildIssueIdentity } from '../../domain/services/issue-identity-policy.service';
 import { buildIssueWebhookGovernancePlan } from '../../domain/services/issue-webhook-governance-plan.service';
+import { isIssueWebhookActionSupported } from '../../domain/services/issue-webhook-action-policy.service';
 
 export interface ProcessIssueWebhookInput {
   action: string;
@@ -37,6 +38,8 @@ interface Dependencies {
   };
 }
 
+const WEBHOOK_NO_CONTENT_STATUS_CODE = 204 as const;
+
 export const processIssueWebhook =
   ({
     governanceGateway,
@@ -45,6 +48,10 @@ export const processIssueWebhook =
     logger = console,
   }: Dependencies) =>
   async (input: ProcessIssueWebhookInput): Promise<ProcessIssueWebhookResult> => {
+    if (!isIssueWebhookActionSupported(input.action)) {
+      return { statusCode: WEBHOOK_NO_CONTENT_STATUS_CODE };
+    }
+
     const issueForValidation = IssueEntity.create({
       id: buildIssueIdentity({
         repositoryFullName: input.repositoryFullName,
