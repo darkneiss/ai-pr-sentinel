@@ -1,5 +1,6 @@
 import {
   buildIssueDuplicateComment,
+  decideIssueDuplicateSkippedLogDecision,
   decideIssueDuplicateCommentExecution,
   decideIssueDuplicateGovernanceExecution,
   decideIssueDuplicateActions,
@@ -422,6 +423,46 @@ describe('IssueDuplicatePolicyService', () => {
       shouldCreateComment: true,
       commentBody: 'Possible duplicate of #10 (Similarity: 90%).',
       skipReason: null,
+    });
+  });
+
+  it('should emit skipped duplicate log when execution skip reason is decision_not_actionable', () => {
+    // Arrange
+    const input = {
+      execution: {
+        shouldApplyDuplicateLabel: false as const,
+        commentBody: null,
+        skipReason: 'decision_not_actionable' as const,
+      },
+    };
+
+    // Act
+    const result = decideIssueDuplicateSkippedLogDecision(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldLogSkippedDuplicate: true,
+      skipReason: null,
+    });
+  });
+
+  it('should skip skipped-duplicate log when execution skip reason is not loggable', () => {
+    // Arrange
+    const input = {
+      execution: {
+        shouldApplyDuplicateLabel: false as const,
+        commentBody: null,
+        skipReason: 'signal_not_marked_duplicate' as const,
+      },
+    };
+
+    // Act
+    const result = decideIssueDuplicateSkippedLogDecision(input);
+
+    // Assert
+    expect(result).toEqual({
+      shouldLogSkippedDuplicate: false,
+      skipReason: 'skip_reason_not_loggable',
     });
   });
 });

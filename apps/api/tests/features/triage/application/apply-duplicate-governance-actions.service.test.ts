@@ -243,4 +243,69 @@ describe('applyDuplicateGovernanceActions', () => {
     expect(context.governanceGateway.createComment).not.toHaveBeenCalled();
     expect(context.incrementActionsAppliedCount).not.toHaveBeenCalled();
   });
+
+  it('should log skipped duplicate detection when execution skip reason is decision_not_actionable', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: IssueAiTriageDuplicatePlan = {
+      shouldProcessSignal: true,
+      decision: {
+        shouldApplyDuplicateActions: false,
+        resolvedOriginalIssueNumber: 10,
+        hasSimilarityScore: true,
+        hasValidOriginalIssue: true,
+        usedFallbackOriginalIssue: false,
+      },
+      commentPublicationPlan: null,
+      execution: {
+        shouldApplyDuplicateLabel: false,
+        commentBody: null,
+        skipReason: 'decision_not_actionable',
+      },
+    };
+
+    // Act
+    await applyDuplicateGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.logger?.info).toHaveBeenCalledWith(
+      'AnalyzeIssueWithAiUseCase duplicate detection skipped.',
+      {
+        repositoryFullName: 'org/repo',
+        issueNumber: 42,
+        originalIssueNumber: 10,
+        similarityScore: 0.95,
+        hasValidOriginalIssue: true,
+        hasSimilarityScore: true,
+        usedFallbackOriginalIssue: false,
+      },
+    );
+  });
+
+  it('should not log skipped duplicate detection when execution skip reason is not loggable', async () => {
+    // Arrange
+    const context = createExecutionContext();
+    const plan: IssueAiTriageDuplicatePlan = {
+      shouldProcessSignal: false,
+      decision: {
+        shouldApplyDuplicateActions: false,
+        resolvedOriginalIssueNumber: null,
+        hasSimilarityScore: false,
+        hasValidOriginalIssue: false,
+        usedFallbackOriginalIssue: false,
+      },
+      commentPublicationPlan: null,
+      execution: {
+        shouldApplyDuplicateLabel: false,
+        commentBody: null,
+        skipReason: 'signal_not_marked_duplicate',
+      },
+    };
+
+    // Act
+    await applyDuplicateGovernanceActions(context, plan);
+
+    // Assert
+    expect(context.logger?.info).not.toHaveBeenCalled();
+  });
 });

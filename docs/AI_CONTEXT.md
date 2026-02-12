@@ -95,6 +95,8 @@
     (`duplicate.execution`) and consumed directly by `apply-duplicate-governance-actions`.
   - Final duplicate-comment publication gate (execution actionable + newly added duplicate label)
     is now centralized in domain via `decideIssueDuplicateCommentExecution`.
+  - Duplicate skipped-info log emission is now centralized in domain via
+    `decideIssueDuplicateSkippedLogDecision` (only emits for actionable/loggable skip reasons).
   - Tone monitor actions are now represented as domain-planned label operations
     (`tone.labelsToAdd`) consumed directly by application orchestration.
 

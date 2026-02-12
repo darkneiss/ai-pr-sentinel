@@ -87,6 +87,20 @@ export type IssueDuplicateCommentExecutionDecision =
       skipReason: null;
     };
 
+export interface DecideIssueDuplicateSkippedLogDecisionInput {
+  execution: IssueDuplicateGovernanceExecutionDecision;
+}
+
+export type IssueDuplicateSkippedLogDecision =
+  | {
+      shouldLogSkippedDuplicate: true;
+      skipReason: null;
+    }
+  | {
+      shouldLogSkippedDuplicate: false;
+      skipReason: 'skip_reason_not_loggable';
+    };
+
 const SIMILARITY_PERCENT_MULTIPLIER = 100;
 
 export const resolveFallbackDuplicateIssueNumber = ({
@@ -212,5 +226,21 @@ export const decideIssueDuplicateCommentExecution = ({
     shouldCreateComment: true,
     commentBody: execution.commentBody,
     skipReason: null,
+  };
+};
+
+export const decideIssueDuplicateSkippedLogDecision = ({
+  execution,
+}: DecideIssueDuplicateSkippedLogDecisionInput): IssueDuplicateSkippedLogDecision => {
+  if (!execution.shouldApplyDuplicateLabel && execution.skipReason === 'decision_not_actionable') {
+    return {
+      shouldLogSkippedDuplicate: true,
+      skipReason: null,
+    };
+  }
+
+  return {
+    shouldLogSkippedDuplicate: false,
+    skipReason: 'skip_reason_not_loggable',
   };
 };
