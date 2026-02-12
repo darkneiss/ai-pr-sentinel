@@ -55,6 +55,30 @@ describe('IssueKindLabelPolicyService', () => {
     });
   });
 
+  it('should not add target kind label when it is already present', () => {
+    // Arrange
+    const existingLabels = ['kind/question'];
+
+    // Act
+    const result = decideIssueKindLabelActions({
+      targetKindLabel: 'kind/question',
+      classificationConfidence: 0.95,
+      classificationConfidenceThreshold: 0.8,
+      sentimentTone: 'neutral',
+      sentimentConfidence: 0.5,
+      sentimentConfidenceThreshold: 0.8,
+      existingLabels,
+      kindLabels: [...AI_KIND_LABELS],
+    });
+
+    // Assert
+    expect(result).toEqual({
+      labelsToAdd: [],
+      labelsToRemove: [],
+      wasSuppressedByHostileTone: false,
+    });
+  });
+
   it('should not change kind labels when classification confidence is below threshold', () => {
     // Arrange
     const existingLabels = ['kind/bug'];

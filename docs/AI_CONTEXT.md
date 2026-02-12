@@ -85,6 +85,8 @@
   - Label transition execution decisions (`add`/`remove`) are now centralized in domain
     (`decideIssueLabelAddExecution`, `decideIssueLabelRemoveExecution`) and consumed by the
     AI triage application context, including explicit skip reasons in logs.
+  - Kind-label planning now avoids producing redundant add operations when the target `kind/*`
+    label is already present (no-op add filtered at domain decision level).
   - Duplicate execution gating (signal/decision/comment-plan readiness) is now centralized in domain
     via `decideIssueDuplicateGovernanceExecution`.
   - Duplicate execution output is now embedded in the domain action plan

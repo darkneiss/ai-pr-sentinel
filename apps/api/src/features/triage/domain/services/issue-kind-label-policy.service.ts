@@ -83,8 +83,10 @@ export const decideIssueKindLabelActions = ({
     };
   }
 
+  const shouldAddTargetKindLabel = !existingLabels.includes(targetKindLabel);
+
   return {
-    labelsToAdd: [targetKindLabel],
+    labelsToAdd: shouldAddTargetKindLabel ? [targetKindLabel] : [],
     labelsToRemove: kindLabels.filter((label) => label !== targetKindLabel && existingLabels.includes(label)),
     wasSuppressedByHostileTone: false,
   };
