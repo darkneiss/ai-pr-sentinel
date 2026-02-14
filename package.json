@@ -1,6 +1,6 @@
 {
   "name": "ai-pr-sentinel",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "license": "AGPL-3.0-or-later",
   "description": "App for AI-enhanced issue triage and PR review",
   "main": "index.js",
