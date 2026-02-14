@@ -1,13 +1,14 @@
 {
   "name": "ai-pr-sentinel",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "license": "AGPL-3.0-or-later",
   "description": "App for AI-enhanced issue triage and PR review",
   "main": "index.js",
   "scripts": {
     "test": "pnpm --filter \"*\" test",
     "lint": "pnpm --filter \"*\" lint",
-    "quality": "pnpm test && pnpm lint"
+    "quality": "pnpm test && pnpm lint",
+    "tunnel:local": "infrastructure/scripts/start-webhook-tunnel.sh"
   },
   "keywords": [
     "github-app",

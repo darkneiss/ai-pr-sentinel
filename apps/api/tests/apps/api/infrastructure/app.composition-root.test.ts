@@ -135,7 +135,7 @@ describe('App (Composition Root)', () => {
     try {
       const response = await request(app).get('/health');
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ status: 'ok', version: '1.0.0' });
+      expect(response.body).toEqual({ status: 'ok', version: '0.0.1' });
     } finally {
       process.env.npm_package_version = currentVersion;
     }
@@ -153,6 +153,26 @@ describe('App (Composition Root)', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ status: 'ok', version: '9.9.9' });
     } finally {
+      process.env.APP_VERSION = currentAppVersion;
+      process.env.npm_package_version = currentNpmVersion;
+    }
+  });
+
+  it('should prioritize API_VERSION over APP_VERSION and npm_package_version', async () => {
+    const currentApiVersion = process.env.API_VERSION;
+    const currentAppVersion = process.env.APP_VERSION;
+    const currentNpmVersion = process.env.npm_package_version;
+    process.env.API_VERSION = '8.8.8';
+    process.env.APP_VERSION = '9.9.9';
+    process.env.npm_package_version = '1.2.3';
+    const app = createApp();
+
+    try {
+      const response = await request(app).get('/health');
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'ok', version: '8.8.8' });
+    } finally {
+      process.env.API_VERSION = currentApiVersion;
       process.env.APP_VERSION = currentAppVersion;
       process.env.npm_package_version = currentNpmVersion;
     }

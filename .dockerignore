@@ -1,0 +1,26 @@
+# Git metadata
+.git
+.github
+
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+coverage
+
+# Environment and local settings
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Editors and OS noise
+.vscode
+.idea
+.DS_Store
+Thumbs.db

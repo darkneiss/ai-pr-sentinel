@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release Please
+    runs-on: ubuntu-latest
+    if: >-
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        (
+          github.event.workflow_run.head_branch == 'main' ||
+          github.event.workflow_run.head_branch == 'master'
+        )
+      }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Step 1 - Analyze commits and manage the Release PR
+        id: release_please
+        uses: googleapis/release-please-action@c2a5a2bd6a758a0937f1ddb1e8950609867ed15c # v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: node
+          package-name: ai-pr-sentinel
+          target-branch: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Step 2 - Report published release metadata
+        if: ${{ steps.release_please.outputs.release_created == 'true' }}
+        run: |
+          echo "A new GitHub Release has been published."
+          echo "tag_name=${{ steps.release_please.outputs.tag_name }}"
+          echo "version=${{ steps.release_please.outputs.version }}"
+          echo "html_url=${{ steps.release_please.outputs.html_url }}"
+
+      - name: Step 2b - Report Release PR update mode
+        if: ${{ steps.release_please.outputs.release_created != 'true' }}
+        run: |
+          echo "No release has been published in this run."
+          echo "Release Please updated or created a Release PR if needed."
+
+      - name: Step 3 - Trigger image publish workflow
+        if: ${{ steps.release_please.outputs.release_created == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.release_please.outputs.tag_name }}
+          VERSION: ${{ steps.release_please.outputs.version }}
+          RELEASE_SHA: ${{ steps.release_please.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${TAG_NAME}" || -z "${VERSION}" || -z "${RELEASE_SHA}" ]]; then
+            echo "Missing release metadata from Release Please outputs." >&2
+            exit 1
+          fi
+
+          payload="$(jq -nc \
+            --arg tag_name "${TAG_NAME}" \
+            --arg version "${VERSION}" \
+            --arg sha "${RELEASE_SHA}" \
+            '{event_type:"publish-image",client_payload:{tag_name:$tag_name,version:$version,sha:$sha}}')"
+
+          dispatch_url="https://api.github.com/repos/${{ github.repository }}/dispatches"
+          max_attempts=5
+          attempt=1
+
+          until curl --fail --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${dispatch_url}" \
+            -d "${payload}"; do
+            if [[ "${attempt}" -ge "${max_attempts}" ]]; then
+              echo "Failed to dispatch publish-image after ${max_attempts} attempts." >&2
+              exit 1
+            fi
+
+            sleep_seconds=$(( attempt * 2 ))
+            echo "Dispatch failed (attempt ${attempt}/${max_attempts}); retrying in ${sleep_seconds}s..."
+            sleep "${sleep_seconds}"
+            attempt=$(( attempt + 1 ))
+          done

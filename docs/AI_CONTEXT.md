@@ -203,6 +203,19 @@
     - `src/tools/architecture/triage-architecture-check.tool.ts`
     - emits JSON coupling/change-surface metrics by layer and fails on boundary violations.
   - CI now includes a dedicated `Architecture` job with explicit failure semantics.
+  - CI now includes a dedicated `Docker Build` job to validate container buildability on PR/push.
+  - CI now includes a dedicated `Workflow Lint` job (`actionlint`) for GitHub Actions validation.
+  - Release automation now runs via `Release Please`:
+    - workflows:
+      - `.github/workflows/release.yml`
+      - `.github/workflows/publish-image.yml`
+    - behavior:
+      - `release.yml` creates/updates Release PR and publishes tag + GitHub Release when merged.
+      - `publish-image.yml` is dispatched only when a release is created (no manual trigger path).
+      - release dispatch uses retry/backoff and passes release metadata from Release Please outputs.
+      - publish workflow validates payload format and release/tag/sha integrity before image publish.
+      - third-party workflow actions are pinned to immutable SHAs.
+    - release Docker publication includes Trivy scan gate and BuildKit SBOM/provenance attestations.
 
 ## 7. Working Rules (Operational)
 - TDD in local is mandatory: RED -> GREEN -> REFACTOR.
@@ -235,5 +248,7 @@
   - Documents webhook anti-corruption mapper, webhook+AI domain workflows, domain ports realignment, and boundary tests.
 - `docs/adr/ADR-008-architecture-quality-gate-and-layer-metrics.md`
   - Documents dedicated architecture CLI checks, CI architecture gate, and layer drift metrics.
+- `docs/adr/ADR-009-release-automation-with-release-please.md`
+  - Documents automated version/changelog/tag/GitHub Release flow using Release Please.
 - `docs/adr/README.md`
   - ADR index.

@@ -3,15 +3,12 @@ import type {
   AnalyzeIssueWithAiResult,
 } from './features/triage/application/ports/issue-ai-triage-runner.port';
 import type { GovernanceGateway } from './features/triage/application/ports/governance-gateway.port';
+import { resolveApiVersion } from './infrastructure/composition/api-version-config.service';
 import { createTriageWebhookComposition } from './infrastructure/composition/triage-webhook-composition.factory';
 import { createHttpApp } from './infrastructure/http/http-app.factory';
 import { createEnvConfig } from './shared/infrastructure/config/env-config.adapter';
 import { createEnvLogger, type Logger } from './shared/infrastructure/logging/env-logger';
 import { createInMemoryQuestionResponseMetrics } from './shared/infrastructure/metrics/in-memory-question-response.metrics';
-
-const DEFAULT_APP_VERSION = '1.0.0';
-const APP_VERSION_ENV_VAR = 'APP_VERSION';
-const NPM_PACKAGE_VERSION_ENV_VAR = 'npm_package_version';
 
 interface CreateAppParams {
   governanceGateway?: GovernanceGateway;
@@ -23,10 +20,7 @@ export const createApp = (params: CreateAppParams = {}) => {
   const logger = params.logger ?? createEnvLogger();
   const config = createEnvConfig();
   const questionResponseMetrics = createInMemoryQuestionResponseMetrics();
-  const appVersion =
-    config.get(APP_VERSION_ENV_VAR) ??
-    config.get(NPM_PACKAGE_VERSION_ENV_VAR) ??
-    DEFAULT_APP_VERSION;
+  const appVersion = resolveApiVersion(config);
   const triageWebhookComposition = createTriageWebhookComposition({
     logger,
     config,
