@@ -2,7 +2,7 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
-    schedule:
+    schedule: &weekly-schedule
       interval: "weekly"
       day: "monday"
       time: "06:00"
@@ -13,11 +13,7 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "UTC"
+    schedule: *weekly-schedule
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
@@ -25,22 +21,15 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/infrastructure/apps/api/docker"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "UTC"
+    schedule: *weekly-schedule
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "docker"
+
   - package-ecosystem: "npm"
     directory: "/apps/api"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "UTC"
+    schedule: *weekly-schedule
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
