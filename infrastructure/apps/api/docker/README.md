@@ -1,6 +1,7 @@
 # API Docker Image
 
 This folder contains the Docker image definition for `apps/api`.
+The runtime API version is resolved automatically from `apps/api/package.json` bundled in the image.
 
 ## Build
 

@@ -69,7 +69,6 @@ You need to expose your local server to GitHub.
 3. Edit `.env` with your values:
    ```ini
    API_PORT=3000
-   API_VERSION=0.0.1
    SCM_PROVIDER=github
    SCM_TOKEN=your_token_from_step_1
    # Local with smee tunnel (recommended): leave secret empty

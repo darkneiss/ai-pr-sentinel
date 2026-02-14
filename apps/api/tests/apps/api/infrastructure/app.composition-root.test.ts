@@ -1,4 +1,7 @@
 import request from 'supertest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import type { GovernanceGateway } from '../../../../src/features/triage/application/ports/governance-gateway.port';
 import { createApp } from '../../../../src/app';
 
@@ -128,7 +131,13 @@ describe('App (Composition Root)', () => {
   });
 
   it('should use default app version when npm_package_version is missing', async () => {
+    const currentApiVersionFile = process.env.API_VERSION_FILE;
+    const currentApiVersion = process.env.API_VERSION;
+    const currentAppVersion = process.env.APP_VERSION;
     const currentVersion = process.env.npm_package_version;
+    delete process.env.API_VERSION_FILE;
+    delete process.env.API_VERSION;
+    delete process.env.APP_VERSION;
     delete process.env.npm_package_version;
     const app = createApp();
 
@@ -137,13 +146,18 @@ describe('App (Composition Root)', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ status: 'ok', version: '0.0.1' });
     } finally {
+      process.env.API_VERSION_FILE = currentApiVersionFile;
+      process.env.API_VERSION = currentApiVersion;
+      process.env.APP_VERSION = currentAppVersion;
       process.env.npm_package_version = currentVersion;
     }
   });
 
-  it('should prioritize APP_VERSION over npm_package_version', async () => {
+  it('should ignore API_VERSION and APP_VERSION to keep npm_package_version as source of truth', async () => {
+    const currentApiVersion = process.env.API_VERSION;
     const currentAppVersion = process.env.APP_VERSION;
     const currentNpmVersion = process.env.npm_package_version;
+    process.env.API_VERSION = '7.7.7';
     process.env.APP_VERSION = '9.9.9';
     process.env.npm_package_version = '1.2.3';
     const app = createApp();
@@ -151,29 +165,31 @@ describe('App (Composition Root)', () => {
     try {
       const response = await request(app).get('/health');
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ status: 'ok', version: '9.9.9' });
+      expect(response.body).toEqual({ status: 'ok', version: '1.2.3' });
     } finally {
+      process.env.API_VERSION = currentApiVersion;
       process.env.APP_VERSION = currentAppVersion;
       process.env.npm_package_version = currentNpmVersion;
     }
   });
 
-  it('should prioritize API_VERSION over APP_VERSION and npm_package_version', async () => {
-    const currentApiVersion = process.env.API_VERSION;
-    const currentAppVersion = process.env.APP_VERSION;
+  it('should prioritize API_VERSION_FILE over npm_package_version', async () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), 'app-version-file-'));
+    const packageJsonPath = join(tempDirectory, 'package.json');
+    writeFileSync(packageJsonPath, JSON.stringify({ version: '2.4.6' }), 'utf8');
+
+    const currentApiVersionFile = process.env.API_VERSION_FILE;
     const currentNpmVersion = process.env.npm_package_version;
-    process.env.API_VERSION = '8.8.8';
-    process.env.APP_VERSION = '9.9.9';
+    process.env.API_VERSION_FILE = packageJsonPath;
     process.env.npm_package_version = '1.2.3';
     const app = createApp();
 
     try {
       const response = await request(app).get('/health');
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ status: 'ok', version: '8.8.8' });
+      expect(response.body).toEqual({ status: 'ok', version: '2.4.6' });
     } finally {
-      process.env.API_VERSION = currentApiVersion;
-      process.env.APP_VERSION = currentAppVersion;
+      process.env.API_VERSION_FILE = currentApiVersionFile;
       process.env.npm_package_version = currentNpmVersion;
     }
   });

@@ -35,6 +35,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PROMPT_REGISTRY_PATH=/app/apps/api/dist/shared/application/prompts/issue-triage
+ENV API_VERSION_FILE=/app/apps/api/package.json
 
 RUN apk add --no-cache curl && addgroup -S appgroup && adduser -S appuser -G appgroup
 

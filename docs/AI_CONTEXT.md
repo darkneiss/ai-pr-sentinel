@@ -212,12 +212,16 @@
     - behavior:
       - `release.yml` creates/updates Release PR and publishes tag + GitHub Release when merged.
       - release baseline is managed by manifest files:
-        - `release-please-config.json` (package strategy + `bootstrap-sha`)
-        - `.release-please-manifest.json` (tracked version starts at `0.0.1`)
+        - `release-please-config.json` (package strategy + `bootstrap-sha`, path `apps/api`)
+        - `.release-please-manifest.json` (tracked API version baseline at `apps/api`)
       - `publish-image.yml` is dispatched only when a release is created (no manual trigger path).
       - release dispatch uses retry/backoff and passes release metadata from Release Please outputs.
       - publish workflow validates payload format and release/tag/sha integrity before image publish.
       - third-party workflow actions are pinned to immutable SHAs.
+  - API runtime version resolution supports manifest-based automation:
+    - `API_VERSION_FILE` (if set) is resolved first by `api-version-config.service`.
+    - Docker runtime sets `API_VERSION_FILE=/app/apps/api/package.json`,
+      keeping startup/health version aligned with API release metadata without manual `.env` updates.
     - release Docker publication includes Trivy scan gate and BuildKit SBOM/provenance attestations.
 
 ## 7. Working Rules (Operational)

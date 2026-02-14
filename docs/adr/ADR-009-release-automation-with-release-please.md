@@ -24,16 +24,16 @@ Adopt **Release Please** via GitHub Actions workflow:
 2. Trigger/order:
    * `release.yml` runs only after `CI` succeeds on `main`/`master` (`workflow_run`).
    * `publish-image.yml` runs only when `release.yml` dispatches it after `release_created=true`.
-3. Release strategy: `node` package at repository root (`package.json`).
+3. Release strategy: `node` package at `apps/api` (`apps/api/package.json`).
 4. Behavior:
    * On regular merges, create or update a Release PR with version/changelog changes.
-   * When Release PR is merged, publish tag (`vX.Y.Z`) and GitHub Release automatically.
+   * When Release PR is merged, publish tag and GitHub Release automatically (tag format from Release Please outputs).
 5. Release workflow dispatches publish workflow with release metadata (`tag_name`, `version`, `sha`).
 6. Publish workflow builds container image once by digest, scans that exact digest with Trivy,
    and only then promotes it to release tags (`vX.Y.Z`, `X.Y.Z`, `latest`) without rebuilding.
 7. Release Please uses manifest configuration files:
    * `release-please-config.json` for package strategy and `bootstrap-sha`.
-   * `.release-please-manifest.json` for tracked baseline version (`0.0.1`).
+   * `.release-please-manifest.json` for tracked API baseline version at path `apps/api` (`0.0.1`).
 8. Security hardening in workflows:
    * Third-party GitHub Actions are pinned to immutable commit SHAs.
    * `publish-image.yml` accepts only `repository_dispatch` (no manual trigger path).

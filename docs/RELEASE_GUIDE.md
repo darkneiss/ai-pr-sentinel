@@ -27,10 +27,14 @@ There is no extra pre-1.0 guardrail configured in Release Please.
 Release Please is configured in manifest mode with:
 
 1. `release-please-config.json`
-   * package path `.` with `release-type: node`
+   * package path `apps/api` with `release-type: node`
    * `bootstrap-sha` to avoid re-processing historical commits before release automation adoption
 2. `.release-please-manifest.json`
-   * initial tracked version set to `0.0.1`
+   * tracked API version baseline (path `apps/api`) set to `0.0.1`
+
+Single source of truth for API version:
+1. `apps/api/package.json` version is bumped by Release Please.
+2. Runtime reads that version via `API_VERSION_FILE` in Docker (`/app/apps/api/package.json`).
 
 ## How the release workflow runs
 
