@@ -6,6 +6,8 @@ This project uses **Release Please** and publishes Docker images to **GHCR** usi
 
 1. `.github/workflows/release.yml`
 2. `.github/workflows/publish-image.yml`
+3. `release-please-config.json`
+4. `.release-please-manifest.json`
 
 ## Versioning behavior
 
@@ -19,6 +21,16 @@ Release Please follows Conventional Commits and SemVer:
    * `fix:`/`deps:` style releasable changes and no `feat:`/breaking change.
 
 There is no extra pre-1.0 guardrail configured in Release Please.
+
+## Baseline configuration
+
+Release Please is configured in manifest mode with:
+
+1. `release-please-config.json`
+   * package path `.` with `release-type: node`
+   * `bootstrap-sha` to avoid re-processing historical commits before release automation adoption
+2. `.release-please-manifest.json`
+   * initial tracked version set to `0.0.1`
 
 ## How the release workflow runs
 
