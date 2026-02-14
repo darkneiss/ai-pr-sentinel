@@ -30,4 +30,17 @@ describe('WebhookSignatureConfigService (SCM env)', () => {
       'Missing SCM_WEBHOOK_SECRET while SCM_WEBHOOK_VERIFY_SIGNATURE=true',
     );
   });
+
+  it('should fail fast when legacy signature secret env var is set without SCM equivalent', () => {
+    // Arrange
+    const config = createConfigMock({
+      GITHUB_WEBHOOK_SECRET: 'legacy-secret',
+      SCM_WEBHOOK_SECRET: undefined,
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookSignatureConfig(config)).toThrow(
+      'Legacy env var GITHUB_WEBHOOK_SECRET is no longer supported. Use SCM_WEBHOOK_SECRET.',
+    );
+  });
 });

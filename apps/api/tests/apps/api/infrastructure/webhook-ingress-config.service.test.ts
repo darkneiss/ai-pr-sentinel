@@ -102,4 +102,17 @@ describe('WebhookIngressConfigService', () => {
     expect(scientificNotationResult.deliveryTtlSeconds).toBe(86400);
     expect(unitSuffixResult.deliveryTtlSeconds).toBe(86400);
   });
+
+  it('should fail fast when legacy ingress env var is set without SCM equivalent', () => {
+    // Arrange
+    const config = createConfigMock({
+      GITHUB_WEBHOOK_ALLOWED_REPOSITORIES: 'org/repo',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: undefined,
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookIngressConfig(config)).toThrow(
+      'Legacy env var GITHUB_WEBHOOK_ALLOWED_REPOSITORIES is no longer supported. Use SCM_WEBHOOK_ALLOWED_REPOSITORIES.',
+    );
+  });
 });
