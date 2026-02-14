@@ -31,7 +31,10 @@ Adopt **Release Please** via GitHub Actions workflow:
 5. Release workflow dispatches publish workflow with release metadata (`tag_name`, `version`, `sha`).
 6. Publish workflow builds container image once by digest, scans that exact digest with Trivy,
    and only then promotes it to release tags (`vX.Y.Z`, `X.Y.Z`, `latest`) without rebuilding.
-7. Security hardening in workflows:
+7. Release Please uses manifest configuration files:
+   * `release-please-config.json` for package strategy and `bootstrap-sha`.
+   * `.release-please-manifest.json` for tracked baseline version (`0.0.1`).
+8. Security hardening in workflows:
    * Third-party GitHub Actions are pinned to immutable commit SHAs.
    * `publish-image.yml` accepts only `repository_dispatch` (no manual trigger path).
    * Dispatch payload is schema-validated (`tag_name`, `version`, `sha`) before publish.
