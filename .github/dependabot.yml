@@ -10,6 +10,35 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ci"
+
+  - package-ecosystem: "docker"
+    directory: "/infrastructure/apps/api/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "node"
+        update-types:
+          - "version-update:semver-major"
+    labels:
+      - "dependencies"
+      - "docker"
+
   - package-ecosystem: "npm"
     directory: "/apps/api"
     schedule:
@@ -18,5 +47,9 @@ updates:
       time: "06:00"
       timezone: "UTC"
     open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
     labels:
       - "dependencies"

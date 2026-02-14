@@ -10,13 +10,7 @@ services:
     ports:
       - "${API_PORT:-3000}:${API_PORT:-3000}"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "const port = process.env.API_PORT ?? '3000'; fetch('http://127.0.0.1:' + port + '/health').then((response)=>{if(!response.ok)process.exit(1);}).catch(()=>process.exit(1));",
-        ]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${API_PORT:-3000}/health"]
       interval: 30s
       timeout: 5s
       retries: 3

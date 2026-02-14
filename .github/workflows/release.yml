@@ -35,11 +35,11 @@ jobs:
     steps:
       - name: Step 1 - Analyze commits and manage the Release PR
         id: release_please
-        uses: googleapis/release-please-action@c2a5a2bd6a758a0937f1ddb1e8950609867ed15c # v4
+        uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release-type: node
-          package-name: ai-pr-sentinel
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
           target-branch: ${{ github.event.workflow_run.head_branch }}
 
       - name: Step 2 - Report published release metadata
