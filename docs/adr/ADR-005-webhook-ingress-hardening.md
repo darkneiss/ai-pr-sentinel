@@ -28,11 +28,14 @@ Implement ingress hardening at controller boundary before use-case execution:
    - Configurable strict mode for missing `X-GitHub-Delivery`.
 
 3. **Composition wiring**
+   - Provider integration registry centralizes webhook route/controller and provider-specific adapters:
+     - `src/infrastructure/composition/scm-provider-integration.registry.ts`
    - New ingress config resolver:
-     - `GITHUB_WEBHOOK_ALLOWED_REPOSITORIES`
-     - `GITHUB_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST`
-     - `GITHUB_WEBHOOK_REQUIRE_DELIVERY_ID`
-     - `GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS`
+     - `SCM_PROVIDER` (defaults to `github`; unsupported values fail fast)
+     - `SCM_WEBHOOK_ALLOWED_REPOSITORIES`
+     - `SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST`
+     - `SCM_WEBHOOK_REQUIRE_DELIVERY_ID`
+     - `SCM_WEBHOOK_DELIVERY_TTL_SECONDS`
 
 ## Consequences
 

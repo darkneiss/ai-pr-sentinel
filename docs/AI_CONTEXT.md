@@ -8,7 +8,7 @@
 - Stack: Node.js (v22), Express, TypeScript, Jest, pnpm workspaces.
 - Architecture: Hexagonal (Domain/Application/Infrastructure) + shared kernel.
 
-## 2. Current Status (2026-02-12)
+## 2. Current Status (2026-02-13)
 
 ### Feature 001: Basic Governance
 - Status: DONE
@@ -78,11 +78,18 @@
   - Delivery registration rollback on downstream processing failures to preserve retryability of the same delivery id.
   - Configurable strict mode for missing delivery id header.
   - In-memory TTL dedup adapter wired by default in composition root.
+  - SCM provider resolution is now validated during composition:
+    - `SCM_PROVIDER` defaults to `github`.
+    - unsupported providers fail fast on startup.
+  - Provider-specific infrastructure wiring is now centralized in a registry:
+    - `src/infrastructure/composition/scm-provider-integration.registry.ts`
+    - route/controller + governance/history/context adapter factories are resolved per provider.
   - Config surface:
-    - `GITHUB_WEBHOOK_ALLOWED_REPOSITORIES`
-    - `GITHUB_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST`
-    - `GITHUB_WEBHOOK_REQUIRE_DELIVERY_ID`
-    - `GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS`
+    - `SCM_PROVIDER`
+    - `SCM_WEBHOOK_ALLOWED_REPOSITORIES`
+    - `SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST`
+    - `SCM_WEBHOOK_REQUIRE_DELIVERY_ID`
+    - `SCM_WEBHOOK_DELIVERY_TTL_SECONDS`
 
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).
