@@ -33,13 +33,15 @@ jobs:
             exit 1
           fi
 
-          if [[ ! "${tag_name}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid tag_name format: ${tag_name}" >&2
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: ${version}" >&2
             exit 1
           fi
 
-          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid version format: ${version}" >&2
+          semver_tag="v${version}"
+
+          if [[ "${tag_name}" != "${semver_tag}" && "${tag_name}" != *-"${semver_tag}" ]]; then
+            echo "tag_name (${tag_name}) must be ${semver_tag} or end with -${semver_tag}." >&2
             exit 1
           fi
 
@@ -49,15 +51,11 @@ jobs:
             exit 1
           fi
 
-          if [[ "${tag_name}" != "v${version}" ]]; then
-            echo "tag_name (${tag_name}) must match version (${version})." >&2
-            exit 1
-          fi
-
           {
             echo "tag_name=${tag_name}"
             echo "version=${version}"
             echo "sha=${normalized_sha}"
+            echo "semver_tag=${semver_tag}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Step 2 - Checkout repository at release commit
@@ -128,7 +126,7 @@ jobs:
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
-            type=raw,value=${{ steps.payload.outputs.tag_name }}
+            type=raw,value=${{ steps.payload.outputs.semver_tag }}
             type=raw,value=${{ steps.payload.outputs.version }}
             type=raw,value=latest
 
@@ -172,7 +170,8 @@ jobs:
       - name: Step 11 - Report published image references
         run: |
           echo "Published image references:"
-          echo "${{ steps.image.outputs.name }}:${{ steps.payload.outputs.tag_name }}"
+          echo "${{ steps.image.outputs.name }}:${{ steps.payload.outputs.semver_tag }}"
           echo "${{ steps.image.outputs.name }}:${{ steps.payload.outputs.version }}"
           echo "${{ steps.image.outputs.name }}:latest"
+          echo "release_tag=${{ steps.payload.outputs.tag_name }}"
           echo "digest=${{ steps.build.outputs.digest }}"
