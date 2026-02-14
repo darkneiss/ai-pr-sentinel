@@ -36,7 +36,7 @@ graph TD
 
     MAP --> PWH
     PWH -.port.-> GOVP[GovernanceGateway]
-    PWH -.port.-> AIRP[IssueAiTriageRunner (optional)]
+    PWH -.port.-> AIRP["IssueAiTriageRunner (optional)"]
 
     AIRP --> LAZYAI[lazy-ai-triage-runner.factory]
     LAZYAI --> AIA[analyzeIssueWithAi\nApplication Use Case]
@@ -128,7 +128,7 @@ See the setup guide for provider-specific `LLM_BASE_URL` rules:
 - [Setup Guide](./docs/SETUP_GUIDE.md)
 
 ## 🧪 Quality Assurance
-This project follows strict TDD (Test Driven Development) protocols.
+This project follows TDD (Test Driven Development) protocols.
 
 - Unit Tests: For Domain Logic (Fast, isolated).
 
