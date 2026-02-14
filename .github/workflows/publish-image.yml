@@ -1,0 +1,178 @@
+name: Publish Image
+
+on:
+  repository_dispatch:
+    types:
+      - publish-image
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-image-${{ github.event.client_payload.tag_name || format('run-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, Scan and Publish Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Step 1 - Resolve and validate publish payload
+        id: payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_name="${{ github.event.client_payload.tag_name }}"
+          version="${{ github.event.client_payload.version }}"
+          sha="${{ github.event.client_payload.sha }}"
+
+          if [[ -z "${tag_name}" || -z "${version}" || -z "${sha}" ]]; then
+            echo "tag_name, version and sha are required." >&2
+            exit 1
+          fi
+
+          if [[ ! "${tag_name}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag_name format: ${tag_name}" >&2
+            exit 1
+          fi
+
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: ${version}" >&2
+            exit 1
+          fi
+
+          normalized_sha="${sha,,}"
+          if [[ ! "${normalized_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid sha format: ${sha}" >&2
+            exit 1
+          fi
+
+          if [[ "${tag_name}" != "v${version}" ]]; then
+            echo "tag_name (${tag_name}) must match version (${version})." >&2
+            exit 1
+          fi
+
+          {
+            echo "tag_name=${tag_name}"
+            echo "version=${version}"
+            echo "sha=${normalized_sha}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Step 2 - Checkout repository at release commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ steps.payload.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Step 3 - Verify release and tag integrity
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.payload.outputs.tag_name }}
+          RELEASE_SHA: ${{ steps.payload.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}"
+          release_json="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${release_api_url}")"
+
+          release_tag="$(jq -r '.tag_name // empty' <<< "${release_json}")"
+          release_draft="$(jq -r '.draft // false' <<< "${release_json}")"
+          if [[ "${release_tag}" != "${TAG_NAME}" ]]; then
+            echo "Release tag mismatch: expected ${TAG_NAME}, got ${release_tag}" >&2
+            exit 1
+          fi
+
+          if [[ "${release_draft}" == "true" ]]; then
+            echo "Release ${TAG_NAME} is still a draft." >&2
+            exit 1
+          fi
+
+          git fetch --no-tags --depth=1 origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          tag_commit="$(git rev-list -n 1 "${TAG_NAME}")"
+          checkout_commit="$(git rev-parse HEAD)"
+
+          if [[ "${tag_commit}" != "${RELEASE_SHA}" ]]; then
+            echo "Tag ${TAG_NAME} points to ${tag_commit}, expected ${RELEASE_SHA}" >&2
+            exit 1
+          fi
+
+          if [[ "${checkout_commit}" != "${RELEASE_SHA}" ]]; then
+            echo "Checked out commit ${checkout_commit} does not match release sha ${RELEASE_SHA}" >&2
+            exit 1
+          fi
+
+      - name: Step 4 - Resolve GHCR image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ai-pr-sentinel-api" >> "$GITHUB_OUTPUT"
+
+      - name: Step 5 - Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Step 6 - Login to GHCR
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Step 7 - Generate image tags and labels
+        id: metadata
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7 # v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=${{ steps.payload.outputs.tag_name }}
+            type=raw,value=${{ steps.payload.outputs.version }}
+            type=raw,value=latest
+
+      - name: Step 8 - Build and push image by digest (single build)
+        id: build
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4 # v6
+        with:
+          context: .
+          file: infrastructure/apps/api/docker/Dockerfile
+          labels: ${{ steps.metadata.outputs.labels }}
+          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
+          sbom: 'true'
+          provenance: 'true'
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Step 9 - Scan pushed digest for vulnerabilities (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.28.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          format: table
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: 'true'
+          exit-code: '1'
+
+      - name: Step 10 - Promote scanned digest to release tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_ref="${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}"
+          tag_args=()
+          while IFS= read -r tag; do
+            if [[ -n "${tag}" ]]; then
+              tag_args+=("-t" "${tag}")
+            fi
+          done <<< "${{ steps.metadata.outputs.tags }}"
+
+          docker buildx imagetools create "${tag_args[@]}" "${source_ref}"
+
+      - name: Step 11 - Report published image references
+        run: |
+          echo "Published image references:"
+          echo "${{ steps.image.outputs.name }}:${{ steps.payload.outputs.tag_name }}"
+          echo "${{ steps.image.outputs.name }}:${{ steps.payload.outputs.version }}"
+          echo "${{ steps.image.outputs.name }}:latest"
+          echo "digest=${{ steps.build.outputs.digest }}"
