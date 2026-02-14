@@ -27,22 +27,22 @@ const createValidIssuePayload = () => ({
 });
 
 describe('App (Webhook Signature Defaults)', () => {
-  const originalVerifySignature = process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE;
-  const originalWebhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
+  const originalVerifySignature = process.env.SCM_WEBHOOK_VERIFY_SIGNATURE;
+  const originalWebhookSecret = process.env.SCM_WEBHOOK_SECRET;
   const originalNodeEnv = process.env.NODE_ENV;
 
   afterEach(() => {
-    process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE = originalVerifySignature;
-    process.env.GITHUB_WEBHOOK_SECRET = originalWebhookSecret;
+    process.env.SCM_WEBHOOK_VERIFY_SIGNATURE = originalVerifySignature;
+    process.env.SCM_WEBHOOK_SECRET = originalWebhookSecret;
     process.env.NODE_ENV = originalNodeEnv;
     jest.clearAllMocks();
   });
 
   it('should not enforce signature in development when secret is empty', async () => {
     // Arrange
-    delete process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE;
+    delete process.env.SCM_WEBHOOK_VERIFY_SIGNATURE;
     process.env.NODE_ENV = 'development';
-    delete process.env.GITHUB_WEBHOOK_SECRET;
+    delete process.env.SCM_WEBHOOK_SECRET;
     const app = createApp({ governanceGateway: createGovernanceGatewayMock() });
 
     // Act
@@ -54,9 +54,9 @@ describe('App (Webhook Signature Defaults)', () => {
 
   it('should enforce signature in development when secret is set', async () => {
     // Arrange
-    delete process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE;
+    delete process.env.SCM_WEBHOOK_VERIFY_SIGNATURE;
     process.env.NODE_ENV = 'development';
-    process.env.GITHUB_WEBHOOK_SECRET = 'development-secret';
+    process.env.SCM_WEBHOOK_SECRET = 'development-secret';
     const app = createApp({ governanceGateway: createGovernanceGatewayMock() });
 
     // Act

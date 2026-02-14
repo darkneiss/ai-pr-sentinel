@@ -9,6 +9,7 @@ import { createInMemoryWebhookDeliveryAdapter } from '../../features/triage/infr
 import { createStaticRepositoryAuthorizationAdapter } from '../../features/triage/infrastructure/adapters/static-repository-authorization.adapter';
 import { createLazyAnalyzeIssueWithAi, isAiTriageEnabled } from './lazy-ai-triage-runner.factory';
 import { createLazyGovernanceGateway } from './lazy-governance-gateway.factory';
+import { resolveScmProvider, type ScmProvider } from './scm-provider-config.service';
 import { resolveWebhookIngressConfig } from './webhook-ingress-config.service';
 import { resolveWebhookSignatureConfig } from './webhook-signature-config.service';
 import type { ConfigPort } from '../../shared/application/ports/config.port';
@@ -16,6 +17,7 @@ import type { QuestionResponseMetricsPort } from '../../shared/application/ports
 import type { Logger } from '../../shared/infrastructure/logging/env-logger';
 
 export interface TriageWebhookComposition {
+  scmProvider: ScmProvider;
   governanceGateway: GovernanceGateway;
   analyzeIssueWithAi?: (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
   webhookSecret?: string;
@@ -40,13 +42,17 @@ export const createTriageWebhookComposition = ({
   governanceGateway,
   analyzeIssueWithAi,
 }: CreateTriageWebhookCompositionParams): TriageWebhookComposition => {
+  const scmProvider = resolveScmProvider(config);
   const signatureConfig = resolveWebhookSignatureConfig(config);
   const ingressConfig = resolveWebhookIngressConfig(config);
-  const resolvedGovernanceGateway = governanceGateway ?? createLazyGovernanceGateway();
+  const resolvedGovernanceGateway =
+    governanceGateway ?? createLazyGovernanceGateway({ scmProvider, config });
   const resolvedAnalyzeIssueWithAi =
     analyzeIssueWithAi ??
     (isAiTriageEnabled(config)
-      ? createLazyAnalyzeIssueWithAi(resolvedGovernanceGateway, logger, questionResponseMetrics, config)
+      ? createLazyAnalyzeIssueWithAi(resolvedGovernanceGateway, logger, questionResponseMetrics, config, {
+          scmProvider,
+        })
       : undefined);
   const webhookDeliveryGateway = createInMemoryWebhookDeliveryAdapter();
   const repositoryAuthorizationGateway = createStaticRepositoryAuthorizationAdapter({
@@ -55,6 +61,7 @@ export const createTriageWebhookComposition = ({
   });
 
   return {
+    scmProvider,
     governanceGateway: resolvedGovernanceGateway,
     analyzeIssueWithAi: resolvedAnalyzeIssueWithAi,
     webhookSecret: signatureConfig.verifyWebhookSignature ? signatureConfig.webhookSecret : undefined,

@@ -7,14 +7,15 @@ import type {
 import type { GovernanceGateway } from '../../features/triage/application/ports/governance-gateway.port';
 import type { RepositoryAuthorizationGateway } from '../../features/triage/application/ports/repository-authorization-gateway.port';
 import type { WebhookDeliveryGateway } from '../../features/triage/application/ports/webhook-delivery-gateway.port';
-import { createGithubWebhookController } from '../../features/triage/infrastructure/controllers/github-webhook.controller';
+import type { ScmProvider } from '../composition/scm-provider-config.service';
+import { resolveScmProviderIntegration } from '../composition/scm-provider-integration.registry';
 import type { Logger } from '../../shared/infrastructure/logging/env-logger';
 
 const HEALTH_ROUTE = '/health';
-const GITHUB_WEBHOOK_ROUTE = '/webhooks/github';
 
 interface CreateHttpAppParams {
   appVersion: string;
+  scmProvider: ScmProvider;
   governanceGateway: GovernanceGateway;
   analyzeIssueWithAi?: (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
   logger: Logger;
@@ -27,6 +28,7 @@ interface CreateHttpAppParams {
 
 export const createHttpApp = ({
   appVersion,
+  scmProvider,
   governanceGateway,
   analyzeIssueWithAi,
   logger,
@@ -37,6 +39,7 @@ export const createHttpApp = ({
   repositoryAuthorizationGateway,
 }: CreateHttpAppParams): Express => {
   const app = express();
+  const scmProviderIntegration = resolveScmProviderIntegration(scmProvider);
 
   app.use(
     express.json({
@@ -55,8 +58,8 @@ export const createHttpApp = ({
   });
 
   app.post(
-    GITHUB_WEBHOOK_ROUTE,
-    createGithubWebhookController({
+    scmProviderIntegration.webhookRoute,
+    scmProviderIntegration.createWebhookController({
       governanceGateway,
       analyzeIssueWithAi,
       logger,

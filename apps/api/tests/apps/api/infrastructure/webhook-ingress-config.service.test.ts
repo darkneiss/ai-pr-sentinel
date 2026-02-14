@@ -41,10 +41,10 @@ describe('WebhookIngressConfigService', () => {
   it('should parse allowlist, strict mode, required delivery id, and custom ttl', () => {
     // Arrange
     const config = createConfigMock({
-      GITHUB_WEBHOOK_ALLOWED_REPOSITORIES: 'org/repo, org/another-repo',
-      GITHUB_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST: 'true',
-      GITHUB_WEBHOOK_REQUIRE_DELIVERY_ID: 'true',
-      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '7200',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: 'org/repo, org/another-repo',
+      SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST: 'true',
+      SCM_WEBHOOK_REQUIRE_DELIVERY_ID: 'true',
+      SCM_WEBHOOK_DELIVERY_TTL_SECONDS: '7200',
     });
 
     // Act
@@ -62,7 +62,7 @@ describe('WebhookIngressConfigService', () => {
   it('should fallback to default ttl when ttl env var is invalid', () => {
     // Arrange
     const config = createConfigMock({
-      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '-1',
+      SCM_WEBHOOK_DELIVERY_TTL_SECONDS: '-1',
     });
 
     // Act
@@ -75,7 +75,7 @@ describe('WebhookIngressConfigService', () => {
   it('should fallback to default ttl when ttl env var is zero', () => {
     // Arrange
     const config = createConfigMock({
-      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '0',
+      SCM_WEBHOOK_DELIVERY_TTL_SECONDS: '0',
     });
 
     // Act
@@ -88,10 +88,10 @@ describe('WebhookIngressConfigService', () => {
   it('should fallback to default ttl when ttl env var has partially numeric format', () => {
     // Arrange
     const configWithScientificNotation = createConfigMock({
-      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '1e6',
+      SCM_WEBHOOK_DELIVERY_TTL_SECONDS: '1e6',
     });
     const configWithUnitSuffix = createConfigMock({
-      GITHUB_WEBHOOK_DELIVERY_TTL_SECONDS: '3600s',
+      SCM_WEBHOOK_DELIVERY_TTL_SECONDS: '3600s',
     });
 
     // Act
@@ -101,5 +101,18 @@ describe('WebhookIngressConfigService', () => {
     // Assert
     expect(scientificNotationResult.deliveryTtlSeconds).toBe(86400);
     expect(unitSuffixResult.deliveryTtlSeconds).toBe(86400);
+  });
+
+  it('should fail fast when legacy ingress env var is set without SCM equivalent', () => {
+    // Arrange
+    const config = createConfigMock({
+      GITHUB_WEBHOOK_ALLOWED_REPOSITORIES: 'org/repo',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: undefined,
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookIngressConfig(config)).toThrow(
+      'Legacy env var GITHUB_WEBHOOK_ALLOWED_REPOSITORIES is no longer supported. Use SCM_WEBHOOK_ALLOWED_REPOSITORIES.',
+    );
   });
 });

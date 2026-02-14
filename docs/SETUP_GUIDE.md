@@ -70,21 +70,26 @@ You need to expose your local server to GitHub.
    ```ini
    PORT=3000
    APP_VERSION=1.0.0
-   GITHUB_TOKEN=your_token_from_step_1
+   SCM_PROVIDER=github
+   SCM_TOKEN=your_token_from_step_1
    # Local with smee tunnel (recommended): leave secret empty
-   GITHUB_WEBHOOK_SECRET=
+   SCM_WEBHOOK_SECRET=
 
    # Direct webhook / production:
-   # GITHUB_WEBHOOK_SECRET=your_webhook_secret_from_step_3
+   # SCM_WEBHOOK_SECRET=your_webhook_secret_from_step_3
    ```
 
 4. Signature verification policy:
-   * In **production**, signature verification is mandatory and `GITHUB_WEBHOOK_SECRET` is required.
-   * In **development**, verification is enabled only when `GITHUB_WEBHOOK_SECRET` is set.
-   * Optional advanced override: `GITHUB_WEBHOOK_VERIFY_SIGNATURE=true|false`.
-   * If verification is enabled and `GITHUB_WEBHOOK_SECRET` is missing, the app fails fast on startup.
+   * In **production**, signature verification is mandatory and `SCM_WEBHOOK_SECRET` is required.
+   * In **development**, verification is enabled only when `SCM_WEBHOOK_SECRET` is set.
+   * Optional advanced override: `SCM_WEBHOOK_VERIFY_SIGNATURE=true|false`.
+   * If verification is enabled and `SCM_WEBHOOK_SECRET` is missing, the app fails fast on startup.
 
-5. Configure the AI provider (Groq, Gemini, or Ollama):
+5. SCM provider policy:
+   * Current supported value is `SCM_PROVIDER=github`.
+   * Unsupported values fail fast during app composition.
+
+6. Configure the AI provider (Groq, Gemini, or Ollama):
    * Select provider with `LLM_PROVIDER`:
      * `groq` for Groq (OpenAI-compatible)
      * `gemini` for Google Gemini API
@@ -118,7 +123,7 @@ You need to expose your local server to GitHub.
    LLM_BASE_URL=http://127.0.0.1:11434/api/generate
    ```
 
-6. Optional: override AI temperature globally:
+7. Optional: override AI temperature globally:
    * Variable: `AI_TEMPERATURE`
    * Range: `0` to `1`
    * Default: `0.1`
@@ -128,7 +133,7 @@ You need to expose your local server to GitHub.
    AI_TEMPERATURE=0.2
    ```
 
-7. Optional: map AI classification labels to your repository taxonomy:
+8. Optional: map AI classification labels to your repository taxonomy:
    * These variables map AI semantic kinds (`bug|feature|question`) to GitHub labels.
    * If not set, defaults are used:
      * `kind/bug`
@@ -141,7 +146,7 @@ You need to expose your local server to GitHub.
    AI_LABEL_KIND_QUESTION=question
    ```
 
-8. Optional: map conservative AI curation recommendations to GitHub labels:
+9. Optional: map conservative AI curation recommendations to GitHub labels:
    * These variables map optional AI recommendations (`documentation`, `help wanted`, `good first issue`) to labels.
    * The bot only applies them with high confidence and conservative domain rules.
    * If not set, defaults are used:
@@ -155,7 +160,7 @@ You need to expose your local server to GitHub.
    AI_LABEL_GOOD_FIRST_ISSUE=good first issue
    ```
 
-9. Optional: tune AI curation confidence thresholds:
+10. Optional: tune AI curation confidence thresholds:
    * Use values between `0` and `1`.
    * Higher values are more conservative.
    * Defaults:
@@ -169,7 +174,7 @@ You need to expose your local server to GitHub.
    AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD=0.95
    ```
 
-10. Optional: tune core AI decision thresholds:
+11. Optional: tune core AI decision thresholds:
    * Use values between `0` and `1`.
    * Defaults:
      * `AI_CLASSIFICATION_CONFIDENCE_THRESHOLD=0.8`
@@ -182,7 +187,7 @@ You need to expose your local server to GitHub.
    AI_DUPLICATE_SIMILARITY_THRESHOLD=0.85
    ```
 
-11. Optional: enable LangSmith observability:
+12. Optional: enable LangSmith observability:
    * Set `LANGSMITH_TRACING=true`
    * Provide `LANGSMITH_API_KEY`
    * Optional: `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT`, `LANGSMITH_WORKSPACE_ID`

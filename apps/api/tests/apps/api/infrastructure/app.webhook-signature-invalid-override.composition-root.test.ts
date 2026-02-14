@@ -27,22 +27,22 @@ const createValidIssuePayload = () => ({
 });
 
 describe('App (Webhook Signature Invalid Override)', () => {
-  const originalVerifySignature = process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE;
-  const originalWebhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
+  const originalVerifySignature = process.env.SCM_WEBHOOK_VERIFY_SIGNATURE;
+  const originalWebhookSecret = process.env.SCM_WEBHOOK_SECRET;
   const originalNodeEnv = process.env.NODE_ENV;
 
   afterEach(() => {
-    process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE = originalVerifySignature;
-    process.env.GITHUB_WEBHOOK_SECRET = originalWebhookSecret;
+    process.env.SCM_WEBHOOK_VERIFY_SIGNATURE = originalVerifySignature;
+    process.env.SCM_WEBHOOK_SECRET = originalWebhookSecret;
     process.env.NODE_ENV = originalNodeEnv;
     jest.clearAllMocks();
   });
 
   it('should fallback to environment defaults when override value is invalid', async () => {
     // Arrange
-    process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE = 'maybe';
+    process.env.SCM_WEBHOOK_VERIFY_SIGNATURE = 'maybe';
     process.env.NODE_ENV = 'development';
-    delete process.env.GITHUB_WEBHOOK_SECRET;
+    delete process.env.SCM_WEBHOOK_SECRET;
     const app = createApp({ governanceGateway: createGovernanceGatewayMock() });
 
     // Act

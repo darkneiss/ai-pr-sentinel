@@ -27,30 +27,30 @@ const createValidIssuePayload = () => ({
 });
 
 describe('App (Webhook Signature Configuration)', () => {
-  const originalVerifySignature = process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE;
-  const originalWebhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
+  const originalVerifySignature = process.env.SCM_WEBHOOK_VERIFY_SIGNATURE;
+  const originalWebhookSecret = process.env.SCM_WEBHOOK_SECRET;
 
   afterEach(() => {
-    process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE = originalVerifySignature;
-    process.env.GITHUB_WEBHOOK_SECRET = originalWebhookSecret;
+    process.env.SCM_WEBHOOK_VERIFY_SIGNATURE = originalVerifySignature;
+    process.env.SCM_WEBHOOK_SECRET = originalWebhookSecret;
     jest.clearAllMocks();
   });
 
   it('should fail fast when signature verification is enabled but secret is missing', () => {
     // Arrange
-    delete process.env.GITHUB_WEBHOOK_SECRET;
-    process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE = 'true';
+    delete process.env.SCM_WEBHOOK_SECRET;
+    process.env.SCM_WEBHOOK_VERIFY_SIGNATURE = 'true';
 
     // Act + Assert
     expect(() => createApp()).toThrow(
-      'Missing GITHUB_WEBHOOK_SECRET while GITHUB_WEBHOOK_VERIFY_SIGNATURE=true',
+      'Missing SCM_WEBHOOK_SECRET while SCM_WEBHOOK_VERIFY_SIGNATURE=true',
     );
   });
 
   it('should accept webhook requests without signature when verification is disabled', async () => {
     // Arrange
-    delete process.env.GITHUB_WEBHOOK_SECRET;
-    process.env.GITHUB_WEBHOOK_VERIFY_SIGNATURE = 'false';
+    delete process.env.SCM_WEBHOOK_SECRET;
+    process.env.SCM_WEBHOOK_VERIFY_SIGNATURE = 'false';
     const governanceGateway = createGovernanceGatewayMock();
     const app = createApp({ governanceGateway });
 

@@ -37,6 +37,7 @@ export const createApp = (params: CreateAppParams = {}) => {
 
   return createHttpApp({
     appVersion,
+    scmProvider: triageWebhookComposition.scmProvider,
     governanceGateway: triageWebhookComposition.governanceGateway,
     analyzeIssueWithAi: triageWebhookComposition.analyzeIssueWithAi,
     logger,
