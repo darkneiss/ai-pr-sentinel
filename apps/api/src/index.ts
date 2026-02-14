@@ -1,15 +1,16 @@
 import 'dotenv/config';
 
 import { createApp } from './app';
+import { resolveApiPort } from './infrastructure/composition/api-port-config.service';
+import { resolveApiStartupLogMessages } from './infrastructure/composition/api-startup-log-message.service';
+import { resolveApiVersion } from './infrastructure/composition/api-version-config.service';
 import { createEnvConfig } from './shared/infrastructure/config/env-config.adapter';
 import { createEnvLogger } from './shared/infrastructure/logging/env-logger';
 
-const DEFAULT_PORT = 3000;
-const PORT_ENV_VAR = 'PORT';
 const config = createEnvConfig();
-const portFromEnv = config.get(PORT_ENV_VAR);
-const parsedPort = Number(portFromEnv);
-const PORT = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : DEFAULT_PORT;
+const PORT = resolveApiPort(config);
+const API_VERSION = resolveApiVersion(config);
+const startupLogMessages = resolveApiStartupLogMessages({ version: API_VERSION, port: PORT });
 const logger = createEnvLogger();
 
 // 1. Create the app instance (Dependency Injection)
@@ -17,8 +18,8 @@ const app = createApp();
 
 // 2. Start the server
 const server = app.listen(PORT, () => {
-  logger.info(`AI-PR-Sentinel API running on port ${PORT}`);
-  logger.info(`Health check available at http://localhost:${PORT}/health`);
+  logger.info(startupLogMessages.startupMessage);
+  logger.info(startupLogMessages.healthMessage);
 });
 
 // 3. Graceful shutdown handling

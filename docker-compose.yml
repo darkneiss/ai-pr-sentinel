@@ -1,0 +1,31 @@
+services:
+  api:
+    container_name: ai-pr-sentinel-api
+    image: ai-pr-sentinel-api:local
+    build:
+      context: .
+      dockerfile: infrastructure/apps/api/docker/Dockerfile
+    env_file:
+      - apps/api/.env
+    ports:
+      - "${API_PORT:-3000}:${API_PORT:-3000}"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const port = process.env.API_PORT ?? '3000'; fetch('http://127.0.0.1:' + port + '/health').then((response)=>{if(!response.ok)process.exit(1);}).catch(()=>process.exit(1));",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - api_network
+    restart: unless-stopped
+
+networks:
+  api_network:
+    name: ai-pr-sentinel-api-network
+    driver: bridge

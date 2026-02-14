@@ -17,22 +17,44 @@ Unlike standard linters, this system understands **context** and **business rule
 
 ## 🏗️ Architecture
 
-This project is built following **Strict Hexagonal Architecture (Ports & Adapters)** to ensure the business logic remains independent of frameworks and external tools.
+This project is built following **Hexagonal Architecture (Ports & Adapters)** and **Screaming Architecture** so business logic stays independent from frameworks and external tools.
 
 ```mermaid
 graph TD
-    GitHub[GitHub Webhook] -->|HTTP POST| Controller(Infrastructure)
-    Controller -->|DTO| UseCase(Application Layer)
-    UseCase -->|Domain Entity| Domain(Business Logic)
-    
-    subgraph "Core (Hexagon)"
-        UseCase
-        Domain
+    EXT[SCM Webhook\nGitHub today] --> APP[createApp + createHttpApp\nInfrastructure Composition Root]
+    APP --> REG[ScmProviderIntegrationRegistry\nresolve route + factories]
+    REG --> CTRL[GithubWebhookController]
+
+    CTRL --> SEC[Ingress controls\nsignature + allowlist + delivery dedup]
+    SEC --> MAP[github-issue-webhook-command.mapper\nAnti-Corruption Layer]
+
+    subgraph HEX["Hexagon (Domain + Application)"]
+        PWH[processIssueWebhook\nApplication Use Case]
+        DWF[issue-webhook-workflow\nDomain Service]
+        PWH --> DWF
     end
-    
-    UseCase -.->|Interface| Gateway(Output Port)
-    Gateway -.->|Implementation| Adapter(Infrastructure)
-    Adapter -->|API Call| GitHubAPI[GitHub REST API]
+
+    MAP --> PWH
+    PWH -.port.-> GOVP[GovernanceGateway]
+    PWH -.port.-> AIRP[IssueAiTriageRunner (optional)]
+
+    AIRP --> LAZYAI[lazy-ai-triage-runner.factory]
+    LAZYAI --> AIA[analyzeIssueWithAi\nApplication Use Case]
+    AIA --> AIWF[issue-ai-triage-workflow + action plans\nDomain Services]
+    AIA -.port.-> LLMP[LLMGateway]
+    AIA -.port.-> HISTP[IssueHistoryGateway]
+    AIA -.port.-> REPOP[RepositoryContextGateway]
+    AIA -.port.-> GOVP
+
+    GOVP --> GOVAD[github-governance.adapter]
+    HISTP --> HISTAD[github-issue-history.adapter]
+    REPOP --> REPOAD[github-repository-context.adapter]
+    LLMP --> LLMAD[Gemini / Groq / Ollama adapters]
+
+    GOVAD --> GHAPI[GitHub API]
+    HISTAD --> GHAPI
+    REPOAD --> GHAPI
+    LLMAD --> LLMAPI[LLM Provider APIs]
 ```
 ## 🚀 Tech Stack
 Runtime: Node.js v22 + pnpm Workspaces
@@ -47,13 +69,30 @@ Patterns: DDD, Hexagonal Architecture, Dependency Injection
 
 ## 🛠️ Project Structure
 ```bash
-apps/api/src/
-├── features/           # Vertical Slices (Screaming Architecture)
-│   └── triage/
-│       ├── domain/     # Pure Logic (Entities, Rules)
-│       ├── application/# Use Cases & Ports
-│       └── infrastructure/ # Controllers & Adapters
-└── shared/             # Shared Kernel
+.
+├── apps/
+│   └── api/
+│       ├── src/
+│       │   ├── features/
+│       │   │   └── triage/
+│       │   │       ├── domain/           # Entities, value objects, domain services, domain ports
+│       │   │       ├── application/      # Use cases, app services, app ports
+│       │   │       └── infrastructure/   # Feature adapters and controllers
+│       │   ├── infrastructure/
+│       │   │   ├── composition/          # Composition root, provider wiring, config resolution
+│       │   │   └── http/                 # Express app factory
+│       │   ├── shared/                   # Shared kernel (ports, prompts, observability, logging, config)
+│       │   └── tools/architecture/       # Architecture quality gate tool
+│       └── tests/                        # Unit, integration, architecture, fixtures
+├── infrastructure/
+│   ├── apps/api/docker/                  # Dockerfile and container docs
+│   └── scripts/                          # Monorepo infrastructure scripts (build, push, tunnel)
+├── docs/
+│   ├── adr/                              # Architecture Decision Records
+│   └── specs/                            # Functional specs
+├── .github/workflows/                    # CI and release workflows
+├── docker-compose.yml                    # Local container orchestration
+└── package.json                          # Workspace root scripts and metadata
 ```
 ## ⚡ Quick Start
 ### Prerequisites

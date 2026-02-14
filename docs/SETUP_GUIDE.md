@@ -68,12 +68,13 @@ You need to expose your local server to GitHub.
 
 3. Edit `.env` with your values:
    ```ini
-   PORT=3000
-   APP_VERSION=1.0.0
+   API_PORT=3000
+   API_VERSION=0.0.1
    SCM_PROVIDER=github
    SCM_TOKEN=your_token_from_step_1
    # Local with smee tunnel (recommended): leave secret empty
    SCM_WEBHOOK_SECRET=
+   WEBHOOK_TUNNEL_URL=https://smee.io/YOUR_SMEE_CHANNEL
 
    # Direct webhook / production:
    # SCM_WEBHOOK_SECRET=your_webhook_secret_from_step_3
@@ -202,8 +203,8 @@ You will need **two terminals**:
 Forward external webhook traffic to your local port.
 
 ```bash
-# Replace the URL with your own smee.io channel
-npx smee-client --url https://smee.io/YOUR_SMEE_CHANNEL --path /webhooks/github --port 3000
+# Uses WEBHOOK_TUNNEL_URL from apps/api/.env
+pnpm tunnel:local
 ```
 
 **Terminal 2 (API server):**
@@ -229,3 +230,9 @@ To standardize commit messages locally:
 ```bash
 git config commit.template docs/COMMIT_TEMPLATE.md
 ```
+
+## 7. Release Process
+
+Release automation details are documented in:
+
+`docs/RELEASE_GUIDE.md`
