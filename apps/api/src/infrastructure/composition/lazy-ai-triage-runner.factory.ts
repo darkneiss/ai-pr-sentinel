@@ -8,19 +8,27 @@ import type { ConfigPort } from '../../shared/application/ports/config.port';
 import type { QuestionResponseMetricsPort } from '../../shared/application/ports/question-response-metrics.port';
 import { createEnvConfig } from '../../shared/infrastructure/config/env-config.adapter';
 import type { Logger } from '../../shared/infrastructure/logging/env-logger';
+import { resolveScmProvider, type ScmProvider } from './scm-provider-config.service';
+import { resolveScmProviderIntegration } from './scm-provider-integration.registry';
 
 const AI_TRIAGE_ENABLED_ENV_VAR = 'AI_TRIAGE_ENABLED';
-const GITHUB_BOT_LOGIN_ENV_VAR = 'GITHUB_BOT_LOGIN';
+const SCM_BOT_LOGIN_ENV_VAR = 'SCM_BOT_LOGIN';
 
 export const isAiTriageEnabled = (config: ConfigPort = createEnvConfig()): boolean =>
   config.getBoolean(AI_TRIAGE_ENABLED_ENV_VAR) === true;
+
+interface CreateLazyAnalyzeIssueWithAiOptions {
+  scmProvider?: ScmProvider;
+}
 
 export const createLazyAnalyzeIssueWithAi = (
   governanceGateway: GovernanceGateway,
   logger: Logger,
   metrics: QuestionResponseMetricsPort,
   config: ConfigPort = createEnvConfig(),
+  options: CreateLazyAnalyzeIssueWithAiOptions = {},
 ): ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>) => {
+  const scmProvider = options.scmProvider ?? resolveScmProvider(config);
   let runAnalyzeIssueWithAi:
     | ((input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>)
     | undefined;
@@ -29,9 +37,6 @@ export const createLazyAnalyzeIssueWithAi = (
     if (!runAnalyzeIssueWithAi) {
       const { createLlmGateway } = require('./llm-gateway.factory') as {
         createLlmGateway: () => import('../../shared/application/ports/llm-gateway.port').LLMGateway;
-      };
-      const { createGithubIssueHistoryAdapter } = require('../../features/triage/infrastructure/adapters/github-issue-history.adapter') as {
-        createGithubIssueHistoryAdapter: () => import('../../features/triage/application/ports/issue-history-gateway.port').IssueHistoryGateway;
       };
       const { analyzeIssueWithAi } = require('../../features/triage/application/use-cases/analyze-issue-with-ai.use-case') as {
         analyzeIssueWithAi: (dependencies: {
@@ -46,15 +51,14 @@ export const createLazyAnalyzeIssueWithAi = (
           logger?: Logger;
         }) => (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
       };
-      const { createGithubRepositoryContextAdapter } = require('../../features/triage/infrastructure/adapters/github-repository-context.adapter') as {
-        createGithubRepositoryContextAdapter: (params?: { logger?: Logger }) => RepositoryContextGateway;
-      };
       const { createIssueTriagePromptRegistry } = require('../../shared/infrastructure/prompts/issue-triage-prompt-registry.adapter') as {
         createIssueTriagePromptRegistry: (params?: { config?: ConfigPort }) => import('../../shared/application/ports/issue-triage-prompt-gateway.port').IssueTriagePromptGateway;
       };
+      const scmProviderIntegration = resolveScmProviderIntegration(scmProvider);
+      const createRepositoryContextGateway = scmProviderIntegration.loadRepositoryContextGatewayFactory();
       let repositoryContextGateway: RepositoryContextGateway | undefined;
       try {
-        repositoryContextGateway = createGithubRepositoryContextAdapter({ logger });
+        repositoryContextGateway = createRepositoryContextGateway({ logger });
       } catch (error: unknown) {
         logger.info?.('App could not initialize repository context gateway. Continuing without repository context.', {
           error,
@@ -63,12 +67,12 @@ export const createLazyAnalyzeIssueWithAi = (
 
       runAnalyzeIssueWithAi = analyzeIssueWithAi({
         llmGateway: createLlmGateway(),
-        issueHistoryGateway: createGithubIssueHistoryAdapter(),
+        issueHistoryGateway: scmProviderIntegration.createIssueHistoryGateway(),
         repositoryContextGateway,
         issueTriagePromptGateway: createIssueTriagePromptRegistry({ config }),
         governanceGateway,
         questionResponseMetrics: metrics,
-        botLogin: config.get(GITHUB_BOT_LOGIN_ENV_VAR),
+        botLogin: config.get(SCM_BOT_LOGIN_ENV_VAR),
         config,
         logger,
       });

@@ -5,13 +5,13 @@ import { parseRepositoryRef } from './github-repository-ref.util';
 import type { ConfigPort } from '../../../../shared/application/ports/config.port';
 import { createEnvConfig } from '../../../../shared/infrastructure/config/env-config.adapter';
 
-const GITHUB_TOKEN_ENV_VAR = 'GITHUB_TOKEN';
+const SCM_TOKEN_ENV_VAR = 'SCM_TOKEN';
 const LABEL_NOT_FOUND_STATUS = 404;
 const FORBIDDEN_STATUS = 403;
 const UNPROCESSABLE_ENTITY_STATUS = 422;
 const LOG_CONTEXT = 'GithubGovernanceAdapter';
 const GITHUB_WRITE_PERMISSION_HINT =
-  'Check GITHUB_TOKEN permissions. Required scopes: repo (classic) or Issues: write (fine-grained).';
+  'Check SCM_TOKEN permissions. Required scopes: repo (classic) or Issues: write (fine-grained).';
 
 interface Logger {
   info: (message: string, ...args: unknown[]) => void;
@@ -77,9 +77,9 @@ const createOctokitClient = (params: CreateGithubGovernanceAdapterParams): Octok
   }
 
   const config = params.config ?? createEnvConfig();
-  const githubToken = params.githubToken ?? config.get(GITHUB_TOKEN_ENV_VAR);
+  const githubToken = params.githubToken ?? config.get(SCM_TOKEN_ENV_VAR);
   if (!githubToken) {
-    throw new Error(`Missing GitHub token. Provide "githubToken" or set ${GITHUB_TOKEN_ENV_VAR}`);
+    throw new Error(`Missing GitHub token. Provide "githubToken" or set ${SCM_TOKEN_ENV_VAR}`);
   }
 
   return new Octokit({ auth: githubToken });

@@ -45,16 +45,16 @@ describe('GithubRepositoryContextAdapter (Extra Branches)', () => {
 
   it('should throw when github token is missing and no octokit is injected', () => {
     // Arrange
-    const currentToken = process.env.GITHUB_TOKEN;
-    delete process.env.GITHUB_TOKEN;
+    const currentToken = process.env.SCM_TOKEN;
+    delete process.env.SCM_TOKEN;
 
     try {
       // Act + Assert
       expect(() => createGithubRepositoryContextAdapter()).toThrow(
-        'Missing GitHub token. Provide "githubToken" or set GITHUB_TOKEN',
+        'Missing GitHub token. Provide "githubToken" or set SCM_TOKEN',
       );
     } finally {
-      process.env.GITHUB_TOKEN = currentToken;
+      process.env.SCM_TOKEN = currentToken;
     }
   });
 

@@ -1,15 +1,30 @@
 import type { GovernanceGateway } from '../../features/triage/application/ports/governance-gateway.port';
+import type { ConfigPort } from '../../shared/application/ports/config.port';
+import { createEnvConfig } from '../../shared/infrastructure/config/env-config.adapter';
+import { resolveScmProvider, type ScmProvider } from './scm-provider-config.service';
+import { resolveScmProviderIntegration } from './scm-provider-integration.registry';
 
-export const createLazyGovernanceGateway = (): GovernanceGateway => {
+interface CreateLazyGovernanceGatewayParams {
+  scmProvider?: ScmProvider;
+  config?: ConfigPort;
+}
+
+export const createLazyGovernanceGateway = (
+  params: CreateLazyGovernanceGatewayParams = {},
+): GovernanceGateway => {
+  const scmProvider = (() => {
+    if (params.scmProvider) {
+      return params.scmProvider;
+    }
+
+    const config = params.config ?? createEnvConfig();
+    return resolveScmProvider(config);
+  })();
   let gateway: GovernanceGateway | undefined;
 
   const getGateway = (): GovernanceGateway => {
     if (!gateway) {
-      // Lazy-load adapter to keep app composition testable without loading Octokit at module import time.
-      const { createGithubGovernanceAdapter } = require('../../features/triage/infrastructure/adapters/github-governance.adapter') as {
-        createGithubGovernanceAdapter: () => GovernanceGateway;
-      };
-      gateway = createGithubGovernanceAdapter();
+      gateway = resolveScmProviderIntegration(scmProvider).createGovernanceGateway();
     }
     return gateway;
   };
