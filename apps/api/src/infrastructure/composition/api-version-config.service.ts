@@ -20,7 +20,11 @@ const resolveVersionFromManifestFile = (manifestPath: string | undefined): strin
 
     const { version } = manifest as { version?: unknown };
     return typeof version === 'string' && version.trim().length > 0 ? version : undefined;
-  } catch {
+  } catch (error: unknown) {
+    console.warn('ApiVersionConfigService could not resolve version from API_VERSION_FILE.', {
+      manifestPath,
+      error,
+    });
     return undefined;
   }
 };

@@ -113,4 +113,30 @@ describe('ApiVersionConfigService', () => {
     // Assert
     expect(result).toBe('0.0.1');
   });
+
+  it('should log a warning when API_VERSION_FILE cannot be resolved', () => {
+    // Arrange
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const config = createConfigMock({
+      API_VERSION_FILE: '/path/that/does/not/exist/package.json',
+      npm_package_version: '1.2.3',
+    });
+
+    try {
+      // Act
+      const result = resolveApiVersion(config);
+
+      // Assert
+      expect(result).toBe('1.2.3');
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        'ApiVersionConfigService could not resolve version from API_VERSION_FILE.',
+        expect.objectContaining({
+          manifestPath: '/path/that/does/not/exist/package.json',
+        }),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });
