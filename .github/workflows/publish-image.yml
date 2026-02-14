@@ -113,10 +113,10 @@ jobs:
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ai-pr-sentinel-api" >> "$GITHUB_OUTPUT"
 
       - name: Step 5 - Set up Docker Buildx
-        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Step 6 - Login to GHCR
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1 # v3
+        uses: docker/login-action@3227f5311cb93ffd14d13e65d8cc400d30f4dd8a # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -124,7 +124,7 @@ jobs:
 
       - name: Step 7 - Generate image tags and labels
         id: metadata
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7 # v5
+        uses: docker/metadata-action@a60f0f62b5c12316066c8db464bfb2faafd7907b # v5
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
@@ -146,7 +146,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Step 9 - Scan pushed digest for vulnerabilities (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.28.0
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # v0.28.0
         with:
           image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
           format: table
