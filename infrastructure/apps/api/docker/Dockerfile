@@ -36,7 +36,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PROMPT_REGISTRY_PATH=/app/apps/api/dist/shared/application/prompts/issue-triage
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN apk add --no-cache curl && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=production-dependencies /workspace/node_modules /app/node_modules
 COPY --from=production-dependencies /workspace/apps/api/node_modules /app/apps/api/node_modules
