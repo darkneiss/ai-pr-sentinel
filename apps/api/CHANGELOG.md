@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.5](https://github.com/darkneiss/ai-pr-sentinel/compare/ai-pr-sentinel-api-v0.0.4...ai-pr-sentinel-api-v0.0.5) (2026-02-15)
+
+
+### Bug Fixes
+
+* **docker:** remove npm and corepack from runtime image ([#40](https://github.com/darkneiss/ai-pr-sentinel/issues/40)) ([5ae64ff](https://github.com/darkneiss/ai-pr-sentinel/commit/5ae64ffc6842582eb2252dfcd299f5799377f91c))
+* **release:** include infrastructure changes in api versioning ([#41](https://github.com/darkneiss/ai-pr-sentinel/issues/41)) ([287df54](https://github.com/darkneiss/ai-pr-sentinel/commit/287df5477588536600989de146168e9038761b31))
+
 ## [0.0.4](https://github.com/darkneiss/ai-pr-sentinel/compare/ai-pr-sentinel-api-v0.0.3...ai-pr-sentinel-api-v0.0.4) (2026-02-15)
 
 
