@@ -37,7 +37,11 @@ ENV NODE_ENV=production
 ENV PROMPT_REGISTRY_PATH=/app/apps/api/dist/shared/application/prompts/issue-triage
 ENV API_VERSION_FILE=/app/apps/api/package.json
 
-RUN apk add --no-cache curl && addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN apk add --no-cache curl \
+  && addgroup -S appgroup \
+  && adduser -S appuser -G appgroup \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 COPY --from=production-dependencies /workspace/node_modules /app/node_modules
 COPY --from=production-dependencies /workspace/apps/api/node_modules /app/apps/api/node_modules
