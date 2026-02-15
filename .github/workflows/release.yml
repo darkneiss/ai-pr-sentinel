@@ -43,26 +43,38 @@ jobs:
           target-branch: ${{ github.event.workflow_run.head_branch }}
 
       - name: Step 2 - Report published release metadata
-        if: ${{ steps.release_please.outputs['apps/api--release_created'] == 'true' }}
+        if: >-
+          ${{
+            steps.release_please.outputs.release_created == 'true' ||
+            steps.release_please.outputs['.--release_created'] == 'true'
+          }}
         run: |
           echo "A new GitHub Release has been published."
-          echo "tag_name=${{ steps.release_please.outputs['apps/api--tag_name'] }}"
-          echo "version=${{ steps.release_please.outputs['apps/api--version'] }}"
-          echo "html_url=${{ steps.release_please.outputs['apps/api--html_url'] }}"
+          echo "tag_name=${{ steps.release_please.outputs.tag_name || steps.release_please.outputs['.--tag_name'] }}"
+          echo "version=${{ steps.release_please.outputs.version || steps.release_please.outputs['.--version'] }}"
+          echo "html_url=${{ steps.release_please.outputs.html_url || steps.release_please.outputs['.--html_url'] }}"
 
       - name: Step 2b - Report Release PR update mode
-        if: ${{ steps.release_please.outputs['apps/api--release_created'] != 'true' }}
+        if: >-
+          ${{
+            steps.release_please.outputs.release_created != 'true' &&
+            steps.release_please.outputs['.--release_created'] != 'true'
+          }}
         run: |
           echo "No release has been published in this run."
           echo "Release Please updated or created a Release PR if needed."
 
       - name: Step 3 - Trigger image publish workflow
-        if: ${{ steps.release_please.outputs['apps/api--release_created'] == 'true' }}
+        if: >-
+          ${{
+            steps.release_please.outputs.release_created == 'true' ||
+            steps.release_please.outputs['.--release_created'] == 'true'
+          }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ steps.release_please.outputs['apps/api--tag_name'] }}
-          VERSION: ${{ steps.release_please.outputs['apps/api--version'] }}
-          RELEASE_SHA: ${{ steps.release_please.outputs['apps/api--sha'] }}
+          TAG_NAME: ${{ steps.release_please.outputs.tag_name || steps.release_please.outputs['.--tag_name'] }}
+          VERSION: ${{ steps.release_please.outputs.version || steps.release_please.outputs['.--version'] }}
+          RELEASE_SHA: ${{ steps.release_please.outputs.sha || steps.release_please.outputs['.--sha'] }}
         run: |
           set -euo pipefail
 
