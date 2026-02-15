@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/darkneiss/ai-pr-sentinel/compare/ai-pr-sentinel-api-v0.0.3...ai-pr-sentinel-api-v0.0.4) (2026-02-15)
+
+
+### Bug Fixes
+
+* **docker:** isolate runtime image to production dependencies ([#38](https://github.com/darkneiss/ai-pr-sentinel/issues/38)) ([8d338cb](https://github.com/darkneiss/ai-pr-sentinel/commit/8d338cb7772a6f80c24c6f497deb19d6162b6cf9))
+
 ## [0.0.3](https://github.com/darkneiss/ai-pr-sentinel/compare/ai-pr-sentinel-api-v0.0.2...ai-pr-sentinel-api-v0.0.3) (2026-02-14)
 
 
