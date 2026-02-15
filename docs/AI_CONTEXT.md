@@ -212,8 +212,8 @@
     - behavior:
       - `release.yml` creates/updates Release PR and publishes tag + GitHub Release when merged.
       - release baseline is managed by manifest files:
-        - `release-please-config.json` (package strategy + `bootstrap-sha`, path `apps/api`)
-        - `.release-please-manifest.json` (tracked API version baseline at `apps/api`)
+        - `release-please-config.json` (package strategy + `bootstrap-sha`, path `.` + `extra-files` for `apps/api/package.json`)
+        - `.release-please-manifest.json` (tracked API version baseline at `.`)
       - `publish-image.yml` is dispatched only when a release is created (no manual trigger path).
       - release dispatch uses retry/backoff and passes release metadata from Release Please outputs.
       - publish workflow validates payload format and release/tag/sha integrity before image publish.

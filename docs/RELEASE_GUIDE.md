@@ -27,10 +27,12 @@ There is no extra pre-1.0 guardrail configured in Release Please.
 Release Please is configured in manifest mode with:
 
 1. `release-please-config.json`
-   * package path `apps/api` with `release-type: node`
+   * package path `.` with `release-type: simple`
+   * `changelog-path` set to `apps/api/CHANGELOG.md`
+   * `extra-files` updates `apps/api/package.json` (`$.version`)
    * `bootstrap-sha` to avoid re-processing historical commits before release automation adoption
 2. `.release-please-manifest.json`
-   * tracked API version baseline (path `apps/api`) set to `0.0.1`
+   * tracked API version baseline (path `.`) set to `0.0.1`
 
 Single source of truth for API version:
 1. `apps/api/package.json` version is bumped by Release Please.
