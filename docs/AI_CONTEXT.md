@@ -91,6 +91,25 @@
     - `SCM_WEBHOOK_REQUIRE_DELIVERY_ID`
     - `SCM_WEBHOOK_DELIVERY_TTL_SECONDS`
 
+### Infrastructure as Code (Terraform)
+- Status: IN PROGRESS (Phase 1 bootstrap)
+- Behavior implemented:
+  - New IaC base under `infrastructure/terraform/`.
+  - Provider-agnostic compute contract module added at
+    `infrastructure/terraform/modules/compute-instance-contract`.
+  - Reusable Lightsail module in `infrastructure/terraform/modules/lightsail-instance` with:
+    - `aws_lightsail_instance`
+    - `aws_lightsail_instance_public_ports`
+    - optional static IP + attachment resources
+    - public ports and static IP attachment are now force-replaced when instance identity changes, avoiding drift after same-name instance recreation.
+  - First runnable environment stack in `infrastructure/terraform/environments/development` now consumes the compute contract.
+  - Development stack supports automatic Lightsail SSH key-pair creation from a local public key path (`ssh_public_key_path`) and wires it into instance provisioning.
+  - Optional `user_data` bootstrap script wiring for first-boot host configuration.
+  - Bootstrap now supports a dedicated unprivileged deploy user with SSH public-key authentication and rootless Docker setup (fallback to `docker` group if rootless install fails).
+  - Reserved provider contract value `gcp_compute_engine` is defined, but fails fast until implementation is added.
+  - Operational guide in `infrastructure/terraform/README.md`.
+  - Production runtime stack scaffold added in `infrastructure/deploy/production` (Docker Compose + Nginx + Certbot flow).
+
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).
 - Factory: `src/infrastructure/composition/llm-gateway.factory.ts`.
