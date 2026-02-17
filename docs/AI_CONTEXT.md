@@ -109,6 +109,11 @@
   - Reserved provider contract value `gcp_compute_engine` is defined, but fails fast until implementation is added.
   - Operational guide in `infrastructure/terraform/README.md`.
   - Production runtime stack scaffold added in `infrastructure/deploy/production` (Docker Compose + Nginx + Certbot flow).
+  - Terraform remote state for development is configured through HCP Terraform (`cloud` block, workspace `darkneiss/aisentinel`).
+  - Terraform GitHub Actions workflows are in place for development infra:
+    - `terraform-plan.yml` (PR plan),
+    - `terraform-apply.yml` (main/manual apply),
+    - `terraform-destroy.yml` (manual destroy with explicit confirmation).
 
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).

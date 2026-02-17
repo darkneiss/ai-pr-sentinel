@@ -22,10 +22,19 @@ Important nuance: "multi-provider" does not mean one module works identically ev
 ## Prerequisites
 
 - Terraform `>= 1.6`
+- HCP Terraform organization + workspace (`darkneiss` / `aisentinel`) configured in `environments/development/versions.tf`
 - AWS credentials configured via one of these options:
   - environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`
   - shared profile: `AWS_PROFILE` + `~/.aws/credentials`
   - IAM role / AWS SSO session
+
+## Remote State (HCP Terraform)
+
+This environment uses Terraform `cloud {}` configuration, so state is stored remotely in HCP Terraform.
+
+- Workspace: `darkneiss/aisentinel`
+- Expected execution mode in HCP: `Local` (important for local module paths like `../../modules/...`)
+- Terraform CLI commands (`plan`, `apply`, `destroy`) run locally or in GitHub Actions, while state remains in HCP Terraform.
 
 ## Defaults (Development Stack)
 
@@ -122,6 +131,21 @@ terraform destroy
 - If rootless setup fails, bootstrap falls back to adding the deploy user to the `docker` group.
 - Reconnect your SSH session as the deploy user after first boot so the `DOCKER_HOST` profile export is loaded.
 
-## Recommended Next Step (State Backend)
+## GitHub Actions (Terraform CI/CD)
 
-For team usage, configure a remote backend (S3 + DynamoDB locking) per environment before production rollout. Keep state files out of Git.
+The repository includes three Terraform workflows:
+
+- `.github/workflows/terraform-plan.yml`: runs `fmt/validate/plan` for development on PRs that touch `infrastructure/terraform/**`.
+- `.github/workflows/terraform-apply.yml`: runs `init/validate/plan/apply` on `main`/`master` infra changes and also supports manual `workflow_dispatch`.
+- `.github/workflows/terraform-destroy.yml`: manual destroy workflow with explicit confirmation (`destroy-development`) and dedicated environment gate.
+
+Required GitHub configuration:
+
+- Repository Variable: `AWS_ROLE_TO_ASSUME` (IAM Role ARN for OIDC federation)
+- Optional Repository Variable: `AWS_REGION` (defaults to `eu-west-3` in workflows)
+- Repository Secret: `TF_TOKEN_app_terraform_io` (HCP Terraform token)
+
+Security model:
+
+- AWS authentication in CI uses GitHub OIDC + `aws-actions/configure-aws-credentials` (no static AWS keys in GitHub secrets).
+- Terraform Cloud/HCP authentication uses `TF_TOKEN_app_terraform_io`.

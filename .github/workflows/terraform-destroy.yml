@@ -1,0 +1,65 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type destroy-development to confirm"
+        required: true
+        type: string
+
+concurrency:
+  group: terraform-destroy-development
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  destroy-development:
+    name: Destroy Development
+    if: >-
+      ${{
+        (github.ref_name == 'main' || github.ref_name == 'master') &&
+        inputs.confirm == 'destroy-development'
+      }}
+    runs-on: ubuntu-latest
+    environment: development-destroy
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-3' }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: infrastructure/terraform/environments/development
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          role-session-name: tf-destroy-development-${{ github.run_id }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan destroy
+        run: terraform plan -destroy -input=false -no-color -out=tfdestroy
+
+      - name: Terraform apply destroy
+        run: terraform apply -input=false -auto-approve tfdestroy
