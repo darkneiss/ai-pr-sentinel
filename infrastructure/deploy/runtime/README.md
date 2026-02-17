@@ -18,6 +18,7 @@ This keeps runtime deployment manifests separate from:
 ## Files
 
 - `docker-compose.yml`: production runtime stack
+- `docker-compose.yml`: runtime stack
 - `.env.example`: compose-level variables
 - `api.env.example`: API container variables
 - `nginx/templates/site-http.conf.template`: HTTP mode
@@ -60,6 +61,19 @@ docker compose up -d nginx
 docker compose ps
 curl -I https://"$SERVER_NAME"
 ```
+
+## Nginx Hardening Options
+
+These compose variables are available in `.env`:
+
+- `NGINX_CLIENT_MAX_BODY_SIZE`
+- `NGINX_KEEPALIVE_TIMEOUT`
+- `NGINX_CLIENT_BODY_TIMEOUT`
+- `NGINX_CLIENT_HEADER_TIMEOUT`
+- `NGINX_SEND_TIMEOUT`
+- `NGINX_PROXY_READ_TIMEOUT`
+- `NGINX_PROXY_SEND_TIMEOUT`
+- `NGINX_ROBOTS_TAG` (default: `noindex, nofollow, noarchive`)
 
 ## Renewal (manual command)
 

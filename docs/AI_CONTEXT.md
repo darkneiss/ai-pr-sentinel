@@ -109,6 +109,7 @@
   - Reserved provider contract value `gcp_compute_engine` is defined, but fails fast until implementation is added.
   - Operational guide in `infrastructure/terraform/README.md`.
   - Runtime stack scaffold added in `infrastructure/deploy/runtime` (Docker Compose + Nginx + Certbot flow).
+  - Runtime Nginx templates now include hardened security headers, optional robots noindex policy (`X-Robots-Tag`), and configurable proxy/client timeout and body-size controls via compose environment variables.
   - Terraform remote state for development is configured through HCP Terraform (`cloud` block, workspace `darkneiss/aisentinel`).
   - Terraform GitHub Actions workflows are in place for development infra:
     - `terraform-plan.yml` (PR plan),
