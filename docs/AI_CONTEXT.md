@@ -108,7 +108,7 @@
   - Bootstrap now supports a dedicated unprivileged deploy user with SSH public-key authentication and rootless Docker setup (fallback to `docker` group if rootless install fails).
   - Reserved provider contract value `gcp_compute_engine` is defined, but fails fast until implementation is added.
   - Operational guide in `infrastructure/terraform/README.md`.
-  - Production runtime stack scaffold added in `infrastructure/deploy/production` (Docker Compose + Nginx + Certbot flow).
+  - Runtime stack scaffold added in `infrastructure/deploy/runtime` (Docker Compose + Nginx + Certbot flow).
   - Terraform remote state for development is configured through HCP Terraform (`cloud` block, workspace `darkneiss/aisentinel`).
   - Terraform GitHub Actions workflows are in place for development infra:
     - `terraform-plan.yml` (PR plan),

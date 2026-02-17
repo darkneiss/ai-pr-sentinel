@@ -55,8 +55,8 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Production deploy runtime env files
-infrastructure/deploy/production/.env
-infrastructure/deploy/production/api.env
-infrastructure/deploy/production/certbot/conf/
-infrastructure/deploy/production/certbot/www/
+# Runtime deploy env files
+infrastructure/deploy/runtime/.env
+infrastructure/deploy/runtime/api.env
+infrastructure/deploy/runtime/certbot/conf/
+infrastructure/deploy/runtime/certbot/www/

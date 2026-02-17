@@ -1,4 +1,4 @@
-# Production Compose Stack
+# Runtime Compose Stack
 
 This stack runs:
 
@@ -8,7 +8,7 @@ This stack runs:
 
 ## Location
 
-`infrastructure/deploy/production/`
+`infrastructure/deploy/runtime/`
 
 This keeps runtime deployment manifests separate from:
 
@@ -27,7 +27,7 @@ This keeps runtime deployment manifests separate from:
 ## First Run (HTTP mode)
 
 ```bash
-cd infrastructure/deploy/production
+cd infrastructure/deploy/runtime
 cp .env.example .env
 cp api.env.example api.env
 
@@ -41,7 +41,7 @@ curl -I http://127.0.0.1
 Ensure `SERVER_NAME` resolves to this server public IP first.
 
 ```bash
-cd infrastructure/deploy/production
+cd infrastructure/deploy/runtime
 
 docker compose run --rm certbot certonly \
   --webroot -w /var/www/certbot \
@@ -64,7 +64,7 @@ curl -I https://"$SERVER_NAME"
 ## Renewal (manual command)
 
 ```bash
-cd infrastructure/deploy/production
+cd infrastructure/deploy/runtime
 docker compose run --rm certbot renew --webroot -w /var/www/certbot
 docker compose restart nginx
 ```
