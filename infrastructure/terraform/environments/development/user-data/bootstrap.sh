@@ -2,10 +2,10 @@
 # Lightsail prepends its own cloud-init script with /bin/sh, so keep this script POSIX-compatible.
 set -eux
 
-DEPLOY_USER="__DEPLOY_USER__"
-DEPLOY_SSH_PUBLIC_KEY_B64="__DEPLOY_SSH_PUBLIC_KEY_B64__"
-DEPLOY_ENABLE_ROOTLESS_DOCKER="__DEPLOY_ENABLE_ROOTLESS_DOCKER__"
-DEPLOY_HOME="/srv/${DEPLOY_USER}"
+DEPLOY_USER="${DEPLOY_USER}"
+DEPLOY_SSH_PUBLIC_KEY_B64="${DEPLOY_SSH_PUBLIC_KEY_B64}"
+DEPLOY_ENABLE_ROOTLESS_DOCKER="${DEPLOY_ENABLE_ROOTLESS_DOCKER}"
+DEPLOY_HOME="/srv/$${DEPLOY_USER}"
 
 if [ -z "$DEPLOY_USER" ]; then
   echo "Bootstrap error: DEPLOY_USER is empty." >&2
@@ -82,19 +82,21 @@ EOF
 
     DEPLOY_UID="$(id -u "$DEPLOY_USER")"
     DEPLOY_PROFILE="$DEPLOY_HOME/.profile"
-    DEPLOY_DOCKER_HOST="unix:///run/user/${DEPLOY_UID}/docker.sock"
+    DEPLOY_DOCKER_HOST="unix:///run/user/$${DEPLOY_UID}/docker.sock"
 
-    if ! grep -q "DOCKER_HOST=${DEPLOY_DOCKER_HOST}" "$DEPLOY_PROFILE"; then
+    if ! grep -q "DOCKER_HOST=$${DEPLOY_DOCKER_HOST}" "$DEPLOY_PROFILE"; then
       cat >> "$DEPLOY_PROFILE" <<EOF
 
-export DOCKER_HOST=${DEPLOY_DOCKER_HOST}
+export DOCKER_HOST=$${DEPLOY_DOCKER_HOST}
 EOF
       chown "$DEPLOY_USER:$DEPLOY_USER" "$DEPLOY_PROFILE"
     fi
   else
+    echo "WARNING: rootless Docker setup failed; adding '$DEPLOY_USER' to docker group (less secure)." >&2
     usermod -aG docker "$DEPLOY_USER"
   fi
 else
+  echo "WARNING: rootless Docker disabled; adding '$DEPLOY_USER' to docker group (less secure)." >&2
   usermod -aG docker "$DEPLOY_USER"
 fi
 

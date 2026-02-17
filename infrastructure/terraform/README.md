@@ -81,11 +81,11 @@ Example for automatic key pair creation from your local public key:
 
 ```hcl
 key_pair_name       = null
-ssh_public_key_path = "/home/your-user/.ssh/id_ed25519.pub"
+ssh_public_key_path = "/home/your-user/.ssh/id_ed25519_ai_pr_sentinel_infra.pub"
 compute_provider    = "aws_lightsail"
 
 deploy_user_name                 = "deploy"
-deploy_user_ssh_public_key_path  = "/home/your-user/.ssh/id_ed25519.pub"
+deploy_user_ssh_public_key_path  = "/home/your-user/.ssh/id_ed25519_ai_pr_sentinel_deploy.pub"
 deploy_user_enable_rootless_docker = true
 ```
 

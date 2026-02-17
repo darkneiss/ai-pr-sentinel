@@ -22,7 +22,7 @@ services:
         max-file: "5"
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.5-alpine
     container_name: ai-pr-sentinel-nginx
     restart: unless-stopped
     depends_on:
@@ -56,7 +56,7 @@ services:
         max-file: "5"
 
   certbot:
-    image: certbot/certbot:latest
+    image: certbot/certbot:v2.11.0
     container_name: ai-pr-sentinel-certbot
     profiles: ["ops"]
     volumes:

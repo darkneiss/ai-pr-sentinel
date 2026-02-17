@@ -16,19 +16,11 @@ locals {
     Component   = "compute"
   }
   merged_tags = merge(local.baseline_tags, var.additional_tags)
-  user_data = var.user_data_file_path == null ? null : replace(
-    replace(
-      replace(
-        file(var.user_data_file_path),
-        "__DEPLOY_USER__",
-        var.deploy_user_name
-      ),
-      "__DEPLOY_SSH_PUBLIC_KEY_B64__",
-      base64encode(local.deploy_ssh_public_key)
-    ),
-    "__DEPLOY_ENABLE_ROOTLESS_DOCKER__",
-    var.deploy_user_enable_rootless_docker ? "true" : "false"
-  )
+  user_data = var.user_data_file_path == null ? null : templatefile(var.user_data_file_path, {
+    DEPLOY_USER                   = var.deploy_user_name
+    DEPLOY_SSH_PUBLIC_KEY_B64     = base64encode(local.deploy_ssh_public_key)
+    DEPLOY_ENABLE_ROOTLESS_DOCKER = var.deploy_user_enable_rootless_docker ? "true" : "false"
+  })
 }
 
 resource "aws_lightsail_key_pair" "ssh" {
