@@ -1,0 +1,70 @@
+services:
+  api:
+    image: ${API_IMAGE:?Set API_IMAGE in .env}
+    container_name: ai-pr-sentinel-api
+    restart: unless-stopped
+    env_file:
+      - ./api.env
+    expose:
+      - "${API_INTERNAL_PORT:-3000}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${API_INTERNAL_PORT:-3000}/health >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ai-pr-sentinel-nginx
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      SERVER_NAME: ${SERVER_NAME:?Set SERVER_NAME in .env}
+      API_UPSTREAM_HOST: api
+      API_UPSTREAM_PORT: "${API_INTERNAL_PORT:-3000}"
+      NGINX_TLS_ENABLED: "${NGINX_TLS_ENABLED:-false}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/entrypoint/40-render-site-config.sh:/docker-entrypoint.d/40-render-site-config.sh:ro
+      - ./nginx/templates:/opt/nginx/templates:ro
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: ai-pr-sentinel-certbot
+    profiles: ["ops"]
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: ["certbot"]
+
+networks:
+  edge:
+    name: ai-pr-sentinel-edge
+    driver: bridge
