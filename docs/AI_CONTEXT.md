@@ -109,12 +109,22 @@
   - Reserved provider contract value `gcp_compute_engine` is defined, but fails fast until implementation is added.
   - Operational guide in `infrastructure/terraform/README.md`.
   - Runtime stack scaffold added in `infrastructure/deploy/runtime` (Docker Compose + Nginx + Certbot flow).
+  - Runtime stack now supports automatic TLS lifecycle:
+    - `certbot-init` one-shot initial issuance,
+    - `certbot-renew` periodic renewal loop,
+    - Nginx certificate change auto-reload hook.
+  - Runtime Nginx ingress now exposes explicit routes (`/`, `/healthz`, `/webhooks/github`, `/api/*`) instead of proxying all traffic to API.
   - Runtime Nginx templates now include hardened security headers, optional robots noindex policy (`X-Robots-Tag`), and configurable proxy/client timeout and body-size controls via compose environment variables.
   - Terraform remote state for development is configured through HCP Terraform (`cloud` block, workspace `darkneiss/aisentinel`).
   - Terraform GitHub Actions workflows are in place for development infra:
     - `terraform-plan.yml` (PR plan),
     - `terraform-apply.yml` (main/manual apply),
     - `terraform-destroy.yml` (manual destroy with explicit confirmation).
+  - Runtime deploy workflow is in place:
+    - `.github/workflows/deploy-runtime.yml` deploys compose stack over SSH,
+    - receives target API image tag and updates remote `.env` (`API_IMAGE`),
+    - renders runtime `.env` from repo template (`infrastructure/deploy/runtime/.env.template`) using GitHub `vars` + `secrets`,
+    - runs `docker compose pull` + `docker compose up -d --force-recreate --remove-orphans`.
 
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).

@@ -149,3 +149,32 @@ Security model:
 
 - AWS authentication in CI uses GitHub OIDC + `aws-actions/configure-aws-credentials` (no static AWS keys in GitHub secrets).
 - Terraform Cloud/HCP authentication uses `TF_TOKEN_app_terraform_io`.
+
+## Runtime Deploy Workflow (Docker Compose)
+
+Terraform provisions the server, but application runtime deploy is handled by a separate workflow:
+
+- `.github/workflows/deploy-runtime.yml`
+
+This workflow syncs `infrastructure/deploy/runtime/` to the server, renders runtime `.env` from `infrastructure/deploy/runtime/.env.template` using GitHub `vars` + `secrets`, and executes:
+
+- `docker compose pull`
+- `docker compose up -d --force-recreate --remove-orphans`
+
+The workflow is triggered automatically after image publication from `.github/workflows/publish-image.yml` and can also be run manually with an explicit `image_tag`.
+
+Runtime deploy configuration expected by the workflow:
+
+- Variables:
+  - `DEPLOY_HOST`
+  - optional: `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_RUNTIME_PATH`
+  - required: `RUNTIME_SERVER_NAME`
+  - required when TLS enabled: `RUNTIME_LETSENCRYPT_EMAIL`
+  - optional runtime overrides: `RUNTIME_*` (port, nginx, logging, AI/provider settings)
+- Secrets:
+  - `RUNTIME_SCM_TOKEN`
+  - `RUNTIME_SCM_WEBHOOK_SECRET`
+  - `RUNTIME_LLM_API_KEY`
+  - `RUNTIME_LANGSMITH_API_KEY` (required when `RUNTIME_LANGSMITH_TRACING=true`)
+- `DEPLOY_SSH_PRIVATE_KEY`
+- optional for private GHCR: `GHCR_DEPLOY_USERNAME`, `GHCR_DEPLOY_TOKEN`

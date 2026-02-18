@@ -57,6 +57,5 @@ override.tf.json
 
 # Runtime deploy env files
 infrastructure/deploy/runtime/.env
-infrastructure/deploy/runtime/api.env
 infrastructure/deploy/runtime/certbot/conf/
 infrastructure/deploy/runtime/certbot/www/

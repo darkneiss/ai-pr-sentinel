@@ -1,0 +1,333 @@
+name: Deploy Runtime
+
+on:
+  repository_dispatch:
+    types:
+      - deploy-runtime-development
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Container tag to deploy (example: v1.2.3)"
+        required: true
+        type: string
+      reason:
+        description: "Reason for manual deploy (for audit trail)"
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-runtime-development
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-development:
+    name: Deploy Runtime to Development
+    if: >-
+      ${{
+        github.event_name == 'repository_dispatch' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            github.ref_name == 'main' ||
+            github.ref_name == 'master'
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
+      DEPLOY_RUNTIME_PATH: ${{ vars.DEPLOY_RUNTIME_PATH || '/srv/deploy/ai-pr-sentinel/runtime' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.client_payload.sha || github.sha }}
+
+      - name: Resolve deploy image reference
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "repository_dispatch" ]]; then
+            image_tag="${{ github.event.client_payload.image_tag }}"
+          else
+            image_tag="${{ inputs.image_tag }}"
+          fi
+
+          if [[ -z "${image_tag}" ]]; then
+            echo "image_tag is required." >&2
+            exit 1
+          fi
+
+          if [[ ! "${image_tag}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
+            echo "Invalid image_tag format: ${image_tag}" >&2
+            exit 1
+          fi
+
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image_repository="ghcr.io/${owner}/ai-pr-sentinel-api"
+          image_reference="${image_repository}:${image_tag}"
+
+          {
+            echo "image_tag=${image_tag}"
+            echo "image_repository=${image_repository}"
+            echo "image_reference=${image_reference}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate deploy connection variables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${DEPLOY_HOST}" ]]; then
+            echo "Missing vars.DEPLOY_HOST." >&2
+            exit 1
+          fi
+
+      - name: Render runtime env file from template
+        shell: bash
+        env:
+          API_IMAGE: ${{ steps.image.outputs.image_reference }}
+          RUNTIME_SERVER_NAME: ${{ vars.RUNTIME_SERVER_NAME }}
+          RUNTIME_API_PORT: ${{ vars.RUNTIME_API_PORT || '3000' }}
+          RUNTIME_NGINX_TLS_ENABLED: ${{ vars.RUNTIME_NGINX_TLS_ENABLED || 'true' }}
+          RUNTIME_LETSENCRYPT_EMAIL: ${{ vars.RUNTIME_LETSENCRYPT_EMAIL }}
+          RUNTIME_CERTBOT_STAGING: ${{ vars.RUNTIME_CERTBOT_STAGING || 'false' }}
+          RUNTIME_CERTBOT_RENEW_INTERVAL_SECONDS: ${{ vars.RUNTIME_CERTBOT_RENEW_INTERVAL_SECONDS || '43200' }}
+          RUNTIME_NGINX_CLIENT_MAX_BODY_SIZE: ${{ vars.RUNTIME_NGINX_CLIENT_MAX_BODY_SIZE || '100m' }}
+          RUNTIME_NGINX_KEEPALIVE_TIMEOUT: ${{ vars.RUNTIME_NGINX_KEEPALIVE_TIMEOUT || '5s' }}
+          RUNTIME_NGINX_CLIENT_BODY_TIMEOUT: ${{ vars.RUNTIME_NGINX_CLIENT_BODY_TIMEOUT || '10s' }}
+          RUNTIME_NGINX_CLIENT_HEADER_TIMEOUT: ${{ vars.RUNTIME_NGINX_CLIENT_HEADER_TIMEOUT || '10s' }}
+          RUNTIME_NGINX_SEND_TIMEOUT: ${{ vars.RUNTIME_NGINX_SEND_TIMEOUT || '10s' }}
+          RUNTIME_NGINX_PROXY_READ_TIMEOUT: ${{ vars.RUNTIME_NGINX_PROXY_READ_TIMEOUT || '300s' }}
+          RUNTIME_NGINX_PROXY_SEND_TIMEOUT: ${{ vars.RUNTIME_NGINX_PROXY_SEND_TIMEOUT || '300s' }}
+          RUNTIME_NGINX_CERT_RELOAD_INTERVAL_SECONDS: ${{ vars.RUNTIME_NGINX_CERT_RELOAD_INTERVAL_SECONDS || '300' }}
+          RUNTIME_NGINX_ROBOTS_TAG: ${{ vars.RUNTIME_NGINX_ROBOTS_TAG || 'noindex, nofollow, noarchive' }}
+          RUNTIME_NODE_ENV: ${{ vars.RUNTIME_NODE_ENV || 'production' }}
+          RUNTIME_SCM_PROVIDER: ${{ vars.RUNTIME_SCM_PROVIDER || 'github' }}
+          RUNTIME_SCM_BOT_LOGIN: ${{ vars.RUNTIME_SCM_BOT_LOGIN || 'ai-pr-sentinel[bot]' }}
+          RUNTIME_SCM_WEBHOOK_VERIFY_SIGNATURE: ${{ vars.RUNTIME_SCM_WEBHOOK_VERIFY_SIGNATURE }}
+          RUNTIME_LOG_LEVEL: ${{ vars.RUNTIME_LOG_LEVEL || 'info' }}
+          RUNTIME_LLM_LOG_RAW_RESPONSE: ${{ vars.RUNTIME_LLM_LOG_RAW_RESPONSE || 'false' }}
+          RUNTIME_AI_TRIAGE_ENABLED: ${{ vars.RUNTIME_AI_TRIAGE_ENABLED || 'true' }}
+          RUNTIME_AI_TEMPERATURE: ${{ vars.RUNTIME_AI_TEMPERATURE || '0.1' }}
+          RUNTIME_AI_LABEL_KIND_BUG: ${{ vars.RUNTIME_AI_LABEL_KIND_BUG }}
+          RUNTIME_AI_LABEL_KIND_FEATURE: ${{ vars.RUNTIME_AI_LABEL_KIND_FEATURE }}
+          RUNTIME_AI_LABEL_KIND_QUESTION: ${{ vars.RUNTIME_AI_LABEL_KIND_QUESTION }}
+          RUNTIME_AI_LABEL_DOCUMENTATION: ${{ vars.RUNTIME_AI_LABEL_DOCUMENTATION }}
+          RUNTIME_AI_LABEL_HELP_WANTED: ${{ vars.RUNTIME_AI_LABEL_HELP_WANTED }}
+          RUNTIME_AI_LABEL_GOOD_FIRST_ISSUE: ${{ vars.RUNTIME_AI_LABEL_GOOD_FIRST_ISSUE }}
+          RUNTIME_AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD: ${{ vars.RUNTIME_AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD }}
+          RUNTIME_AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD: ${{ vars.RUNTIME_AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD }}
+          RUNTIME_AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD: ${{ vars.RUNTIME_AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD }}
+          RUNTIME_AI_CLASSIFICATION_CONFIDENCE_THRESHOLD: ${{ vars.RUNTIME_AI_CLASSIFICATION_CONFIDENCE_THRESHOLD }}
+          RUNTIME_AI_SENTIMENT_CONFIDENCE_THRESHOLD: ${{ vars.RUNTIME_AI_SENTIMENT_CONFIDENCE_THRESHOLD }}
+          RUNTIME_AI_DUPLICATE_SIMILARITY_THRESHOLD: ${{ vars.RUNTIME_AI_DUPLICATE_SIMILARITY_THRESHOLD }}
+          RUNTIME_LLM_TIMEOUT: ${{ vars.RUNTIME_LLM_TIMEOUT }}
+          RUNTIME_LLM_PROVIDER: ${{ vars.RUNTIME_LLM_PROVIDER || 'groq' }}
+          RUNTIME_LLM_MODEL: ${{ vars.RUNTIME_LLM_MODEL || 'openai/gpt-oss-20b' }}
+          RUNTIME_LLM_BASE_URL: ${{ vars.RUNTIME_LLM_BASE_URL || 'https://api.groq.com/openai/v1/chat/completions' }}
+          RUNTIME_LANGSMITH_TRACING: ${{ vars.RUNTIME_LANGSMITH_TRACING || 'false' }}
+          RUNTIME_LANGSMITH_PROJECT: ${{ vars.RUNTIME_LANGSMITH_PROJECT || 'ai-pr-sentinel' }}
+          RUNTIME_LANGSMITH_ENDPOINT: ${{ vars.RUNTIME_LANGSMITH_ENDPOINT || 'https://api.smith.langchain.com' }}
+          RUNTIME_LANGSMITH_WORKSPACE_ID: ${{ vars.RUNTIME_LANGSMITH_WORKSPACE_ID }}
+          RUNTIME_SCM_TOKEN: ${{ secrets.RUNTIME_SCM_TOKEN }}
+          RUNTIME_SCM_WEBHOOK_SECRET: ${{ secrets.RUNTIME_SCM_WEBHOOK_SECRET }}
+          RUNTIME_LLM_API_KEY: ${{ secrets.RUNTIME_LLM_API_KEY }}
+          RUNTIME_LANGSMITH_API_KEY: ${{ secrets.RUNTIME_LANGSMITH_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          template_path="infrastructure/deploy/runtime/.env.template"
+          if [[ ! -f "${template_path}" ]]; then
+            echo "Missing runtime env template: ${template_path}" >&2
+            exit 1
+          fi
+
+          required_variables=(
+            RUNTIME_SERVER_NAME
+            RUNTIME_SCM_TOKEN
+            RUNTIME_SCM_WEBHOOK_SECRET
+            RUNTIME_LLM_API_KEY
+          )
+
+          if [[ "${RUNTIME_NGINX_TLS_ENABLED}" == "true" ]]; then
+            required_variables+=(RUNTIME_LETSENCRYPT_EMAIL)
+          fi
+
+          if [[ "${RUNTIME_LANGSMITH_TRACING}" == "true" ]]; then
+            required_variables+=(RUNTIME_LANGSMITH_API_KEY)
+          fi
+
+          for variable_name in "${required_variables[@]}"; do
+            if [[ -z "${!variable_name}" ]]; then
+              echo "Missing required runtime configuration: ${variable_name}" >&2
+              exit 1
+            fi
+          done
+
+          export SERVER_NAME="${RUNTIME_SERVER_NAME}"
+          export API_PORT="${RUNTIME_API_PORT}"
+          export NGINX_TLS_ENABLED="${RUNTIME_NGINX_TLS_ENABLED}"
+          export LETSENCRYPT_EMAIL="${RUNTIME_LETSENCRYPT_EMAIL}"
+          export CERTBOT_STAGING="${RUNTIME_CERTBOT_STAGING}"
+          export CERTBOT_RENEW_INTERVAL_SECONDS="${RUNTIME_CERTBOT_RENEW_INTERVAL_SECONDS}"
+          export NGINX_CLIENT_MAX_BODY_SIZE="${RUNTIME_NGINX_CLIENT_MAX_BODY_SIZE}"
+          export NGINX_KEEPALIVE_TIMEOUT="${RUNTIME_NGINX_KEEPALIVE_TIMEOUT}"
+          export NGINX_CLIENT_BODY_TIMEOUT="${RUNTIME_NGINX_CLIENT_BODY_TIMEOUT}"
+          export NGINX_CLIENT_HEADER_TIMEOUT="${RUNTIME_NGINX_CLIENT_HEADER_TIMEOUT}"
+          export NGINX_SEND_TIMEOUT="${RUNTIME_NGINX_SEND_TIMEOUT}"
+          export NGINX_PROXY_READ_TIMEOUT="${RUNTIME_NGINX_PROXY_READ_TIMEOUT}"
+          export NGINX_PROXY_SEND_TIMEOUT="${RUNTIME_NGINX_PROXY_SEND_TIMEOUT}"
+          export NGINX_CERT_RELOAD_INTERVAL_SECONDS="${RUNTIME_NGINX_CERT_RELOAD_INTERVAL_SECONDS}"
+          export NGINX_ROBOTS_TAG="${RUNTIME_NGINX_ROBOTS_TAG}"
+          export NODE_ENV="${RUNTIME_NODE_ENV}"
+          export SCM_PROVIDER="${RUNTIME_SCM_PROVIDER}"
+          export SCM_TOKEN="${RUNTIME_SCM_TOKEN}"
+          export SCM_BOT_LOGIN="${RUNTIME_SCM_BOT_LOGIN}"
+          export SCM_WEBHOOK_SECRET="${RUNTIME_SCM_WEBHOOK_SECRET}"
+          export SCM_WEBHOOK_VERIFY_SIGNATURE="${RUNTIME_SCM_WEBHOOK_VERIFY_SIGNATURE}"
+          export LOG_LEVEL="${RUNTIME_LOG_LEVEL}"
+          export LLM_LOG_RAW_RESPONSE="${RUNTIME_LLM_LOG_RAW_RESPONSE}"
+          export AI_TRIAGE_ENABLED="${RUNTIME_AI_TRIAGE_ENABLED}"
+          export AI_TEMPERATURE="${RUNTIME_AI_TEMPERATURE}"
+          export AI_LABEL_KIND_BUG="${RUNTIME_AI_LABEL_KIND_BUG}"
+          export AI_LABEL_KIND_FEATURE="${RUNTIME_AI_LABEL_KIND_FEATURE}"
+          export AI_LABEL_KIND_QUESTION="${RUNTIME_AI_LABEL_KIND_QUESTION}"
+          export AI_LABEL_DOCUMENTATION="${RUNTIME_AI_LABEL_DOCUMENTATION}"
+          export AI_LABEL_HELP_WANTED="${RUNTIME_AI_LABEL_HELP_WANTED}"
+          export AI_LABEL_GOOD_FIRST_ISSUE="${RUNTIME_AI_LABEL_GOOD_FIRST_ISSUE}"
+          export AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD="${RUNTIME_AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD}"
+          export AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD="${RUNTIME_AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD}"
+          export AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD="${RUNTIME_AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD}"
+          export AI_CLASSIFICATION_CONFIDENCE_THRESHOLD="${RUNTIME_AI_CLASSIFICATION_CONFIDENCE_THRESHOLD}"
+          export AI_SENTIMENT_CONFIDENCE_THRESHOLD="${RUNTIME_AI_SENTIMENT_CONFIDENCE_THRESHOLD}"
+          export AI_DUPLICATE_SIMILARITY_THRESHOLD="${RUNTIME_AI_DUPLICATE_SIMILARITY_THRESHOLD}"
+          export LLM_TIMEOUT="${RUNTIME_LLM_TIMEOUT}"
+          export LLM_PROVIDER="${RUNTIME_LLM_PROVIDER}"
+          export LLM_API_KEY="${RUNTIME_LLM_API_KEY}"
+          export LLM_MODEL="${RUNTIME_LLM_MODEL}"
+          export LLM_BASE_URL="${RUNTIME_LLM_BASE_URL}"
+          export LANGSMITH_TRACING="${RUNTIME_LANGSMITH_TRACING}"
+          export LANGSMITH_API_KEY="${RUNTIME_LANGSMITH_API_KEY}"
+          export LANGSMITH_PROJECT="${RUNTIME_LANGSMITH_PROJECT}"
+          export LANGSMITH_ENDPOINT="${RUNTIME_LANGSMITH_ENDPOINT}"
+          export LANGSMITH_WORKSPACE_ID="${RUNTIME_LANGSMITH_WORKSPACE_ID}"
+
+          mkdir -p .deploy-runtime
+          chmod 700 .deploy-runtime
+
+          # shellcheck disable=SC2016
+          template_variables='${API_IMAGE} ${SERVER_NAME} ${API_PORT} ${NGINX_TLS_ENABLED} ${LETSENCRYPT_EMAIL} ${CERTBOT_STAGING} ${CERTBOT_RENEW_INTERVAL_SECONDS} ${NGINX_CLIENT_MAX_BODY_SIZE} ${NGINX_KEEPALIVE_TIMEOUT} ${NGINX_CLIENT_BODY_TIMEOUT} ${NGINX_CLIENT_HEADER_TIMEOUT} ${NGINX_SEND_TIMEOUT} ${NGINX_PROXY_READ_TIMEOUT} ${NGINX_PROXY_SEND_TIMEOUT} ${NGINX_CERT_RELOAD_INTERVAL_SECONDS} ${NGINX_ROBOTS_TAG} ${NODE_ENV} ${SCM_PROVIDER} ${SCM_TOKEN} ${SCM_BOT_LOGIN} ${SCM_WEBHOOK_SECRET} ${SCM_WEBHOOK_VERIFY_SIGNATURE} ${LOG_LEVEL} ${LLM_LOG_RAW_RESPONSE} ${AI_TRIAGE_ENABLED} ${AI_TEMPERATURE} ${AI_LABEL_KIND_BUG} ${AI_LABEL_KIND_FEATURE} ${AI_LABEL_KIND_QUESTION} ${AI_LABEL_DOCUMENTATION} ${AI_LABEL_HELP_WANTED} ${AI_LABEL_GOOD_FIRST_ISSUE} ${AI_LABEL_DOCUMENTATION_CONFIDENCE_THRESHOLD} ${AI_LABEL_HELP_WANTED_CONFIDENCE_THRESHOLD} ${AI_LABEL_GOOD_FIRST_ISSUE_CONFIDENCE_THRESHOLD} ${AI_CLASSIFICATION_CONFIDENCE_THRESHOLD} ${AI_SENTIMENT_CONFIDENCE_THRESHOLD} ${AI_DUPLICATE_SIMILARITY_THRESHOLD} ${LLM_TIMEOUT} ${LLM_PROVIDER} ${LLM_API_KEY} ${LLM_MODEL} ${LLM_BASE_URL} ${LANGSMITH_TRACING} ${LANGSMITH_API_KEY} ${LANGSMITH_PROJECT} ${LANGSMITH_ENDPOINT} ${LANGSMITH_WORKSPACE_ID}'
+          envsubst "${template_variables}" < "${template_path}" > .deploy-runtime/.env
+
+          # shellcheck disable=SC2016
+          unresolved_placeholders="$(grep -o '\${[A-Z0-9_]\+}' .deploy-runtime/.env | sort -u || true)"
+          if [[ -n "${unresolved_placeholders}" ]]; then
+            echo "Unresolved placeholders found in rendered .env:" >&2
+            echo "${unresolved_placeholders}" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH key and known hosts
+        shell: bash
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${DEPLOY_SSH_PRIVATE_KEY}" ]]; then
+            echo "Missing secrets.DEPLOY_SSH_PRIVATE_KEY." >&2
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${DEPLOY_SSH_PRIVATE_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT}" -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Sync runtime stack files to server
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote="${DEPLOY_USER}@${DEPLOY_HOST}"
+          ssh_cmd=(
+            ssh
+            -i ~/.ssh/deploy_key
+            -p "${DEPLOY_PORT}"
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+          )
+
+          "${ssh_cmd[@]}" "${remote}" "mkdir -p '${DEPLOY_RUNTIME_PATH}'"
+
+          rsync -az --delete \
+            --exclude '.env' \
+            --exclude 'certbot/conf/' \
+            --exclude 'certbot/www/' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            infrastructure/deploy/runtime/ "${remote}:${DEPLOY_RUNTIME_PATH}/"
+
+          rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            .deploy-runtime/.env "${remote}:${DEPLOY_RUNTIME_PATH}/.env"
+
+      - name: Deploy compose stack on server
+        shell: bash
+        env:
+          IMAGE_REFERENCE: ${{ steps.image.outputs.image_reference }}
+          GHCR_DEPLOY_USERNAME: ${{ secrets.GHCR_DEPLOY_USERNAME }}
+          GHCR_DEPLOY_TOKEN: ${{ secrets.GHCR_DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          remote="${DEPLOY_USER}@${DEPLOY_HOST}"
+          ssh_cmd=(
+            ssh
+            -i ~/.ssh/deploy_key
+            -p "${DEPLOY_PORT}"
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+          )
+          deploy_runtime_path_b64="$(printf '%s' "${DEPLOY_RUNTIME_PATH}" | base64 | tr -d '\n')"
+          image_reference_b64="$(printf '%s' "${IMAGE_REFERENCE}" | base64 | tr -d '\n')"
+          ghcr_deploy_username_b64="$(printf '%s' "${GHCR_DEPLOY_USERNAME}" | base64 | tr -d '\n')"
+          ghcr_deploy_token_b64="$(printf '%s' "${GHCR_DEPLOY_TOKEN}" | base64 | tr -d '\n')"
+
+          # shellcheck disable=SC2029
+          "${ssh_cmd[@]}" "${remote}" \
+            "DEPLOY_RUNTIME_PATH_B64='${deploy_runtime_path_b64}' IMAGE_REFERENCE_B64='${image_reference_b64}' GHCR_DEPLOY_USERNAME_B64='${ghcr_deploy_username_b64}' GHCR_DEPLOY_TOKEN_B64='${ghcr_deploy_token_b64}' bash -s" <<'EOF'
+          set -euo pipefail
+
+          DEPLOY_RUNTIME_PATH="$(printf '%s' "${DEPLOY_RUNTIME_PATH_B64}" | base64 -d)"
+          IMAGE_REFERENCE="$(printf '%s' "${IMAGE_REFERENCE_B64}" | base64 -d)"
+          GHCR_DEPLOY_USERNAME="$(printf '%s' "${GHCR_DEPLOY_USERNAME_B64}" | base64 -d)"
+          GHCR_DEPLOY_TOKEN="$(printf '%s' "${GHCR_DEPLOY_TOKEN_B64}" | base64 -d)"
+
+          cd "${DEPLOY_RUNTIME_PATH}"
+          rm -f api.env
+
+          if [[ -n "${GHCR_DEPLOY_USERNAME}" && -n "${GHCR_DEPLOY_TOKEN}" ]]; then
+            echo "${GHCR_DEPLOY_TOKEN}" | docker login ghcr.io -u "${GHCR_DEPLOY_USERNAME}" --password-stdin
+          fi
+
+          docker compose pull
+          docker compose up -d --force-recreate --remove-orphans
+          docker compose ps
+          EOF
+
+      - name: Report deployed image
+        run: |
+          echo "Deployed image: ${{ steps.image.outputs.image_reference }}"
+          echo "Server: ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:${{ env.DEPLOY_RUNTIME_PATH }}"
