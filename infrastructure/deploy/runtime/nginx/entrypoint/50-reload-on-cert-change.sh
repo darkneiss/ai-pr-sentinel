@@ -24,7 +24,9 @@ fi
 
       if [ -n "${current_fingerprint}" ] && [ "${current_fingerprint}" != "${previous_fingerprint}" ]; then
         if [ -n "${previous_fingerprint}" ]; then
-          nginx -s reload >/dev/null 2>&1 || true
+          if ! nginx -s reload >/dev/null 2>&1; then
+            echo "ERROR: nginx reload failed at $(date -u '+%Y-%m-%dT%H:%M:%SZ')" >&2
+          fi
         fi
 
         previous_fingerprint="${current_fingerprint}"
