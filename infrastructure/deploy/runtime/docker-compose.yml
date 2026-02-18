@@ -140,7 +140,9 @@ services:
         fi
 
         while :; do
-          certbot renew --webroot -w /var/www/certbot --non-interactive --quiet || true
+          if ! certbot renew --webroot -w /var/www/certbot --non-interactive --quiet; then
+            echo "ERROR: certbot renewal failed at $$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >&2
+          fi
           sleep "$${CERTBOT_RENEW_INTERVAL_SECONDS}"
         done
 
