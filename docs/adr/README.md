@@ -9,3 +9,4 @@
 - [ADR-007: Webhook ACL + Domain Workflow + Hexagonal Guardrails](./ADR-007-webhook-acl-and-hexagonal-guardrails.md)
 - [ADR-008: Dedicated Architecture Quality Gate and Layer Metrics](./ADR-008-architecture-quality-gate-and-layer-metrics.md)
 - [ADR-009: Release Automation with Release Please](./ADR-009-release-automation-with-release-please.md)
+- [ADR-010: Terraform Foundation for AWS Lightsail Deployment](./ADR-010-terraform-lightsail-foundation.md)

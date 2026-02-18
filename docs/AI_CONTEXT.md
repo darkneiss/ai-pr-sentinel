@@ -91,6 +91,41 @@
     - `SCM_WEBHOOK_REQUIRE_DELIVERY_ID`
     - `SCM_WEBHOOK_DELIVERY_TTL_SECONDS`
 
+### Infrastructure as Code (Terraform)
+- Status: IN PROGRESS (Phase 1 bootstrap)
+- Behavior implemented:
+  - New IaC base under `infrastructure/terraform/`.
+  - Provider-agnostic compute contract module added at
+    `infrastructure/terraform/modules/compute-instance-contract`.
+  - Reusable Lightsail module in `infrastructure/terraform/modules/lightsail-instance` with:
+    - `aws_lightsail_instance`
+    - `aws_lightsail_instance_public_ports`
+    - optional static IP + attachment resources
+    - public ports and static IP attachment are now force-replaced when instance identity changes, avoiding drift after same-name instance recreation.
+  - First runnable environment stack in `infrastructure/terraform/environments/development` now consumes the compute contract.
+  - Development stack supports automatic Lightsail SSH key-pair creation from a local public key path (`ssh_public_key_path`) and wires it into instance provisioning.
+  - Optional `user_data` bootstrap script wiring for first-boot host configuration.
+  - Bootstrap now supports a dedicated unprivileged deploy user with SSH public-key authentication and rootless Docker setup (fallback to `docker` group if rootless install fails).
+  - Reserved provider contract value `gcp_compute_engine` is defined, but fails fast until implementation is added.
+  - Operational guide in `infrastructure/terraform/README.md`.
+  - Runtime stack scaffold added in `infrastructure/deploy/runtime` (Docker Compose + Nginx + Certbot flow).
+  - Runtime stack now supports automatic TLS lifecycle:
+    - `certbot-init` one-shot initial issuance,
+    - `certbot-renew` periodic renewal loop,
+    - Nginx certificate change auto-reload hook.
+  - Runtime Nginx ingress now exposes explicit routes (`/`, `/healthz`, `/webhooks/github`, `/api/*`) instead of proxying all traffic to API.
+  - Runtime Nginx templates now include hardened security headers, optional robots noindex policy (`X-Robots-Tag`), and configurable proxy/client timeout and body-size controls via compose environment variables.
+  - Terraform remote state for development is configured through HCP Terraform (`cloud` block, workspace `darkneiss/aisentinel`).
+  - Terraform GitHub Actions workflows are in place for development infra:
+    - `terraform-plan.yml` (PR plan),
+    - `terraform-apply.yml` (main/manual apply),
+    - `terraform-destroy.yml` (manual destroy with explicit confirmation).
+  - Runtime deploy workflow is in place:
+    - `.github/workflows/deploy-runtime.yml` deploys compose stack over SSH,
+    - receives target API image tag and updates remote `.env` (`API_IMAGE`),
+    - renders runtime `.env` from repo template (`infrastructure/deploy/runtime/.env.template`) using GitHub `vars` + `secrets`,
+    - runs `docker compose pull` + `docker compose up -d --force-recreate --remove-orphans`.
+
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).
 - Factory: `src/infrastructure/composition/llm-gateway.factory.ts`.
@@ -212,8 +247,9 @@
     - behavior:
       - `release.yml` creates/updates Release PR and publishes tag + GitHub Release when merged.
       - release baseline is managed by manifest files:
-        - `release-please-config.json` (package strategy + `bootstrap-sha`, path `.` + `extra-files` for `apps/api/package.json`)
-        - `.release-please-manifest.json` (tracked API version baseline at `.`)
+        - `release-please-config.json` (package strategy + `bootstrap-sha`, path `apps/api` + `extra-files` for `apps/api/package.json`)
+        - `.release-please-manifest.json` (tracked API version baseline at `apps/api`)
+      - release automation is scoped to `apps/api` changes, so infrastructure-only changes do not bump API versions.
       - `publish-image.yml` is dispatched only when a release is created (no manual trigger path).
       - release dispatch uses retry/backoff and passes release metadata from Release Please outputs.
       - publish workflow validates payload format and release/tag/sha integrity before image publish.

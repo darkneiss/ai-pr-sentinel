@@ -86,7 +86,9 @@ Patterns: DDD, Hexagonal Architecture, Dependency Injection
 │       └── tests/                        # Unit, integration, architecture, fixtures
 ├── infrastructure/
 │   ├── apps/api/docker/                  # Dockerfile and container docs
-│   └── scripts/                          # Monorepo infrastructure scripts (build, push, tunnel)
+│   ├── deploy/runtime/                   # Runtime stack (compose + nginx + certbot)
+│   ├── scripts/                          # Monorepo infrastructure scripts (build, push, tunnel)
+│   └── terraform/                        # AWS IaC (modules + environment stacks)
 ├── docs/
 │   ├── adr/                              # Architecture Decision Records
 │   └── specs/                            # Functional specs
@@ -145,6 +147,8 @@ pnpm quality
 - [Setup Guide](./docs/SETUP_GUIDE.md)
 - [LangSmith Observability](./docs/LANGSMITH_OBSERVABILITY.md)
 - [Prompt Registry & Versioning](./docs/PROMPT_REGISTRY.md)
+- [Terraform Infrastructure](./infrastructure/terraform/README.md)
+- [Runtime Deploy Stack](./infrastructure/deploy/runtime/README.md)
 
 - [Agent Rules & Conventions](AGENTS.md)
 

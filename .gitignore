@@ -35,3 +35,27 @@ Thumbs.db
 
 # Local helper scripts (not part of product code)
 check_models.js
+
+# Terraform
+.terraform/
+.terraformrc
+terraform.rc
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+*.plan
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Runtime deploy env files
+infrastructure/deploy/runtime/.env
+infrastructure/deploy/runtime/certbot/conf/
+infrastructure/deploy/runtime/certbot/www/

@@ -1,0 +1,21 @@
+aws_region         = "eu-west-3"
+availability_zone  = "eu-west-3a"
+project_name       = "ai-pr-sentinel"
+compute_provider   = "aws_lightsail"
+environment_name   = "development"
+blueprint_id       = "debian_12"
+bundle_id          = "small_3_0"
+ip_address_type    = "ipv4"
+key_pair_name      = null
+ssh_public_key_path = "/home/your-user/.ssh/id_ed25519_ai_pr_sentinel_infra.pub"
+deploy_user_name   = "deploy"
+deploy_user_ssh_public_key_path = "/home/your-user/.ssh/id_ed25519_ai_pr_sentinel_deploy.pub"
+deploy_user_ssh_public_key = null
+deploy_user_enable_rootless_docker = true
+static_ip_enabled  = true
+public_tcp_ports   = [22, 80, 443]
+user_data_file_path = "./user-data/bootstrap.sh"
+
+additional_tags = {
+  Owner = "platform-team"
+}
