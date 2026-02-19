@@ -31,6 +31,9 @@ jobs:
       TF_IN_AUTOMATION: "true"
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-3' }}
+      TF_DEPLOY_USER_NAME: ${{ vars.TF_DEPLOY_USER_NAME || 'aisentinel' }}
+      TF_DEPLOY_USER_ROOTLESS_DOCKER: ${{ vars.TF_DEPLOY_USER_ROOTLESS_DOCKER || 'true' }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
 
     defaults:
       run:
@@ -53,6 +56,34 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           role-session-name: tf-apply-development-${{ github.run_id }}
 
+      - name: Prepare Terraform SSH inputs
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${DEPLOY_SSH_PRIVATE_KEY}" ]]; then
+            echo "Missing secrets.DEPLOY_SSH_PRIVATE_KEY." >&2
+            exit 1
+          fi
+
+          mkdir -p .terraform-ci
+          chmod 700 .terraform-ci
+
+          private_key_path=".terraform-ci/deploy_key"
+          public_key_path=".terraform-ci/deploy_key.pub"
+
+          printf '%s\n' "${DEPLOY_SSH_PRIVATE_KEY}" > "${private_key_path}"
+          chmod 600 "${private_key_path}"
+          ssh-keygen -y -f "${private_key_path}" > "${public_key_path}"
+          chmod 600 "${public_key_path}"
+
+          absolute_public_key_path="${PWD}/${public_key_path}"
+          {
+            echo "TF_VAR_ssh_public_key_path=${absolute_public_key_path}"
+            echo "TF_VAR_deploy_user_ssh_public_key_path=${absolute_public_key_path}"
+            echo "TF_VAR_deploy_user_name=${TF_DEPLOY_USER_NAME}"
+            echo "TF_VAR_deploy_user_enable_rootless_docker=${TF_DEPLOY_USER_ROOTLESS_DOCKER}"
+            echo "TF_VAR_user_data_file_path=./user-data/bootstrap.sh"
+          } >> "$GITHUB_ENV"
       - name: Terraform init
         run: terraform init -input=false
 

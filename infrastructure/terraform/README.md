@@ -143,7 +143,11 @@ Required GitHub configuration:
 
 - Repository Variable: `AWS_ROLE_TO_ASSUME` (IAM Role ARN for OIDC federation)
 - Optional Repository Variable: `AWS_REGION` (defaults to `eu-west-3` in workflows)
+- Optional Repository Variables:
+  - `TF_DEPLOY_USER_NAME` (defaults to `aisentinel`)
+  - `TF_DEPLOY_USER_ROOTLESS_DOCKER` (defaults to `true`)
 - Repository Secret: `TF_TOKEN_app_terraform_io` (HCP Terraform token)
+- Repository Secret: `DEPLOY_SSH_PRIVATE_KEY` (private key used to derive public keys for Terraform `ssh_public_key_path` and `deploy_user_ssh_public_key_path` in CI)
 
 Security model:
 
