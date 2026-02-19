@@ -20,7 +20,7 @@ fi
 apt-get update -y
 apt-get upgrade -y
 
-apt-get install -y ca-certificates curl gnupg lsb-release ufw uidmap dbus-user-session slirp4netns fuse-overlayfs
+apt-get install -y ca-certificates curl gnupg lsb-release rsync ufw uidmap dbus-user-session slirp4netns fuse-overlayfs
 
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg

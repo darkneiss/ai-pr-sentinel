@@ -2,6 +2,11 @@ server {
   listen 80;
   listen [::]:80;
   server_name ${SERVER_NAME};
+  access_log /var/log/nginx/access.log runtime_main;
+
+  if ($block_known_scanners) {
+    return 444;
+  }
 
   location /.well-known/acme-challenge/ {
     root /var/www/certbot;
@@ -29,11 +34,16 @@ server {
   server_name ${SERVER_NAME};
 
   server_tokens off;
+  access_log /var/log/nginx/access.log runtime_main;
   client_max_body_size ${NGINX_CLIENT_MAX_BODY_SIZE};
   keepalive_timeout ${NGINX_KEEPALIVE_TIMEOUT} ${NGINX_KEEPALIVE_TIMEOUT};
   client_body_timeout ${NGINX_CLIENT_BODY_TIMEOUT};
   client_header_timeout ${NGINX_CLIENT_HEADER_TIMEOUT};
   send_timeout ${NGINX_SEND_TIMEOUT};
+
+  if ($block_known_scanners) {
+    return 444;
+  }
 
   ssl_certificate /etc/letsencrypt/live/${SERVER_NAME}/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/${SERVER_NAME}/privkey.pem;
