@@ -88,4 +88,26 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform plan
-        run: terraform plan -input=false -no-color
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      - name: Guard against unintended instance replacement
+        run: |
+          set -euo pipefail
+
+          replacement_count="$(
+            terraform show -json tfplan | jq '
+              [
+                .resource_changes[]?
+                | select(.type == "aws_lightsail_instance")
+                | select((.change.actions | index("delete")) and (.change.actions | index("create")))
+              ] | length
+            '
+          )"
+
+          if [[ "${replacement_count}" -gt 0 ]]; then
+            echo "Detected ${replacement_count} planned aws_lightsail_instance replacement(s)." >&2
+            echo "PR plan is blocked by default. Use manual Terraform Apply with allow_instance_replacement=true if replacement is intentional." >&2
+            exit 1
+          fi
+
+          echo "Replacement guard passed (replacement_count=${replacement_count})."

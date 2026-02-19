@@ -13,6 +13,11 @@ on:
         description: "Reason for manual apply (for audit trail)"
         required: true
         type: string
+      allow_instance_replacement:
+        description: "Allow destroy/recreate when immutable compute attributes change"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: terraform-apply-development
@@ -70,6 +75,11 @@ jobs:
 
           private_key_path=".terraform-ci/deploy_key"
           public_key_path=".terraform-ci/deploy_key.pub"
+          allow_instance_replacement="false"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            allow_instance_replacement="${{ inputs.allow_instance_replacement }}"
+          fi
 
           printf '%s\n' "${DEPLOY_SSH_PRIVATE_KEY}" > "${private_key_path}"
           chmod 600 "${private_key_path}"
@@ -83,6 +93,7 @@ jobs:
             echo "TF_VAR_deploy_user_name=${TF_DEPLOY_USER_NAME}"
             echo "TF_VAR_deploy_user_enable_rootless_docker=${TF_DEPLOY_USER_ROOTLESS_DOCKER}"
             echo "TF_VAR_user_data_file_path=./user-data/bootstrap.sh"
+            echo "ALLOW_INSTANCE_REPLACEMENT=${allow_instance_replacement}"
           } >> "$GITHUB_ENV"
       - name: Terraform init
         run: terraform init -input=false
@@ -92,6 +103,28 @@ jobs:
 
       - name: Terraform plan
         run: terraform plan -input=false -no-color -out=tfplan
+
+      - name: Guard against unintended instance replacement
+        run: |
+          set -euo pipefail
+
+          replacement_count="$(
+            terraform show -json tfplan | jq '
+              [
+                .resource_changes[]?
+                | select(.type == "aws_lightsail_instance")
+                | select((.change.actions | index("delete")) and (.change.actions | index("create")))
+              ] | length
+            '
+          )"
+
+          if [[ "${replacement_count}" -gt 0 && "${ALLOW_INSTANCE_REPLACEMENT}" != "true" ]]; then
+            echo "Detected ${replacement_count} planned aws_lightsail_instance replacement(s)." >&2
+            echo "Blocked by guard. Re-run Terraform Apply manually with allow_instance_replacement=true only if replacement is intentional." >&2
+            exit 1
+          fi
+
+          echo "Replacement guard passed (replacement_count=${replacement_count}, allow_instance_replacement=${ALLOW_INSTANCE_REPLACEMENT})."
 
       - name: Terraform apply
         run: terraform apply -input=false -auto-approve tfplan

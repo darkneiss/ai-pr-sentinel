@@ -98,6 +98,27 @@ deploy_user_ssh_public_key_path  = "/home/your-user/.ssh/id_ed25519_ai_pr_sentin
 deploy_user_enable_rootless_docker = true
 ```
 
+## Instance Replacement Guard (CI Safe Mode by Default)
+
+Terraform CI now blocks accidental Lightsail instance replacement by default.
+
+- `terraform-plan.yml` fails if a PR plan contains `aws_lightsail_instance` replacement.
+- `terraform-apply.yml` fails on `main`/`master` pushes if the apply plan contains replacement.
+- This avoids unexpected host key changes and first-boot reprovision side effects.
+
+Typical immutable changes that may require replacement include:
+
+- SSH key pair association changes
+- first-boot `user_data` changes
+- provider attributes that are ForceNew in Lightsail
+
+How to bypass the protection intentionally:
+
+1. Validate the reason for replacement and expected impact.
+2. Run `.github/workflows/terraform-apply.yml` manually (`workflow_dispatch`) and set `allow_instance_replacement=true`.
+3. Use a clear `reason` in the workflow input for auditability.
+4. Keep regular push-based applies unchanged (they stay protected by default).
+
 ## Provider Contract
 
 The development environment consumes `modules/compute-instance-contract`, which exposes a provider-agnostic interface.
@@ -136,7 +157,7 @@ terraform destroy
 The repository includes three Terraform workflows:
 
 - `.github/workflows/terraform-plan.yml`: runs `fmt/validate/plan` for development on PRs that touch `infrastructure/terraform/**`.
-- `.github/workflows/terraform-apply.yml`: runs `init/validate/plan/apply` on `main`/`master` infra changes and also supports manual `workflow_dispatch`.
+- `.github/workflows/terraform-apply.yml`: runs `init/validate/plan/apply` on `main`/`master` infra changes and also supports manual `workflow_dispatch` with `allow_instance_replacement` override.
 - `.github/workflows/terraform-destroy.yml`: manual destroy workflow with explicit confirmation (`destroy-development`) and dedicated environment gate.
 
 Required GitHub configuration:
