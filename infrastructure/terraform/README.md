@@ -162,6 +162,10 @@ The repository includes three Terraform workflows:
 - `.github/workflows/terraform-apply.yml`: runs `init/validate/plan/apply` on `main`/`master` infra changes and also supports manual `workflow_dispatch` with `allow_instance_replacement` override.
 - `.github/workflows/terraform-destroy.yml`: manual destroy workflow with explicit confirmation (`destroy-development`) and dedicated environment gate.
 
+For step-by-step operations (manual apply, replacement override, manual destroy, post-run checks), see:
+
+- `docs/INFRASTRUCTURE_OPERATIONS_RUNBOOK.md`
+
 Required GitHub configuration:
 
 - Repository Variable: `AWS_ROLE_TO_ASSUME` (IAM Role ARN for OIDC federation)
