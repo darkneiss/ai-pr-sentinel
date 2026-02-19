@@ -71,7 +71,7 @@ Practical impact:
 4. `deploy-runtime.yml`:
    - resolves image reference,
    - renders `infrastructure/deploy/runtime/.env.template`,
-   - validates runner and remote deploy prerequisites (`ssh`, `rsync`, `docker`, `docker compose`, writable runtime path),
+   - validates runner and remote deploy prerequisites (`ssh`, `rsync`, `envsubst`, `curl`, `jq`, `base64`, `docker`, `docker compose`, writable runtime path),
    - syncs runtime files to server via SSH/`rsync`,
    - runs `docker compose pull` and `docker compose up -d --force-recreate --remove-orphans`,
    - performs post-deploy health check against `https://<RUNTIME_SERVER_NAME>/healthz` with retries.
@@ -168,8 +168,10 @@ curl -fsS https://<RUNTIME_SERVER_NAME>/api/health
 
 4. Optional on server:
 
+Use the effective `DEPLOY_RUNTIME_PATH` configured in GitHub environment variables (default: `/srv/deploy/ai-pr-sentinel/runtime`).
+
 ```bash
-cd /srv/deploy/ai-pr-sentinel/runtime
+cd <DEPLOY_RUNTIME_PATH>
 docker compose ps
 docker compose logs --tail=100 nginx
 docker compose logs --tail=100 api
@@ -217,7 +219,7 @@ Infrastructure rollback:
   - Inspect remote status/logs:
 
 ```bash
-cd /srv/deploy/ai-pr-sentinel/runtime
+cd <DEPLOY_RUNTIME_PATH>
 docker compose ps
 docker compose logs --tail=200 nginx
 docker compose logs --tail=200 api
