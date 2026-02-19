@@ -20,6 +20,49 @@ It covers:
 | Publish Image | `.github/workflows/publish-image.yml` | Release published | Build and push image to GHCR |
 | Deploy Runtime | `.github/workflows/deploy-runtime.yml` | Auto via `repository_dispatch` from publish-image, or manual | Sync runtime stack and deploy compose on server |
 
+### 1.1 GitHub Environments, Variables, and Secrets
+
+Use this model to avoid configuration mistakes:
+
+- Repository-level `Variables`/`Secrets`:
+  - available to workflows/jobs that do not declare `environment: ...`.
+  - good for shared CI configuration.
+- Environment-level `Variables`/`Secrets`:
+  - available only to jobs bound to that environment.
+  - good for stage-specific values (`development`, `production`, destroy gates).
+- If a key exists in both repository and environment scope:
+  - environment-scoped value is used for jobs running in that environment.
+
+Where to configure:
+
+1. `Settings` -> `Secrets and variables` -> `Actions`.
+2. Create values in:
+   - `Repository secrets` / `Repository variables`, or
+   - `Environments` -> `<environment-name>` -> `Secrets` / `Variables`.
+
+Current environment binding in this project:
+
+- `terraform-apply.yml` -> environment `development`
+- `terraform-destroy.yml` -> environment `development-destroy`
+- `deploy-runtime.yml` -> environment `development`
+- `terraform-plan.yml` -> no environment binding (uses repository scope)
+
+Practical impact:
+
+- If `terraform-plan` fails with missing secret errors, ensure required keys exist at repository scope.
+- Runtime deploy values should usually live in environment `development` because they are deployment-target specific.
+
+### 1.2 Variable Naming Conventions Used Here
+
+- `RUNTIME_*`:
+  - GitHub Actions vars/secrets consumed by `deploy-runtime.yml`.
+  - Mapped into rendered runtime `.env` (API, Nginx, AI, LangSmith settings).
+- `DEPLOY_*`:
+  - SSH/host/deploy path settings for remote sync and compose execution.
+- `TF_*` and `TF_VAR_*`:
+  - Terraform and provider inputs used by plan/apply/destroy workflows.
+  - Some are exported during workflow execution (for example from `DEPLOY_SSH_PRIVATE_KEY`).
+
 ## 2. Normal Deployment Flow (No Manual Steps)
 
 1. Merge code to `main`.
