@@ -50,6 +50,7 @@ services:
     volumes:
       - ./nginx/entrypoint/40-render-site-config.sh:/docker-entrypoint.d/40-render-site-config.sh:ro
       - ./nginx/entrypoint/50-reload-on-cert-change.sh:/docker-entrypoint.d/50-reload-on-cert-change.sh:ro
+      - ./nginx/conf.d/00-runtime-observability-and-hardening.conf:/etc/nginx/conf.d/00-runtime-observability-and-hardening.conf:ro
       - ./nginx/templates:/opt/nginx/templates:ro
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt

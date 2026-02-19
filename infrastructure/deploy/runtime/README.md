@@ -22,8 +22,10 @@ This keeps runtime deployment manifests separate from:
 - `docker-compose.yml`: runtime stack
 - `.env.template`: CI/CD template rendered into deploy-time `.env`
 - `.env.example`: compose-level variables
+- `nginx/conf.d/00-runtime-observability-and-hardening.conf`: real-ip logging + scanner detection maps
 - `nginx/templates/site-http.conf.template`: HTTP mode
 - `nginx/templates/site-tls.conf.template`: TLS mode with security headers
+- `nginx/templates/snippets/runtime-server-common.conf.template`: shared server hardening snippet rendered at container startup
 - `nginx/entrypoint/40-render-site-config.sh`: renders active Nginx config
 - `nginx/entrypoint/50-reload-on-cert-change.sh`: reloads Nginx when certificate files change
 
@@ -61,6 +63,7 @@ For local/no-DNS tests, set `NGINX_TLS_ENABLED=false` in `.env`.
 - `GET /healthz` -> `200` from Nginx.
 - `POST /webhooks/github` -> proxied to API webhook endpoint.
 - `/api/*` -> proxied to API (`/api/health` reaches API `/health`).
+- Known bot scanner signatures and probing paths are dropped with `444`.
 - Any other route -> `404` from Nginx.
 
 ## Optional Manual Certbot Commands
@@ -152,6 +155,7 @@ Required GitHub configuration (Environment `development` recommended):
 Remote prerequisites:
 
 - Docker and Docker Compose plugin are installed on the host.
+- `rsync` is available on the host (required by deploy workflow file sync).
 
 ## Relevant `.env` Variables
 
