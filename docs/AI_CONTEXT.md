@@ -230,6 +230,7 @@
   - `pnpm --filter api lint`: passing
   - `pnpm --filter api test`: passing
   - `pnpm --filter api architecture:check`: passing
+  - `pnpm --filter api ddd:check`: passing
   - Coverage currently at 100% (statements, branches, functions, lines) for `apps/api`.
   - Domain policy coverage includes:
     - `issue-webhook-processing-policy.service.ts`
@@ -240,6 +241,9 @@
     - `src/tools/architecture/triage-architecture-check.tool.ts`
     - discovers `src/features/*` contexts, emits JSON coupling/change-surface metrics by layer,
       and fails on boundary/cross-context violations.
+  - Dedicated DDD control tool:
+    - `src/tools/architecture/ddd-control-check.tool.ts`
+    - emits tactical/strategic/global DDD scores and fails when configured thresholds are not met.
   - CI now includes a dedicated `Architecture` job with explicit failure semantics.
   - CI now includes a dedicated `Docker Build` job to validate container buildability on PR/push.
   - CI now includes a dedicated `Workflow Lint` job (`actionlint`) for GitHub Actions validation.
@@ -296,5 +300,9 @@
   - Documents dedicated architecture CLI checks, CI architecture gate, and layer drift metrics.
 - `docs/adr/ADR-009-release-automation-with-release-please.md`
   - Documents automated version/changelog/tag/GitHub Release flow using Release Please.
+- `docs/adr/ADR-010-terraform-lightsail-foundation.md`
+  - Documents Terraform foundation for AWS Lightsail infrastructure and runtime bootstrap.
+- `docs/adr/ADR-011-ddd-control-score-gate.md`
+  - Documents measurable DDD tactical/strategic scoring and CI enforcement.
 - `docs/adr/README.md`
   - ADR index.

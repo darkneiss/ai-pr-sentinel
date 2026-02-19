@@ -7,6 +7,7 @@
     "lint": "tsc --noEmit",
     "test": "jest",
     "architecture:check": "node -r ts-node/register src/tools/architecture/triage-architecture-check.tool.ts --json",
+    "ddd:check": "node -r ts-node/register src/tools/architecture/ddd-control-check.tool.ts --json",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "dev": "nodemon --watch src --ext ts,json,env --signal SIGTERM --exec \"tsx src/index.ts\"",

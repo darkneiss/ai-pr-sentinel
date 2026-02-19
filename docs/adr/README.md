@@ -10,3 +10,4 @@
 - [ADR-008: Dedicated Architecture Quality Gate and Layer Metrics](./ADR-008-architecture-quality-gate-and-layer-metrics.md)
 - [ADR-009: Release Automation with Release Please](./ADR-009-release-automation-with-release-please.md)
 - [ADR-010: Terraform Foundation for AWS Lightsail Deployment](./ADR-010-terraform-lightsail-foundation.md)
+- [ADR-011: DDD Control Score Gate](./ADR-011-ddd-control-score-gate.md)
