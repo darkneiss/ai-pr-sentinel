@@ -25,6 +25,7 @@ This keeps runtime deployment manifests separate from:
 - `nginx/conf.d/00-runtime-observability-and-hardening.conf`: real-ip logging + scanner detection maps
 - `nginx/templates/site-http.conf.template`: HTTP mode
 - `nginx/templates/site-tls.conf.template`: TLS mode with security headers
+- `nginx/templates/snippets/runtime-server-common.conf.template`: shared server hardening snippet rendered at container startup
 - `nginx/entrypoint/40-render-site-config.sh`: renders active Nginx config
 - `nginx/entrypoint/50-reload-on-cert-change.sh`: reloads Nginx when certificate files change
 
