@@ -559,6 +559,33 @@ describe('TriageArchitectureCheckTool', () => {
     );
   });
 
+  it('should ignore symbolic links while traversing context files', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const symlinkTargetPath = path.join(projectRootPath, 'src', 'features', 'triage', 'application');
+    const symlinkPath = path.join(symlinkTargetPath, 'recursive-link');
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "export const domainService = 'ok';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/use-case.service.ts',
+      "import { domainService } from '../../domain/services/domain.service';\nexport const useCaseService = (): string => domainService;\n",
+    );
+    fs.symlinkSync(path.join('..', '..', '..', '..', '..'), symlinkPath, 'dir');
+
+    // Act
+    const report = analyzeFeatureArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(true);
+    expect(report.metrics.changeSurface.domain.fileCount).toBe(1);
+    expect(report.metrics.changeSurface.application.fileCount).toBe(1);
+  });
+
   it('should treat root-level features files as cross-context external targets', () => {
     // Arrange
     const projectRootPath = createTempProject();

@@ -229,6 +229,76 @@ describe('DddControlCheckTool', () => {
     expect(report.metrics.featureContextCount).toBe(0);
   });
 
+  it('should ignore symbolic links while traversing typescript files', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const symlinkTargetPath = path.join(projectRootPath, 'src', 'features', 'triage', 'application');
+    const symlinkPath = path.join(symlinkTargetPath, 'recursive-link');
+
+    writeFile(projectRootPath, 'docs/ddd/context-map.md', '# Context Map\n');
+    writeFile(
+      projectRootPath,
+      'src/features/triage/domain/entities/issue.entity.ts',
+      "export const issueEntity = 'entity';\n",
+    );
+    writeFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/process-issue.use-case.ts',
+      "import { issueEntity } from '../../domain/entities/issue.entity';\nexport const processIssueUseCase = (): string => issueEntity;\n",
+    );
+    fs.symlinkSync(path.join('..', '..', '..', '..', '..'), symlinkPath, 'dir');
+
+    // Act
+    const report = analyzeDddControl(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(true);
+    expect(report.metrics.featureContextCount).toBe(1);
+  });
+
+  it('should keep compliance when symlink points to a file', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const originalFilePath = path.join(
+      projectRootPath,
+      'src',
+      'features',
+      'triage',
+      'application',
+      'use-cases',
+      'process-issue.use-case.ts',
+    );
+    const symlinkPath = path.join(
+      projectRootPath,
+      'src',
+      'features',
+      'triage',
+      'application',
+      'use-cases',
+      'process-issue-link.ts',
+    );
+
+    writeFile(projectRootPath, 'docs/ddd/context-map.md', '# Context Map\n');
+    writeFile(
+      projectRootPath,
+      'src/features/triage/domain/entities/issue.entity.ts',
+      "export const issueEntity = 'entity';\n",
+    );
+    writeFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/process-issue.use-case.ts',
+      "import { issueEntity } from '../../domain/entities/issue.entity';\nexport const processIssueUseCase = (): string => issueEntity;\n",
+    );
+    fs.symlinkSync(originalFilePath, symlinkPath, 'file');
+
+    // Act
+    const report = analyzeDddControl(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(true);
+    expect(report.metrics.featureContextCount).toBe(1);
+  });
+
   it('should support threshold parsing from environment including clamps and rounding', () => {
     // Arrange
     const projectRootPath = createTempProject();

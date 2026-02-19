@@ -80,6 +80,10 @@ const listTypescriptFiles = (directoryPath: string): string[] => {
   return directoryEntries.flatMap((directoryEntry) => {
     const entryPath = path.join(directoryPath, directoryEntry.name);
 
+    if (directoryEntry.isSymbolicLink()) {
+      return [];
+    }
+
     if (directoryEntry.isDirectory()) {
       return listTypescriptFiles(entryPath);
     }
