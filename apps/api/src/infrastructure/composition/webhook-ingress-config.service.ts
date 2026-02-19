@@ -4,6 +4,8 @@ const ALLOWED_REPOSITORIES_ENV_VAR = 'SCM_WEBHOOK_ALLOWED_REPOSITORIES';
 const STRICT_REPOSITORY_ALLOWLIST_ENV_VAR = 'SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST';
 const REQUIRE_DELIVERY_ID_ENV_VAR = 'SCM_WEBHOOK_REQUIRE_DELIVERY_ID';
 const DELIVERY_TTL_SECONDS_ENV_VAR = 'SCM_WEBHOOK_DELIVERY_TTL_SECONDS';
+const NODE_ENV_ENV_VAR = 'NODE_ENV';
+const PRODUCTION_NODE_ENV = 'production';
 const LEGACY_ALLOWED_REPOSITORIES_ENV_VAR = 'GITHUB_WEBHOOK_ALLOWED_REPOSITORIES';
 const LEGACY_STRICT_REPOSITORY_ALLOWLIST_ENV_VAR = 'GITHUB_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST';
 const LEGACY_REQUIRE_DELIVERY_ID_ENV_VAR = 'GITHUB_WEBHOOK_REQUIRE_DELIVERY_ID';
@@ -14,6 +16,12 @@ const MIN_DELIVERY_TTL_SECONDS = 1;
 const POSITIVE_INTEGER_PATTERN = /^\d+$/;
 const LEGACY_ENV_VAR_ERROR_MESSAGE =
   'Legacy env var %LEGACY_ENV_VAR% is no longer supported. Use %SCM_ENV_VAR%.';
+const PRODUCTION_STRICT_ALLOWLIST_ERROR =
+  'SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST must be true in production.';
+const PRODUCTION_DELIVERY_ID_REQUIRED_ERROR = 'SCM_WEBHOOK_REQUIRE_DELIVERY_ID must be true in production.';
+const PRODUCTION_ALLOWLIST_REQUIRED_ERROR =
+  'SCM_WEBHOOK_ALLOWED_REPOSITORIES must include at least one repository in production.';
+const PRODUCTION_POLICY_VIOLATIONS_ERROR_PREFIX = 'Production security policy violations:';
 
 interface LegacyEnvAlias {
   scmEnvVar: string;
@@ -91,6 +99,48 @@ const parsePositiveInteger = (value: string | undefined): number | undefined => 
   return parsedValue;
 };
 
+const isProductionNodeEnv = (value: string | undefined): boolean =>
+  typeof value === 'string' && value.trim().toLowerCase() === PRODUCTION_NODE_ENV;
+
+interface IngressSecurityPolicyInput {
+  isProduction: boolean;
+  allowedRepositories: string[];
+  strictRepositoryAllowlist: boolean;
+  requireDeliveryId: boolean;
+}
+
+const formatProductionPolicyViolationError = (violations: string[]): string =>
+  `${PRODUCTION_POLICY_VIOLATIONS_ERROR_PREFIX}\n- ${violations.join('\n- ')}`;
+
+const enforceIngressSecurityPolicy = ({
+  isProduction,
+  allowedRepositories,
+  strictRepositoryAllowlist,
+  requireDeliveryId,
+}: IngressSecurityPolicyInput): void => {
+  if (!isProduction) {
+    return;
+  }
+
+  const policyViolations: string[] = [];
+
+  if (!strictRepositoryAllowlist) {
+    policyViolations.push(PRODUCTION_STRICT_ALLOWLIST_ERROR);
+  }
+
+  if (!requireDeliveryId) {
+    policyViolations.push(PRODUCTION_DELIVERY_ID_REQUIRED_ERROR);
+  }
+
+  if (allowedRepositories.length === 0) {
+    policyViolations.push(PRODUCTION_ALLOWLIST_REQUIRED_ERROR);
+  }
+
+  if (policyViolations.length > 0) {
+    throw new Error(formatProductionPolicyViolationError(policyViolations));
+  }
+};
+
 export interface WebhookIngressConfig {
   allowedRepositories: string[];
   strictRepositoryAllowlist: boolean;
@@ -101,11 +151,19 @@ export interface WebhookIngressConfig {
 export const resolveWebhookIngressConfig = (config: ConfigPort): WebhookIngressConfig => {
   validateNoLegacyIngressEnvVars(config);
 
+  const isProduction = isProductionNodeEnv(config.get(NODE_ENV_ENV_VAR));
   const allowedRepositories = parseAllowedRepositories(config.get(ALLOWED_REPOSITORIES_ENV_VAR));
-  const strictRepositoryAllowlist = config.getBoolean(STRICT_REPOSITORY_ALLOWLIST_ENV_VAR) ?? false;
-  const requireDeliveryId = config.getBoolean(REQUIRE_DELIVERY_ID_ENV_VAR) ?? false;
+  const strictRepositoryAllowlist = config.getBoolean(STRICT_REPOSITORY_ALLOWLIST_ENV_VAR) ?? isProduction;
+  const requireDeliveryId = config.getBoolean(REQUIRE_DELIVERY_ID_ENV_VAR) ?? isProduction;
   const deliveryTtlSeconds =
     parsePositiveInteger(config.get(DELIVERY_TTL_SECONDS_ENV_VAR)) ?? DEFAULT_DELIVERY_TTL_SECONDS;
+
+  enforceIngressSecurityPolicy({
+    isProduction,
+    allowedRepositories,
+    strictRepositoryAllowlist,
+    requireDeliveryId,
+  });
 
   return {
     allowedRepositories,

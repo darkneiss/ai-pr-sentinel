@@ -108,6 +108,56 @@ jobs:
       - name: Run lint
         run: pnpm lint
 
+  dependency_audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          version: 10.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run production dependency audit (high+)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          audit_output_file="$(mktemp)"
+          trap 'rm -f "${audit_output_file}"' EXIT
+
+          set +e
+          npm_config_fetch_retries=0 pnpm --dir apps/api audit --prod --audit-level=high >"${audit_output_file}" 2>&1
+          audit_exit_code=$?
+          set -e
+
+          cat "${audit_output_file}"
+
+          if [[ "${audit_exit_code}" -eq 0 ]]; then
+            exit 0
+          fi
+
+          if grep -q 'ERR_PNPM_AUDIT_BAD_RESPONSE' "${audit_output_file}" \
+            || grep -q 'responded with 500' "${audit_output_file}"; then
+            echo "WARN: npm audit endpoint is unavailable (registry error). Skipping hard failure for this run." >&2
+            exit 0
+          fi
+
+          echo "Dependency audit failed with actionable vulnerabilities or execution errors." >&2
+          exit "${audit_exit_code}"
+
   test:
     name: Test
     runs-on: ubuntu-latest

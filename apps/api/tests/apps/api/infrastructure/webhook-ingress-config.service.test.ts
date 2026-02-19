@@ -115,4 +115,83 @@ describe('WebhookIngressConfigService', () => {
       'Legacy env var GITHUB_WEBHOOK_ALLOWED_REPOSITORIES is no longer supported. Use SCM_WEBHOOK_ALLOWED_REPOSITORIES.',
     );
   });
+
+  it('should fail fast in production when allowlist is empty', () => {
+    // Arrange
+    const config = createConfigMock({
+      NODE_ENV: 'production',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: '',
+      SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST: 'true',
+      SCM_WEBHOOK_REQUIRE_DELIVERY_ID: 'true',
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookIngressConfig(config)).toThrow(
+      'Production security policy violations:\n- SCM_WEBHOOK_ALLOWED_REPOSITORIES must include at least one repository in production.',
+    );
+  });
+
+  it('should fail fast in production when strict allowlist is disabled', () => {
+    // Arrange
+    const config = createConfigMock({
+      NODE_ENV: 'production',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: 'org/repo',
+      SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST: 'false',
+      SCM_WEBHOOK_REQUIRE_DELIVERY_ID: 'true',
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookIngressConfig(config)).toThrow(
+      'Production security policy violations:\n- SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST must be true in production.',
+    );
+  });
+
+  it('should fail fast in production when delivery id requirement is disabled', () => {
+    // Arrange
+    const config = createConfigMock({
+      NODE_ENV: 'production',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: 'org/repo',
+      SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST: 'true',
+      SCM_WEBHOOK_REQUIRE_DELIVERY_ID: 'false',
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookIngressConfig(config)).toThrow(
+      'Production security policy violations:\n- SCM_WEBHOOK_REQUIRE_DELIVERY_ID must be true in production.',
+    );
+  });
+
+  it('should fail fast in production with aggregated security policy violations', () => {
+    // Arrange
+    const config = createConfigMock({
+      NODE_ENV: 'production',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: '',
+      SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST: 'false',
+      SCM_WEBHOOK_REQUIRE_DELIVERY_ID: 'false',
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookIngressConfig(config)).toThrow(
+      'Production security policy violations:\n- SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST must be true in production.\n- SCM_WEBHOOK_REQUIRE_DELIVERY_ID must be true in production.\n- SCM_WEBHOOK_ALLOWED_REPOSITORIES must include at least one repository in production.',
+    );
+  });
+
+  it('should enforce secure defaults in production when explicit booleans are not provided', () => {
+    // Arrange
+    const config = createConfigMock({
+      NODE_ENV: 'production',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: 'org/repo',
+    });
+
+    // Act
+    const result = resolveWebhookIngressConfig(config);
+
+    // Assert
+    expect(result).toEqual({
+      allowedRepositories: ['org/repo'],
+      strictRepositoryAllowlist: true,
+      requireDeliveryId: true,
+      deliveryTtlSeconds: 86400,
+    });
+  });
 });
