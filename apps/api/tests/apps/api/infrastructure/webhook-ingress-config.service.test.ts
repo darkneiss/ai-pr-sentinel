@@ -127,7 +127,7 @@ describe('WebhookIngressConfigService', () => {
 
     // Act + Assert
     expect(() => resolveWebhookIngressConfig(config)).toThrow(
-      'SCM_WEBHOOK_ALLOWED_REPOSITORIES must include at least one repository in production.',
+      'Production security policy violations:\n- SCM_WEBHOOK_ALLOWED_REPOSITORIES must include at least one repository in production.',
     );
   });
 
@@ -142,7 +142,7 @@ describe('WebhookIngressConfigService', () => {
 
     // Act + Assert
     expect(() => resolveWebhookIngressConfig(config)).toThrow(
-      'SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST must be true in production.',
+      'Production security policy violations:\n- SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST must be true in production.',
     );
   });
 
@@ -157,7 +157,22 @@ describe('WebhookIngressConfigService', () => {
 
     // Act + Assert
     expect(() => resolveWebhookIngressConfig(config)).toThrow(
-      'SCM_WEBHOOK_REQUIRE_DELIVERY_ID must be true in production.',
+      'Production security policy violations:\n- SCM_WEBHOOK_REQUIRE_DELIVERY_ID must be true in production.',
+    );
+  });
+
+  it('should fail fast in production with aggregated security policy violations', () => {
+    // Arrange
+    const config = createConfigMock({
+      NODE_ENV: 'production',
+      SCM_WEBHOOK_ALLOWED_REPOSITORIES: '',
+      SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST: 'false',
+      SCM_WEBHOOK_REQUIRE_DELIVERY_ID: 'false',
+    });
+
+    // Act + Assert
+    expect(() => resolveWebhookIngressConfig(config)).toThrow(
+      'Production security policy violations:\n- SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST must be true in production.\n- SCM_WEBHOOK_REQUIRE_DELIVERY_ID must be true in production.\n- SCM_WEBHOOK_ALLOWED_REPOSITORIES must include at least one repository in production.',
     );
   });
 

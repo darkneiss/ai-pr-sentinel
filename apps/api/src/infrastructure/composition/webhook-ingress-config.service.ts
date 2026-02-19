@@ -21,6 +21,7 @@ const PRODUCTION_STRICT_ALLOWLIST_ERROR =
 const PRODUCTION_DELIVERY_ID_REQUIRED_ERROR = 'SCM_WEBHOOK_REQUIRE_DELIVERY_ID must be true in production.';
 const PRODUCTION_ALLOWLIST_REQUIRED_ERROR =
   'SCM_WEBHOOK_ALLOWED_REPOSITORIES must include at least one repository in production.';
+const PRODUCTION_POLICY_VIOLATIONS_ERROR_PREFIX = 'Production security policy violations:';
 
 interface LegacyEnvAlias {
   scmEnvVar: string;
@@ -108,6 +109,9 @@ interface IngressSecurityPolicyInput {
   requireDeliveryId: boolean;
 }
 
+const formatProductionPolicyViolationError = (violations: string[]): string =>
+  `${PRODUCTION_POLICY_VIOLATIONS_ERROR_PREFIX}\n- ${violations.join('\n- ')}`;
+
 const enforceIngressSecurityPolicy = ({
   isProduction,
   allowedRepositories,
@@ -118,16 +122,22 @@ const enforceIngressSecurityPolicy = ({
     return;
   }
 
+  const policyViolations: string[] = [];
+
   if (!strictRepositoryAllowlist) {
-    throw new Error(PRODUCTION_STRICT_ALLOWLIST_ERROR);
+    policyViolations.push(PRODUCTION_STRICT_ALLOWLIST_ERROR);
   }
 
   if (!requireDeliveryId) {
-    throw new Error(PRODUCTION_DELIVERY_ID_REQUIRED_ERROR);
+    policyViolations.push(PRODUCTION_DELIVERY_ID_REQUIRED_ERROR);
   }
 
   if (allowedRepositories.length === 0) {
-    throw new Error(PRODUCTION_ALLOWLIST_REQUIRED_ERROR);
+    policyViolations.push(PRODUCTION_ALLOWLIST_REQUIRED_ERROR);
+  }
+
+  if (policyViolations.length > 0) {
+    throw new Error(formatProductionPolicyViolationError(policyViolations));
   }
 };
 
