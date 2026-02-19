@@ -92,6 +92,19 @@ jobs:
             exit 1
           fi
 
+      - name: Validate deploy toolchain on runner
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_commands=(ssh rsync envsubst curl jq base64)
+          for command_name in "${required_commands[@]}"; do
+            if ! command -v "${command_name}" >/dev/null 2>&1; then
+              echo "Missing required command on workflow runner: ${command_name}" >&2
+              exit 1
+            fi
+          done
+
       - name: Render runtime env file from template
         shell: bash
         env:
@@ -256,6 +269,53 @@ jobs:
           ssh-keyscan -p "${DEPLOY_PORT}" -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
+      - name: Validate deploy prerequisites on remote host
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote="${DEPLOY_USER}@${DEPLOY_HOST}"
+          ssh_cmd=(
+            ssh
+            -i ~/.ssh/deploy_key
+            -p "${DEPLOY_PORT}"
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+          )
+          deploy_runtime_path_b64="$(printf '%s' "${DEPLOY_RUNTIME_PATH}" | base64 | tr -d '\n')"
+
+          # shellcheck disable=SC2029
+          "${ssh_cmd[@]}" "${remote}" "DEPLOY_RUNTIME_PATH_B64='${deploy_runtime_path_b64}' bash -s" <<'EOF'
+          set -euo pipefail
+
+          DEPLOY_RUNTIME_PATH="$(printf '%s' "${DEPLOY_RUNTIME_PATH_B64}" | base64 -d)"
+
+          required_commands=(docker rsync)
+          for command_name in "${required_commands[@]}"; do
+            if ! command -v "${command_name}" >/dev/null 2>&1; then
+              echo "Missing required command on remote host: ${command_name}" >&2
+              exit 1
+            fi
+          done
+
+          if ! docker compose version >/dev/null 2>&1; then
+            echo "Missing docker compose plugin on remote host." >&2
+            exit 1
+          fi
+
+          mkdir -p "${DEPLOY_RUNTIME_PATH}"
+
+          if [[ ! -d "${DEPLOY_RUNTIME_PATH}" ]]; then
+            echo "Deploy path is not a directory: ${DEPLOY_RUNTIME_PATH}" >&2
+            exit 1
+          fi
+
+          if [[ ! -w "${DEPLOY_RUNTIME_PATH}" ]]; then
+            echo "Deploy path is not writable: ${DEPLOY_RUNTIME_PATH}" >&2
+            exit 1
+          fi
+          EOF
+
       - name: Sync runtime stack files to server
         shell: bash
         run: |
@@ -326,6 +386,39 @@ jobs:
           docker compose up -d --force-recreate --remove-orphans
           docker compose ps
           EOF
+
+      - name: Verify runtime health endpoint
+        shell: bash
+        env:
+          RUNTIME_SERVER_NAME: ${{ vars.RUNTIME_SERVER_NAME }}
+        run: |
+          set -euo pipefail
+
+          target_host="${RUNTIME_SERVER_NAME:-${DEPLOY_HOST}}"
+          if [[ -z "${target_host}" ]]; then
+            echo "Unable to resolve health check host (RUNTIME_SERVER_NAME/DEPLOY_HOST)." >&2
+            exit 1
+          fi
+
+          health_url="https://${target_host}/healthz"
+          max_attempts=24
+          attempt=1
+
+          while [[ "${attempt}" -le "${max_attempts}" ]]; do
+            status_code="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 10 "${health_url}" || true)"
+            if [[ "${status_code}" == "200" ]]; then
+              echo "Health check succeeded: ${health_url}"
+              exit 0
+            fi
+
+            sleep_seconds=5
+            echo "Health check not ready (attempt ${attempt}/${max_attempts}, status=${status_code:-curl_error}); retrying in ${sleep_seconds}s..."
+            sleep "${sleep_seconds}"
+            attempt=$(( attempt + 1 ))
+          done
+
+          echo "Health check failed for ${health_url} after ${max_attempts} attempts." >&2
+          exit 1
 
       - name: Report deployed image
         run: |
