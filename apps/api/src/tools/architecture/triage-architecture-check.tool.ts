@@ -2,10 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const TYPESCRIPT_FILE_EXTENSION = '.ts';
-const TRIAGE_RELATIVE_ROOT = path.join('src', 'features', 'triage');
-const DOMAIN_SEGMENT = `${path.sep}domain${path.sep}`;
-const APPLICATION_SEGMENT = `${path.sep}application${path.sep}`;
-const INFRASTRUCTURE_SEGMENT = `${path.sep}infrastructure${path.sep}`;
+const FEATURES_RELATIVE_ROOT = path.join('src', 'features');
+const TRIAGE_CONTEXT_NAME = 'triage';
 const IMPORT_FROM_PATTERN = /import(?:\s+type)?[\s\S]*?from\s+['"]([^'"]+)['"]/g;
 const SIDE_EFFECT_IMPORT_PATTERN = /import\s+['"]([^'"]+)['"]/g;
 const EXPORT_FROM_PATTERN = /export(?:\s+type)?[\s\S]*?from\s+['"]([^'"]+)['"]/g;
@@ -13,6 +11,7 @@ const SOURCE_IMPORT_PREFIX = 'src/';
 const JSON_FLAG = '--json';
 const EXIT_CODE_SUCCESS = 0;
 const EXIT_CODE_FAILURE = 1;
+const FEATURE_ROOT_SEGMENT = `${path.sep}features${path.sep}`;
 
 const LAYER_NAMES = ['domain', 'application', 'infrastructure', 'external'] as const;
 type LayerName = (typeof LAYER_NAMES)[number];
@@ -34,23 +33,46 @@ type LayerChangeSurfaceMetrics = {
   averageImportsPerFile: number;
 };
 
+export type ArchitectureMetrics = {
+  coupling: Record<FileLayerName, LayerCouplingMetrics>;
+  changeSurface: Record<FileLayerName, LayerChangeSurfaceMetrics>;
+};
+
+export type ArchitectureContextReport = {
+  isCompliant: boolean;
+  violations: string[];
+  metrics: ArchitectureMetrics;
+};
+
 export type ArchitectureAnalysisReport = {
   isCompliant: boolean;
   violations: string[];
-  metrics: {
-    coupling: Record<FileLayerName, LayerCouplingMetrics>;
-    changeSurface: Record<FileLayerName, LayerChangeSurfaceMetrics>;
-  };
+  metrics: ArchitectureMetrics;
+  contexts?: Record<string, ArchitectureContextReport>;
 };
 
 type LayerFileAnalysis = {
   absoluteFilePath: string;
   relativeFilePath: string;
   layer: FileLayerName;
+  contextName: string;
   imports: string[];
 };
 
-const TRIAGE_ROOT_SEGMENT = `${path.sep}features${path.sep}triage${path.sep}`;
+type FeatureFileLocation = {
+  contextName: string;
+  layer: FileLayerName | null;
+};
+
+type ImportTarget = {
+  layer: LayerName;
+  contextName: string | null;
+};
+
+type AnalyzeArchitectureOptions = {
+  contextNames: string[];
+  shouldPrefixContextNameInViolation: boolean;
+};
 
 const buildImportsByLayer = (): ImportsByLayer => {
   return {
@@ -103,22 +125,6 @@ const readImports = (filePath: string): string[] => {
   return imports;
 };
 
-const detectFileLayer = (absoluteFilePath: string): FileLayerName | null => {
-  if (absoluteFilePath.includes(DOMAIN_SEGMENT)) {
-    return 'domain';
-  }
-
-  if (absoluteFilePath.includes(APPLICATION_SEGMENT)) {
-    return 'application';
-  }
-
-  if (absoluteFilePath.includes(INFRASTRUCTURE_SEGMENT)) {
-    return 'infrastructure';
-  }
-
-  return null;
-};
-
 const resolveImportPath = (
   projectRootPath: string,
   originFilePath: string,
@@ -149,25 +155,63 @@ const toExistingTypescriptFilePath = (resolvedImportPath: string): string | null
   return null;
 };
 
-const detectImportLayer = (absoluteFilePath: string): LayerName => {
-  const isTriageImport = absoluteFilePath.includes(TRIAGE_ROOT_SEGMENT);
-  if (!isTriageImport) {
-    return 'external';
-  }
+const listFeatureContextNames = (projectRootPath: string): string[] => {
+  const featuresRootPath = path.resolve(projectRootPath, FEATURES_RELATIVE_ROOT);
+  const featureEntries = fs.readdirSync(featuresRootPath, { withFileTypes: true });
 
-  const layer = detectFileLayer(absoluteFilePath);
-  if (layer === null) {
-    return 'external';
-  }
-
-  return layer;
+  return featureEntries
+    .filter((featureEntry) => featureEntry.isDirectory())
+    .map((featureEntry) => featureEntry.name)
+    .sort((left, right) => left.localeCompare(right));
 };
 
-const collectTriageFiles = (projectRootPath: string): LayerFileAnalysis[] => {
-  const triageRootPath = path.resolve(projectRootPath, TRIAGE_RELATIVE_ROOT);
-  const triageFiles = listTypescriptFiles(triageRootPath);
+const detectFeatureFileLocation = (absoluteFilePath: string): FeatureFileLocation | null => {
+  const normalizedFilePath = path.normalize(absoluteFilePath);
+  const featureRootSegmentIndex = normalizedFilePath.lastIndexOf(FEATURE_ROOT_SEGMENT);
 
-  return triageFiles.flatMap((absoluteFilePath) => {
+  if (featureRootSegmentIndex === -1) {
+    return null;
+  }
+
+  const relativeToFeatureRoot = normalizedFilePath.slice(
+    featureRootSegmentIndex + FEATURE_ROOT_SEGMENT.length,
+  );
+  const locationSegments = relativeToFeatureRoot.split(path.sep);
+  const contextName = locationSegments[0];
+  const layerCandidate = locationSegments[1];
+
+  if (typeof contextName !== 'string' || contextName.length === 0) {
+    return null;
+  }
+
+  if (typeof layerCandidate !== 'string') {
+    return { contextName, layer: null };
+  }
+
+  if (FILE_LAYER_NAMES.includes(layerCandidate as FileLayerName)) {
+    return {
+      contextName,
+      layer: layerCandidate as FileLayerName,
+    };
+  }
+
+  return { contextName, layer: null };
+};
+
+const detectFileLayer = (absoluteFilePath: string): FileLayerName | null => {
+  const featureFileLocation = detectFeatureFileLocation(absoluteFilePath);
+  if (featureFileLocation === null) {
+    return null;
+  }
+
+  return featureFileLocation.layer;
+};
+
+const collectContextFiles = (projectRootPath: string, contextName: string): LayerFileAnalysis[] => {
+  const contextRootPath = path.resolve(projectRootPath, FEATURES_RELATIVE_ROOT, contextName);
+  const contextFiles = listTypescriptFiles(contextRootPath);
+
+  return contextFiles.flatMap((absoluteFilePath) => {
     const layer = detectFileLayer(absoluteFilePath);
 
     if (layer === null) {
@@ -177,18 +221,46 @@ const collectTriageFiles = (projectRootPath: string): LayerFileAnalysis[] => {
     return [
       {
         absoluteFilePath,
-        relativeFilePath: path.relative(triageRootPath, absoluteFilePath),
+        relativeFilePath: path.relative(contextRootPath, absoluteFilePath),
         layer,
+        contextName,
         imports: readImports(absoluteFilePath),
       },
     ];
   });
 };
 
-const evaluateBoundaryViolation = (
-  sourceLayer: FileLayerName,
-  targetLayer: LayerName,
-): boolean => {
+const detectImportTarget = (
+  projectRootPath: string,
+  originFilePath: string,
+  importPath: string,
+): ImportTarget => {
+  const resolvedImportPath = resolveImportPath(projectRootPath, originFilePath, importPath);
+  const existingImportPath = toExistingTypescriptFilePath(resolvedImportPath);
+
+  if (existingImportPath === null) {
+    return { layer: 'external', contextName: null };
+  }
+
+  const featureFileLocation = detectFeatureFileLocation(existingImportPath);
+  if (featureFileLocation === null) {
+    return { layer: 'external', contextName: null };
+  }
+
+  if (featureFileLocation.layer === null) {
+    return {
+      layer: 'external',
+      contextName: featureFileLocation.contextName,
+    };
+  }
+
+  return {
+    layer: featureFileLocation.layer,
+    contextName: featureFileLocation.contextName,
+  };
+};
+
+const evaluateBoundaryViolation = (sourceLayer: FileLayerName, targetLayer: LayerName): boolean => {
   if (sourceLayer === 'domain') {
     return targetLayer === 'application' || targetLayer === 'infrastructure';
   }
@@ -203,7 +275,7 @@ const evaluateBoundaryViolation = (
 const buildMetrics = (
   layerFiles: LayerFileAnalysis[],
   projectRootPath: string,
-): ArchitectureAnalysisReport['metrics'] => {
+): ArchitectureMetrics => {
   const coupling = {
     domain: { internalImports: 0, importsByLayer: buildImportsByLayer() },
     application: { internalImports: 0, importsByLayer: buildImportsByLayer() },
@@ -223,17 +295,10 @@ const buildMetrics = (
 
   for (const layerFile of layerFiles) {
     for (const importPath of layerFile.imports) {
-      const resolvedImportPath = resolveImportPath(
-        projectRootPath,
-        layerFile.absoluteFilePath,
-        importPath,
-      );
+      const target = detectImportTarget(projectRootPath, layerFile.absoluteFilePath, importPath);
 
-      const existingImportPath = toExistingTypescriptFilePath(resolvedImportPath);
-      const targetLayer = existingImportPath ? detectImportLayer(existingImportPath) : 'external';
-
-      coupling[layerFile.layer].importsByLayer[targetLayer] += 1;
-      if (targetLayer !== 'external') {
+      coupling[layerFile.layer].importsByLayer[target.layer] += 1;
+      if (target.layer !== 'external') {
         coupling[layerFile.layer].internalImports += 1;
       }
 
@@ -256,34 +321,100 @@ const buildMetrics = (
   };
 };
 
-export const analyzeTriageArchitecture = (projectRootPath: string): ArchitectureAnalysisReport => {
-  const triageFiles = collectTriageFiles(projectRootPath);
-  const triageRootPath = path.resolve(projectRootPath, TRIAGE_RELATIVE_ROOT);
+const buildViolationSourcePath = (
+  contextName: string,
+  contextRootPath: string,
+  absoluteFilePath: string,
+  shouldPrefixContextNameInViolation: boolean,
+): string => {
+  const relativeFilePath = path.relative(contextRootPath, absoluteFilePath);
+
+  if (!shouldPrefixContextNameInViolation) {
+    return relativeFilePath;
+  }
+
+  return `${contextName}:${relativeFilePath}`;
+};
+
+const analyzeArchitectureByContext = (
+  projectRootPath: string,
+  options: AnalyzeArchitectureOptions,
+): ArchitectureAnalysisReport => {
+  const contextReports: Record<string, ArchitectureContextReport> = {};
+  const allLayerFiles: LayerFileAnalysis[] = [];
   const violations: string[] = [];
 
-  for (const triageFile of triageFiles) {
-    for (const importPath of triageFile.imports) {
-      const resolvedImportPath = resolveImportPath(
-        projectRootPath,
-        triageFile.absoluteFilePath,
-        importPath,
-      );
-      const existingImportPath = toExistingTypescriptFilePath(resolvedImportPath);
-      const targetLayer = existingImportPath ? detectImportLayer(existingImportPath) : 'external';
+  for (const contextName of options.contextNames) {
+    const contextRootPath = path.resolve(projectRootPath, FEATURES_RELATIVE_ROOT, contextName);
+    const contextFiles = collectContextFiles(projectRootPath, contextName);
+    const contextViolations = new Set<string>();
 
-      if (!evaluateBoundaryViolation(triageFile.layer, targetLayer)) {
-        continue;
+    for (const contextFile of contextFiles) {
+      for (const importPath of contextFile.imports) {
+        const target = detectImportTarget(projectRootPath, contextFile.absoluteFilePath, importPath);
+        const isBoundaryViolation = evaluateBoundaryViolation(contextFile.layer, target.layer);
+        const isCrossContextImport =
+          target.contextName !== null && target.contextName !== contextFile.contextName;
+
+        if (!isBoundaryViolation && !isCrossContextImport) {
+          continue;
+        }
+
+        const sourcePath = buildViolationSourcePath(
+          contextName,
+          contextRootPath,
+          contextFile.absoluteFilePath,
+          options.shouldPrefixContextNameInViolation,
+        );
+
+        if (isBoundaryViolation) {
+          contextViolations.add(`${sourcePath} -> ${importPath}`);
+        }
+
+        if (isCrossContextImport) {
+          contextViolations.add(
+            `${sourcePath} -> ${importPath} (cross_context_import_to_${target.contextName})`,
+          );
+        }
       }
-
-      violations.push(`${path.relative(triageRootPath, triageFile.absoluteFilePath)} -> ${importPath}`);
     }
+
+    const sortedContextViolations = [...contextViolations].sort((left, right) =>
+      left.localeCompare(right),
+    );
+
+    contextReports[contextName] = {
+      isCompliant: sortedContextViolations.length === 0,
+      violations: sortedContextViolations,
+      metrics: buildMetrics(contextFiles, projectRootPath),
+    };
+
+    allLayerFiles.push(...contextFiles);
+    violations.push(...sortedContextViolations);
   }
 
   return {
     isCompliant: violations.length === 0,
-    violations: violations.sort((left, right) => left.localeCompare(right)),
-    metrics: buildMetrics(triageFiles, projectRootPath),
+    violations: [...violations].sort((left, right) => left.localeCompare(right)),
+    metrics: buildMetrics(allLayerFiles, projectRootPath),
+    contexts: contextReports,
   };
+};
+
+export const analyzeFeatureArchitecture = (projectRootPath: string): ArchitectureAnalysisReport => {
+  const contextNames = listFeatureContextNames(projectRootPath);
+
+  return analyzeArchitectureByContext(projectRootPath, {
+    contextNames,
+    shouldPrefixContextNameInViolation: true,
+  });
+};
+
+export const analyzeTriageArchitecture = (projectRootPath: string): ArchitectureAnalysisReport => {
+  return analyzeArchitectureByContext(projectRootPath, {
+    contextNames: [TRIAGE_CONTEXT_NAME],
+    shouldPrefixContextNameInViolation: false,
+  });
 };
 
 export const buildArchitectureHumanReadableOutput = (report: ArchitectureAnalysisReport): string => {
@@ -310,6 +441,20 @@ export const buildArchitectureHumanReadableOutput = (report: ArchitectureAnalysi
     ...changeSurfaceLines,
   ];
 
+  const contextEntries = Object.entries(report.contexts ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+
+  if (contextEntries.length > 0) {
+    sections.push('Context compliance:');
+
+    for (const [contextName, contextReport] of contextEntries) {
+      sections.push(
+        `${contextName}: compliant=${contextReport.isCompliant}, violations=${contextReport.violations.length}`,
+      );
+    }
+  }
+
   if (!report.isCompliant) {
     sections.push('Violations:', ...violationLines);
   }
@@ -329,7 +474,7 @@ export const runArchitectureCheckCli = (options: ArchitectureCheckCliOptions = {
   const cwd = options.cwd ?? process.cwd();
   const outputWriter = options.outputWriter ?? console.log;
   const shouldOutputJson = argv.includes(JSON_FLAG);
-  const report = analyzeTriageArchitecture(cwd);
+  const report = analyzeFeatureArchitecture(cwd);
 
   if (shouldOutputJson) {
     outputWriter(JSON.stringify(report, null, 2));

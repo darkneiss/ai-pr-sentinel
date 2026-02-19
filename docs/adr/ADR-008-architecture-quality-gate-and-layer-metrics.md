@@ -5,7 +5,7 @@
 
 ## Context
 
-Hexagonal boundaries in triage were already protected by unit tests, but hardening opportunities remained:
+Hexagonal boundaries in feature code were already protected by unit tests, but hardening opportunities remained:
 
 - Boundary validation was coupled to Jest-only execution.
 - CI lacked an explicit architecture job with clear ownership/failure semantics.
@@ -15,9 +15,11 @@ Hexagonal boundaries in triage were already protected by unit tests, but hardeni
 
 1. Introduce a dedicated architecture tool:
    - `src/tools/architecture/triage-architecture-check.tool.ts`
+   - Scope: all feature contexts discovered under `src/features/*`
    - Enforces layer rules:
      - `domain` must not import `application` or `infrastructure`
      - `application` must not import `infrastructure`
+     - feature contexts must not import each other directly (use `src/shared/*` for shared logic)
 
 2. Add explicit layer metrics emitted as JSON:
    - Coupling per layer:

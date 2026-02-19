@@ -225,7 +225,7 @@
   - Infrastructure adapters tested with mocks.
   - Additional branch tests for normalization/fallback/error-shape paths.
   - Architecture guard-rails validate hexagonal boundaries for both relative and
-    `src/...` absolute imports.
+    `src/...` absolute imports across feature contexts.
 - Current quality gate:
   - `pnpm --filter api lint`: passing
   - `pnpm --filter api test`: passing
@@ -238,7 +238,8 @@
     - `tests/features/triage/architecture/triage-hexagonal-boundaries.test.ts`
   - Dedicated architecture tool:
     - `src/tools/architecture/triage-architecture-check.tool.ts`
-    - emits JSON coupling/change-surface metrics by layer and fails on boundary violations.
+    - discovers `src/features/*` contexts, emits JSON coupling/change-surface metrics by layer,
+      and fails on boundary/cross-context violations.
   - CI now includes a dedicated `Architecture` job with explicit failure semantics.
   - CI now includes a dedicated `Docker Build` job to validate container buildability on PR/push.
   - CI now includes a dedicated `Workflow Lint` job (`actionlint`) for GitHub Actions validation.
