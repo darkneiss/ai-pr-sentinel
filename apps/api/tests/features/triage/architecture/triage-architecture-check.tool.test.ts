@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  analyzeFeatureArchitecture,
   analyzeTriageArchitecture,
   type ArchitectureAnalysisReport,
   buildArchitectureHumanReadableOutput,
@@ -493,5 +494,68 @@ describe('TriageArchitectureCheckTool', () => {
 
     readdirSpy.mockRestore();
     consoleErrorSpy.mockRestore();
+  });
+
+  it('should analyze all feature contexts and include per-context reports', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/triage-domain.service.ts',
+      "export const triageDomainService = (): string => 'triage';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/triage-use-case.service.ts',
+      "import { triageDomainService } from '../../domain/services/triage-domain.service';\nexport const triageUseCaseService = (): string => triageDomainService();\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/governance/domain/services/governance-domain.service.ts',
+      "export const governanceDomainService = (): string => 'governance';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/governance/application/use-cases/governance-use-case.service.ts',
+      "import { governanceDomainService } from '../../domain/services/governance-domain.service';\nexport const governanceUseCaseService = (): string => governanceDomainService();\n",
+    );
+
+    // Act
+    const report = analyzeFeatureArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(true);
+    expect(report.violations).toEqual([]);
+    expect(report.contexts).toBeDefined();
+    expect(report.contexts?.governance?.isCompliant).toBe(true);
+    expect(report.contexts?.triage?.isCompliant).toBe(true);
+    expect(report.metrics.changeSurface.domain.fileCount).toBe(2);
+    expect(report.metrics.changeSurface.application.fileCount).toBe(2);
+  });
+
+  it('should report violation when a feature imports another feature context directly', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/governance/domain/services/governance-domain.service.ts',
+      "export const governanceDomainService = (): string => 'governance';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/invalid-cross-context.use-case.ts',
+      "import { governanceDomainService } from '../../../governance/domain/services/governance-domain.service';\nexport const invalidCrossContextUseCase = (): string => governanceDomainService();\n",
+    );
+
+    // Act
+    const report = analyzeFeatureArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(false);
+    expect(report.violations).toContain(
+      'triage:application/use-cases/invalid-cross-context.use-case.ts -> ../../../governance/domain/services/governance-domain.service (cross_context_import_to_governance)',
+    );
   });
 });
