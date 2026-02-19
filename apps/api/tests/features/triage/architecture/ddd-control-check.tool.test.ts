@@ -353,6 +353,123 @@ describe('DddControlCheckTool', () => {
     expect(outputs[1]).toContain('DDD control check passed');
   });
 
+  it('should run cli using default argv, cwd and output writer', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const originalArgv = process.argv;
+    const originalCwd = process.cwd();
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    writeFile(projectRootPath, 'docs/ddd/context-map.md', '# Context Map\n');
+    writeFile(
+      projectRootPath,
+      'src/features/triage/domain/entities/issue.entity.ts',
+      "export const issueEntity = 'entity';\n",
+    );
+    writeFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/process-issue.use-case.ts',
+      "import { issueEntity } from '../../domain/entities/issue.entity';\nexport const processIssueUseCase = (): string => issueEntity;\n",
+    );
+
+    process.argv = ['node', 'tool'];
+    process.chdir(projectRootPath);
+
+    // Act
+    const exitCode = runDddControlCheckCli();
+
+    // Assert
+    expect(exitCode).toBe(0);
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('DDD control check passed.'));
+
+    process.argv = originalArgv;
+    process.chdir(originalCwd);
+    consoleLogSpy.mockRestore();
+  });
+
+  it('should return non-zero cli exit code when ddd control is not compliant', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeFile(
+      projectRootPath,
+      'src/features/triage/domain/services/triage-domain.service.ts',
+      "export const triageDomainService = (): string => 'triage';\n",
+    );
+    writeFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/invalid-cross-context.use-case.ts',
+      "import { governanceDomainService } from '../../../governance/domain/services/governance-domain.service';\nexport const invalidUseCase = (): string => governanceDomainService();\n",
+    );
+    writeFile(
+      projectRootPath,
+      'src/features/governance/domain/services/governance-domain.service.ts',
+      "export const governanceDomainService = (): string => 'governance';\n",
+    );
+    writeFile(
+      projectRootPath,
+      'src/features/governance/application/services/no-use-case.service.ts',
+      "export const noUseCaseService = (): string => 'x';\n",
+    );
+
+    // Act
+    const exitCode = runDddControlCheckCli({
+      argv: ['node', 'tool'],
+      cwd: projectRootPath,
+      outputWriter: () => undefined,
+    });
+
+    // Assert
+    expect(exitCode).toBe(1);
+  });
+
+  it('should return safe cli success code when execution succeeds', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeFile(projectRootPath, 'docs/ddd/context-map.md', '# Context Map\n');
+    writeFile(
+      projectRootPath,
+      'src/features/triage/domain/entities/issue.entity.ts',
+      "export const issueEntity = 'entity';\n",
+    );
+    writeFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/process-issue.use-case.ts',
+      "import { issueEntity } from '../../domain/entities/issue.entity';\nexport const processIssueUseCase = (): string => issueEntity;\n",
+    );
+
+    // Act
+    const exitCode = runDddControlCheckCliSafely({
+      argv: ['node', 'tool'],
+      cwd: projectRootPath,
+      outputWriter: () => undefined,
+    });
+
+    // Assert
+    expect(exitCode).toBe(0);
+  });
+
+  it('should use default error writer and error message when safe cli catches Error', () => {
+    // Arrange
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const readdirSpy = jest.spyOn(fs, 'readdirSync').mockImplementation(() => {
+      throw new Error('forced_error');
+    });
+
+    // Act
+    const exitCode = runDddControlCheckCliSafely();
+
+    // Assert
+    expect(exitCode).toBe(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('DDD control check tool failed: forced_error'),
+    );
+
+    readdirSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
   it('should return safe cli failure and unknown_error for non-error throw', () => {
     // Arrange
     const errors: string[] = [];
