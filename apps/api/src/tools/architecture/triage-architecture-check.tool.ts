@@ -2,16 +2,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const TYPESCRIPT_FILE_EXTENSION = '.ts';
+
+// Feature discovery and legacy single-context compatibility.
 const FEATURES_RELATIVE_ROOT = path.join('src', 'features');
+const FEATURE_ROOT_SEGMENT = `${path.sep}features${path.sep}`;
 const TRIAGE_CONTEXT_NAME = 'triage';
+
 const IMPORT_FROM_PATTERN = /import(?:\s+type)?[\s\S]*?from\s+['"]([^'"]+)['"]/g;
 const SIDE_EFFECT_IMPORT_PATTERN = /import\s+['"]([^'"]+)['"]/g;
 const EXPORT_FROM_PATTERN = /export(?:\s+type)?[\s\S]*?from\s+['"]([^'"]+)['"]/g;
 const SOURCE_IMPORT_PREFIX = 'src/';
+
 const JSON_FLAG = '--json';
 const EXIT_CODE_SUCCESS = 0;
 const EXIT_CODE_FAILURE = 1;
-const FEATURE_ROOT_SEGMENT = `${path.sep}features${path.sep}`;
 
 const LAYER_NAMES = ['domain', 'application', 'infrastructure', 'external'] as const;
 type LayerName = (typeof LAYER_NAMES)[number];
