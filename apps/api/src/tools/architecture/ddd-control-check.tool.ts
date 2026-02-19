@@ -141,10 +141,6 @@ const buildFeatureContextPath = (projectRootPath: string, contextName: string): 
 };
 
 const buildScore = (failedChecks: number, totalChecks: number): number => {
-  if (totalChecks <= 0) {
-    return 100;
-  }
-
   const successfulChecks = Math.max(0, totalChecks - failedChecks);
   return Math.round((successfulChecks / totalChecks) * 100);
 };
