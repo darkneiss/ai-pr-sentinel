@@ -57,6 +57,11 @@ Practical impact:
 - `RUNTIME_*`:
   - GitHub Actions vars/secrets consumed by `deploy-runtime.yml`.
   - Mapped into rendered runtime `.env` (API, Nginx, AI, LangSmith settings).
+  - Webhook ingress hardening defaults in runtime deploy:
+    - `RUNTIME_SCM_WEBHOOK_ALLOWED_REPOSITORIES` (default: current `${{ github.repository }}`)
+    - `RUNTIME_SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST` (default: `true`)
+    - `RUNTIME_SCM_WEBHOOK_REQUIRE_DELIVERY_ID` (default: `true`)
+    - `RUNTIME_SCM_WEBHOOK_DELIVERY_TTL_SECONDS` (default: `86400`)
 - `DEPLOY_*`:
   - SSH/host/deploy path settings for remote sync and compose execution.
 - `TF_*` and `TF_VAR_*`:
