@@ -558,4 +558,180 @@ describe('TriageArchitectureCheckTool', () => {
       'triage:application/use-cases/invalid-cross-context.use-case.ts -> ../../../governance/domain/services/governance-domain.service (cross_context_import_to_governance)',
     );
   });
+
+  it('should ignore symbolic links while traversing context files', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const symlinkTargetPath = path.join(projectRootPath, 'src', 'features', 'triage', 'application');
+    const symlinkPath = path.join(symlinkTargetPath, 'recursive-link');
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "export const domainService = 'ok';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/use-case.service.ts',
+      "import { domainService } from '../../domain/services/domain.service';\nexport const useCaseService = (): string => domainService;\n",
+    );
+    fs.symlinkSync(path.join('..', '..', '..', '..', '..'), symlinkPath, 'dir');
+
+    // Act
+    const report = analyzeFeatureArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(true);
+    expect(report.metrics.changeSurface.domain.fileCount).toBe(1);
+    expect(report.metrics.changeSurface.application.fileCount).toBe(1);
+  });
+
+  it('should treat root-level features files as cross-context external targets', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/stray.ts',
+      "export const stray = (): string => 'stray';\n",
+    );
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/application/use-cases/use-stray.use-case.ts',
+      "import { stray } from 'src/features/stray';\nexport const useStray = (): string => stray();\n",
+    );
+
+    // Act
+    const report = analyzeFeatureArchitecture(projectRootPath);
+
+    // Assert
+    expect(report.isCompliant).toBe(false);
+    expect(report.violations).toContain(
+      'triage:application/use-cases/use-stray.use-case.ts -> src/features/stray (cross_context_import_to_stray.ts)',
+    );
+  });
+
+  it('should skip files when normalized path cannot resolve a feature context', () => {
+    // Arrange
+    const projectRootPath = createTempProject();
+    const forcedNormalizedPath = `${projectRootPath}${path.sep}src${path.sep}features${path.sep}`;
+    let didForcePath = false;
+
+    writeTypescriptFile(
+      projectRootPath,
+      'src/features/triage/domain/services/domain.service.ts',
+      "export const domainService = 'ok';\n",
+    );
+
+    const originalNormalize = path.normalize;
+    const normalizeSpy = jest.spyOn(path, 'normalize').mockImplementation((targetPath: string) => {
+      if (targetPath.includes(`${path.sep}domain${path.sep}services${path.sep}domain.service.ts`)) {
+        didForcePath = true;
+        return forcedNormalizedPath;
+      }
+
+      return originalNormalize(targetPath);
+    });
+
+    try {
+      // Act
+      const report = analyzeFeatureArchitecture(projectRootPath);
+
+      // Assert
+      expect(report.isCompliant).toBe(true);
+      expect(report.metrics.changeSurface.domain.fileCount).toBe(0);
+      expect(didForcePath).toBe(true);
+    } finally {
+      normalizeSpy.mockRestore();
+    }
+  });
+
+  it('should render context compliance lines sorted by context name', () => {
+    // Arrange
+    const report: ArchitectureAnalysisReport = {
+      isCompliant: true,
+      violations: [],
+      metrics: {
+        coupling: {
+          domain: {
+            internalImports: 0,
+            importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+          },
+          application: {
+            internalImports: 0,
+            importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+          },
+          infrastructure: {
+            internalImports: 0,
+            importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+          },
+        },
+        changeSurface: {
+          domain: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+          application: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+          infrastructure: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+        },
+      },
+      contexts: {
+        triage: {
+          isCompliant: true,
+          violations: [],
+          metrics: {
+            coupling: {
+              domain: {
+                internalImports: 0,
+                importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+              },
+              application: {
+                internalImports: 0,
+                importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+              },
+              infrastructure: {
+                internalImports: 0,
+                importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+              },
+            },
+            changeSurface: {
+              domain: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+              application: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+              infrastructure: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+            },
+          },
+        },
+        governance: {
+          isCompliant: true,
+          violations: [],
+          metrics: {
+            coupling: {
+              domain: {
+                internalImports: 0,
+                importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+              },
+              application: {
+                internalImports: 0,
+                importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+              },
+              infrastructure: {
+                internalImports: 0,
+                importsByLayer: { domain: 0, application: 0, infrastructure: 0, external: 0 },
+              },
+            },
+            changeSurface: {
+              domain: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+              application: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+              infrastructure: { fileCount: 0, importCount: 0, averageImportsPerFile: 0 },
+            },
+          },
+        },
+      },
+    };
+
+    // Act
+    const output = buildArchitectureHumanReadableOutput(report);
+
+    // Assert
+    expect(output.indexOf('governance: compliant=true, violations=0')).toBeLessThan(
+      output.indexOf('triage: compliant=true, violations=0'),
+    );
+  });
 });

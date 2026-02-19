@@ -140,6 +140,8 @@ Run the quality gate:
 
 ```Bash
 pnpm quality
+pnpm --filter api architecture:check
+pnpm --filter api ddd:check
 ```
 ## 📜 Documentation
 - [Governance Rules](./docs/specs/001-issue-governance.md)
@@ -150,6 +152,7 @@ pnpm quality
 - [Terraform Infrastructure](./infrastructure/terraform/README.md)
 - [Runtime Deploy Stack](./infrastructure/deploy/runtime/README.md)
 - [Infrastructure Operations Runbook](./docs/INFRASTRUCTURE_OPERATIONS_RUNBOOK.md)
+- [DDD Context Map](./docs/ddd/context-map.md)
 
 - [Agent Rules & Conventions](AGENTS.md)
 

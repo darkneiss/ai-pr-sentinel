@@ -93,6 +93,10 @@ const listTypescriptFiles = (directoryPath: string): string[] => {
   return directoryEntries.flatMap((directoryEntry) => {
     const entryPath = path.join(directoryPath, directoryEntry.name);
 
+    if (directoryEntry.isSymbolicLink()) {
+      return [];
+    }
+
     if (directoryEntry.isDirectory()) {
       return listTypescriptFiles(entryPath);
     }
@@ -184,6 +188,7 @@ const detectFeatureFileLocation = (absoluteFilePath: string): FeatureFileLocatio
   const contextName = locationSegments[0];
   const layerCandidate = locationSegments[1];
 
+  /* istanbul ignore next -- defensive guard for malformed normalized feature paths */
   if (typeof contextName !== 'string' || contextName.length === 0) {
     return null;
   }
@@ -204,6 +209,7 @@ const detectFeatureFileLocation = (absoluteFilePath: string): FeatureFileLocatio
 
 const detectFileLayer = (absoluteFilePath: string): FileLayerName | null => {
   const featureFileLocation = detectFeatureFileLocation(absoluteFilePath);
+  /* istanbul ignore next -- defensive guard if a path is outside the expected features layout */
   if (featureFileLocation === null) {
     return null;
   }
