@@ -71,8 +71,10 @@ Practical impact:
 4. `deploy-runtime.yml`:
    - resolves image reference,
    - renders `infrastructure/deploy/runtime/.env.template`,
+   - validates runner and remote deploy prerequisites (`ssh`, `rsync`, `docker`, `docker compose`, writable runtime path),
    - syncs runtime files to server via SSH/`rsync`,
-   - runs `docker compose pull` and `docker compose up -d --force-recreate --remove-orphans`.
+   - runs `docker compose pull` and `docker compose up -d --force-recreate --remove-orphans`,
+   - performs post-deploy health check against `https://<RUNTIME_SERVER_NAME>/healthz` with retries.
 
 Use this as the default path for runtime updates.
 
@@ -91,6 +93,7 @@ Expected result:
 
 - Workflow ends green.
 - Remote compose stack is recreated with the selected image tag.
+- Post-deploy health check passes (`/healthz` returns `200`).
 
 ## 4. Manual Infrastructure Apply (When Needed)
 
@@ -184,7 +187,13 @@ After Terraform apply:
 Runtime rollback (preferred first action):
 
 1. Run `Deploy Runtime` manually.
-2. Deploy the previous stable `image_tag`.
+2. Deploy the previous stable `image_tag` (for example `v0.0.9`).
+3. Confirm the workflow health check step is green.
+4. Confirm externally:
+
+```bash
+curl -fsS https://<RUNTIME_SERVER_NAME>/healthz
+```
 
 Infrastructure rollback:
 
@@ -196,9 +205,24 @@ Infrastructure rollback:
 
 - `Missing secrets.DEPLOY_SSH_PRIVATE_KEY`:
   - Add the secret in GitHub (`Repository` or `Environment` where workflow runs).
-- `rsync: command not found` on remote host:
-  - Ensure bootstrap installed `rsync`, or install it manually on host.
+- `rsync: command not found` during workflow:
+  - If reported by runner preflight, verify runner image/toolchain.
+  - If reported by remote preflight, ensure host bootstrap installs `rsync`.
 - Terraform plan/apply blocked by replacement guard:
   - Use manual `Terraform Apply` with `allow_instance_replacement=true` only if intended.
+- `publish-image` fails dispatching `deploy-runtime-development` (GitHub API `403`/`5xx`):
+  - Confirm workflow token permissions include `contents: write`.
+  - Re-run failed job (workflow includes retry with backoff for dispatch).
+- Deploy workflow fails on health check:
+  - Inspect remote status/logs:
+
+```bash
+cd /srv/deploy/ai-pr-sentinel/runtime
+docker compose ps
+docker compose logs --tail=200 nginx
+docker compose logs --tail=200 api
+```
+
+  - After fix, re-run `Deploy Runtime` manually with same `image_tag`.
 - Webhook delivery works on root URL but fails on `/webhooks/github`:
   - Verify GitHub webhook `Payload URL` exactly matches runtime route and signature secret.
