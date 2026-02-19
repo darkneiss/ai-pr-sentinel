@@ -92,7 +92,7 @@
     - `SCM_WEBHOOK_DELIVERY_TTL_SECONDS`
 
 ### Infrastructure as Code (Terraform)
-- Status: IN PROGRESS (Phase 1 bootstrap)
+- Status: DONE (Phase 1 operational baseline)
 - Behavior implemented:
   - New IaC base under `infrastructure/terraform/`.
   - Provider-agnostic compute contract module added at
@@ -125,6 +125,8 @@
     - receives target API image tag and updates remote `.env` (`API_IMAGE`),
     - renders runtime `.env` from repo template (`infrastructure/deploy/runtime/.env.template`) using GitHub `vars` + `secrets`,
     - runs `docker compose pull` + `docker compose up -d --force-recreate --remove-orphans`.
+  - Infrastructure and runtime operations runbook added at:
+    - `docs/INFRASTRUCTURE_OPERATIONS_RUNBOOK.md`.
 
 ## 3. LLM & Provider Layer
 - Port: `LLMGateway` (provider-agnostic).

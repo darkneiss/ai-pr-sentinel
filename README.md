@@ -149,6 +149,7 @@ pnpm quality
 - [Prompt Registry & Versioning](./docs/PROMPT_REGISTRY.md)
 - [Terraform Infrastructure](./infrastructure/terraform/README.md)
 - [Runtime Deploy Stack](./infrastructure/deploy/runtime/README.md)
+- [Infrastructure Operations Runbook](./docs/INFRASTRUCTURE_OPERATIONS_RUNBOOK.md)
 
 - [Agent Rules & Conventions](AGENTS.md)
 

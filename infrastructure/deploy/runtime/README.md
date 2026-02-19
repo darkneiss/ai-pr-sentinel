@@ -80,6 +80,10 @@ Workflow:
 
 - `.github/workflows/deploy-runtime.yml`
 
+Operational runbook (manual deploy, verification, rollback, and infra lifecycle):
+
+- `docs/INFRASTRUCTURE_OPERATIONS_RUNBOOK.md`
+
 What it does:
 
 - syncs `infrastructure/deploy/runtime/` to the server (excluding `.env` and certbot state),
