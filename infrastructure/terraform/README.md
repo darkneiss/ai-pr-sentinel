@@ -108,9 +108,11 @@ Terraform CI now blocks accidental Lightsail instance replacement by default.
 
 Typical immutable changes that may require replacement include:
 
-- SSH key pair association changes
-- first-boot `user_data` changes
-- provider attributes that are ForceNew in Lightsail
+- `blueprint_id` (OS image) changes
+- `bundle_id` (instance size) changes
+- `key_pair_name` (SSH key pair association) changes
+- `user_data` (first-boot bootstrap script) changes
+- Other attributes marked as `ForceNew` in `aws_lightsail_instance`
 
 How to bypass the protection intentionally:
 
