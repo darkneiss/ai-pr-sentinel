@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/darkneiss/ai-pr-sentinel/compare/ai-pr-sentinel-api-v0.1.0...ai-pr-sentinel-api-v0.2.0) (2026-02-21)
+
+
+### Features
+
+* **triage:** add deferred AI triage feedback for provider capacity errors ([#57](https://github.com/darkneiss/ai-pr-sentinel/issues/57)) ([c5614f2](https://github.com/darkneiss/ai-pr-sentinel/commit/c5614f2e06d2ace56f38ca90846ba87a2e1b054b))
+
 ## [0.1.0](https://github.com/darkneiss/ai-pr-sentinel/compare/ai-pr-sentinel-api-v0.0.5...ai-pr-sentinel-api-v0.1.0) (2026-02-19)
 
 
