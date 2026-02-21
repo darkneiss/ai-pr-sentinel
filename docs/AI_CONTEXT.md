@@ -8,7 +8,7 @@
 - Stack: Node.js (v22), Express, TypeScript, Jest, pnpm workspaces.
 - Architecture: Hexagonal (Domain/Application/Infrastructure) + shared kernel.
 
-## 2. Current Status (2026-02-13)
+## 2. Current Status (2026-02-21)
 
 ### Feature 001: Basic Governance
 - Status: DONE
@@ -232,6 +232,7 @@
   - `pnpm --filter api architecture:check`: passing
   - `pnpm --filter api ddd:check`: passing
   - Coverage currently at 100% (statements, branches, functions, lines) for `apps/api`.
+  - Jest coverage threshold is enforced at 100% globally in `apps/api/jest.config.js`.
   - Domain policy coverage includes:
     - `issue-webhook-processing-policy.service.ts`
     - `issue-ai-triage-processing-policy.service.ts`
@@ -247,6 +248,7 @@
   - CI now includes a dedicated `Architecture` job with explicit failure semantics.
   - CI now includes a dedicated `Docker Build` job to validate container buildability on PR/push.
   - CI now includes a dedicated `Workflow Lint` job (`actionlint`) for GitHub Actions validation.
+  - CI now includes a dedicated `Dependency Audit` job for production dependencies.
   - Release automation now runs via `Release Please`:
     - workflows:
       - `.github/workflows/release.yml`
