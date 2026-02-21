@@ -89,7 +89,7 @@ Steps:
 
 ## Required GitHub Configuration
 
-1. Create a fine-grained PAT and save it as repository or environment secret `RELEASE_PLEASE_TOKEN`.
+1. Create a fine-grained PAT and save it as repository or organization secret `RELEASE_PLEASE_TOKEN`.
 2. PAT repository permissions must include:
    * `Contents: Read and write`
    * `Issues: Read and write`
