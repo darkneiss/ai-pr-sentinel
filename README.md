@@ -108,7 +108,7 @@ Patterns: DDD, Hexagonal Architecture, Dependency Injection
 git clone git@github.com:darkneiss/ai-pr-sentinel.git
 
 # Change directory
-cd AI-PR-Sentinel
+cd ai-pr-sentinel
 
 # Node version
 nvm use

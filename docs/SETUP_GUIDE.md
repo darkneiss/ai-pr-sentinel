@@ -56,6 +56,8 @@ You need to expose your local server to GitHub.
 
 1. Clone the repository and install dependencies:
    ```bash
+   git clone git@github.com:darkneiss/ai-pr-sentinel.git
+   cd ai-pr-sentinel
    nvm use
    pnpm install
    ```
@@ -192,6 +194,11 @@ You need to expose your local server to GitHub.
    * Provide `LANGSMITH_API_KEY`
    * Optional: `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT`, `LANGSMITH_WORKSPACE_ID`
 
+13. Return to the repository root before running workspace scripts:
+   ```bash
+   cd ../..
+   ```
+
 ---
 
 ## 5. Run Locally
@@ -202,6 +209,7 @@ You will need **two terminals**:
 Forward external webhook traffic to your local port.
 
 ```bash
+# Run from repository root
 # Uses WEBHOOK_TUNNEL_URL from apps/api/.env
 pnpm tunnel:local
 ```
@@ -210,6 +218,7 @@ pnpm tunnel:local
 Run the API in development mode.
 
 ```bash
+# Run from repository root
 pnpm --filter api dev
 ```
 

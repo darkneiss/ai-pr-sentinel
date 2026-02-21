@@ -36,7 +36,20 @@ Ensure `SERVER_NAME` resolves to this server public IP first.
 ```bash
 cd infrastructure/deploy/runtime
 cp .env.example .env
+```
 
+Before first boot, edit `.env` and set at least:
+
+- `API_IMAGE` (a published runtime image tag),
+- `SERVER_NAME` (public FQDN),
+- `SCM_TOKEN`,
+- `SCM_WEBHOOK_SECRET`,
+- `SCM_WEBHOOK_ALLOWED_REPOSITORIES` (required when `NODE_ENV=production`),
+- `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`.
+
+For `SCM_WEBHOOK_ALLOWED_REPOSITORIES`, use comma-separated full names (`owner/repo`).
+
+```bash
 docker compose up -d
 docker compose ps
 curl -I https://"$SERVER_NAME"
@@ -65,6 +78,19 @@ For local/no-DNS tests, set `NGINX_TLS_ENABLED=false` in `.env`.
 - `/api/*` -> proxied to API (`/api/health` reaches API `/health`).
 - Known bot scanner signatures and probing paths are dropped with `444`.
 - Any other route -> `404` from Nginx.
+
+## Configure GitHub Webhook (Required)
+
+After the stack is healthy, configure the target repository webhook:
+
+1. Go to `Settings -> Webhooks -> Add webhook` in the repository you are protecting.
+2. Set `Payload URL` to `https://<SERVER_NAME>/webhooks/github`.
+3. Set `Content type` to `application/json`.
+4. Set `Secret` to the same value used in runtime `.env` (`SCM_WEBHOOK_SECRET`).
+5. Select event type `Issues` (or your intended event set).
+6. Save and trigger a test delivery (new issue, issue edit, or redelivery from webhook history).
+
+Expected result: deliveries return `2xx` and the API container logs a processed issue workflow.
 
 ## Optional Manual Certbot Commands
 
@@ -122,6 +148,10 @@ Required GitHub configuration (Environment `development` recommended):
     - `RUNTIME_NODE_ENV` (default `production`)
     - `RUNTIME_SCM_PROVIDER` (default `github`)
     - `RUNTIME_SCM_BOT_LOGIN` (default `ai-pr-sentinel[bot]`)
+    - `RUNTIME_SCM_WEBHOOK_ALLOWED_REPOSITORIES` (default `${{ github.repository }}`)
+    - `RUNTIME_SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST` (default `true`)
+    - `RUNTIME_SCM_WEBHOOK_REQUIRE_DELIVERY_ID` (default `true`)
+    - `RUNTIME_SCM_WEBHOOK_DELIVERY_TTL_SECONDS` (default `86400`)
     - `RUNTIME_SCM_WEBHOOK_VERIFY_SIGNATURE` (optional override: `true|false`)
     - `RUNTIME_LOG_LEVEL` (default `info`)
     - `RUNTIME_LLM_LOG_RAW_RESPONSE` (default `false`)
@@ -164,6 +194,8 @@ Remote prerequisites:
 ## Relevant `.env` Variables
 
 - `SERVER_NAME`
+- `API_IMAGE`
+- `API_PORT`
 - `LETSENCRYPT_EMAIL`
 - `NGINX_TLS_ENABLED`
 - `CERTBOT_STAGING`
@@ -177,3 +209,15 @@ Remote prerequisites:
 - `NGINX_PROXY_SEND_TIMEOUT`
 - `NGINX_CERT_RELOAD_INTERVAL_SECONDS`
 - `NGINX_ROBOTS_TAG` (default: `noindex, nofollow, noarchive`)
+- `NODE_ENV`
+- `SCM_PROVIDER`
+- `SCM_TOKEN`
+- `SCM_WEBHOOK_SECRET`
+- `SCM_WEBHOOK_ALLOWED_REPOSITORIES`
+- `SCM_WEBHOOK_STRICT_REPOSITORY_ALLOWLIST`
+- `SCM_WEBHOOK_REQUIRE_DELIVERY_ID`
+- `SCM_WEBHOOK_DELIVERY_TTL_SECONDS`
+- `LLM_PROVIDER`
+- `LLM_API_KEY`
+- `LLM_MODEL`
+- `LLM_BASE_URL`

@@ -87,9 +87,20 @@ Steps:
 5. Release workflow publishes tag + GitHub Release and triggers publish workflow.
 6. Publish workflow builds/scans/promotes the Docker image.
 
+## Required GitHub Configuration
+
+1. Create a fine-grained PAT and save it as repository or environment secret `RELEASE_PLEASE_TOKEN`.
+2. PAT repository permissions must include:
+   * `Contents: Read and write`
+   * `Issues: Read and write`
+   * `Pull requests: Read and write`
+   * `Metadata: Read-only` (default)
+3. In `Settings -> Actions -> General -> Workflow permissions`, set `Read and write permissions` so workflow `GITHUB_TOKEN` can dispatch chained workflows.
+
 ## Prerequisites
 
 1. Use Conventional Commits.
 2. Keep CI green before merging Release PRs.
 3. Keep Dockerfile dependencies patched to pass Trivy scan gate.
-4. Keep GitHub Action SHAs updated intentionally (workflows are pinned to immutable commits).
+4. Keep `RELEASE_PLEASE_TOKEN` valid and rotated before expiration.
+5. Keep GitHub Action SHAs updated intentionally (workflows are pinned to immutable commits).
