@@ -143,6 +143,17 @@ pnpm quality
 pnpm --filter api architecture:check
 pnpm --filter api ddd:check
 ```
+
+## ⚠️ Failure Modes & Recovery
+The bot applies a fail-open strategy so repository workflows are not blocked by provider/runtime instability.
+
+| Failure mode | Behavior | Recovery |
+| --- | --- | --- |
+| AI provider returns capacity errors (`429`, rate-limit, quota) | The issue is marked with `triage/ai-deferred` and the bot posts an English comment explaining triage was deferred. | Edit or reopen the issue to trigger a new webhook event and retry AI triage. |
+| AI response parsing fails | AI triage is skipped (`ai_unavailable`) and webhook processing continues without governance writes from AI. | Re-run triage by editing/reopening the issue after provider output is stable. |
+| Deferred marker already exists | No duplicate deferred label/comment is created (idempotent behavior). | No manual action required. |
+| Deferred issue is successfully processed later | `triage/ai-deferred` is removed automatically after successful AI triage. | No manual cleanup required. |
+
 ## 📜 Documentation
 - [Governance Rules](./docs/specs/001-issue-governance.md)
 - [Architecture Decisions (ADRs)](./docs/adr/README.md)
