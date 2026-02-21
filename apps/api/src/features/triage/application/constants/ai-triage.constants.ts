@@ -198,6 +198,7 @@ export const resolveAiTemperature = (config?: ConfigPort): number => {
 export const AI_DUPLICATE_COMMENT_PREFIX = 'AI Triage: Possible duplicate of #';
 export const AI_TRIAGE_DEFERRED_COMMENT_PREFIX = 'AI Triage: Deferred due to provider limits';
 export const AI_TRIAGE_DEFERRED_COMMENT_BODY = [
+  `${AI_TRIAGE_DEFERRED_COMMENT_PREFIX}.`,
   'AI triage has been deferred because the LLM provider rate limit or quota was exceeded.',
   '',
   'Please edit or reopen this issue later to trigger a retry.',

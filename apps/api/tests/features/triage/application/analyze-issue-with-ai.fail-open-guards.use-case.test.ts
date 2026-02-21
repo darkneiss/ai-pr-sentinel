@@ -426,4 +426,40 @@ describe('AnalyzeIssueWithAiUseCase (Fail-open Guards)', () => {
     expect(governanceGateway.addLabels).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
+
+  it('should not mark issue as deferred when non-llm dependency fails with rate-limit-like message', async () => {
+    // Arrange
+    const llmGateway: jest.Mocked<LLMGateway> = {
+      generateJson: jest.fn(),
+    };
+    const issueHistoryGateway: jest.Mocked<IssueHistoryGateway> = {
+      findRecentIssues: jest.fn().mockRejectedValue(new Error('GitHub issue history rate limit exceeded')),
+      hasIssueCommentWithPrefix: jest.fn().mockResolvedValue(false),
+    };
+    const governanceGateway: jest.Mocked<GovernanceGateway> = {
+      addLabels: jest.fn().mockResolvedValue(undefined),
+      removeLabel: jest.fn().mockResolvedValue(undefined),
+      createComment: jest.fn().mockResolvedValue(undefined),
+      logValidatedIssue: jest.fn().mockResolvedValue(undefined),
+    };
+    const logger = {
+      error: jest.fn(),
+      info: jest.fn(),
+    };
+    const run = analyzeIssueWithAi({
+      llmGateway,
+      issueHistoryGateway,
+      governanceGateway,
+      logger,
+    });
+
+    // Act
+    const result = await run(createInput());
+
+    // Assert
+    expect(result).toEqual({ status: 'skipped', reason: 'ai_unavailable' });
+    expect(llmGateway.generateJson).not.toHaveBeenCalled();
+    expect(governanceGateway.addLabels).not.toHaveBeenCalled();
+    expect(governanceGateway.createComment).not.toHaveBeenCalled();
+  });
 });
