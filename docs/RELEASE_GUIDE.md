@@ -28,8 +28,8 @@ Release Please is configured in manifest mode with:
 
 1. `release-please-config.json`
    * package path `apps/api` with `release-type: simple`
-   * `changelog-path` set to `apps/api/CHANGELOG.md`
-   * `extra-files` updates `apps/api/package.json` (`$.version`)
+   * `changelog-path` set to `CHANGELOG.md` (relative to package path)
+   * `extra-files` updates `package.json` (`$.version`) (relative to package path)
    * `bootstrap-sha` to avoid re-processing historical commits before release automation adoption
 2. `.release-please-manifest.json`
    * tracked API version baseline (path `apps/api`)
