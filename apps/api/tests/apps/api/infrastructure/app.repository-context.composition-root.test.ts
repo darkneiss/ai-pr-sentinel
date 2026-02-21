@@ -66,7 +66,9 @@ describe('App (Repository Context Composition)', () => {
   it('should initialize repository context adapter when AI triage is enabled', async () => {
     // Arrange
     const currentAiTriageEnabled = process.env.AI_TRIAGE_ENABLED;
+    const currentScmBotLogin = process.env.SCM_BOT_LOGIN;
     process.env.AI_TRIAGE_ENABLED = 'true';
+    process.env.SCM_BOT_LOGIN = 'ai-pr-sentinel[bot]';
     const app = createApp();
 
     try {
@@ -81,6 +83,7 @@ describe('App (Repository Context Composition)', () => {
       expect(analyzeIssueWithAiRunnerMock).toHaveBeenCalledTimes(1);
     } finally {
       process.env.AI_TRIAGE_ENABLED = currentAiTriageEnabled;
+      process.env.SCM_BOT_LOGIN = currentScmBotLogin;
     }
   });
 });

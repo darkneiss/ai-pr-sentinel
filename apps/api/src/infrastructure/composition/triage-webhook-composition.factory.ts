@@ -16,6 +16,10 @@ import type { ConfigPort } from '../../shared/application/ports/config.port';
 import type { QuestionResponseMetricsPort } from '../../shared/application/ports/question-response-metrics.port';
 import type { Logger } from '../../shared/infrastructure/logging/env-logger';
 
+const SCM_BOT_LOGIN_ENV_VAR = 'SCM_BOT_LOGIN';
+const SCM_BOT_LOGIN_MISSING_ERROR_MESSAGE =
+  'Missing SCM_BOT_LOGIN. Configure SCM_BOT_LOGIN when AI_TRIAGE_ENABLED is true.';
+
 export interface TriageWebhookComposition {
   scmProvider: ScmProvider;
   governanceGateway: GovernanceGateway;
@@ -35,6 +39,15 @@ interface CreateTriageWebhookCompositionParams {
   analyzeIssueWithAi?: (input: AnalyzeIssueWithAiInput) => Promise<AnalyzeIssueWithAiResult>;
 }
 
+const resolveRequiredScmBotLogin = (config: ConfigPort): string => {
+  const scmBotLogin = config.get(SCM_BOT_LOGIN_ENV_VAR)?.trim();
+  if (!scmBotLogin) {
+    throw new Error(SCM_BOT_LOGIN_MISSING_ERROR_MESSAGE);
+  }
+
+  return scmBotLogin;
+};
+
 export const createTriageWebhookComposition = ({
   logger,
   config,
@@ -47,9 +60,13 @@ export const createTriageWebhookComposition = ({
   const ingressConfig = resolveWebhookIngressConfig(config);
   const resolvedGovernanceGateway =
     governanceGateway ?? createLazyGovernanceGateway({ scmProvider, config });
+  const aiTriageEnabled = isAiTriageEnabled(config);
+  if (aiTriageEnabled && !analyzeIssueWithAi) {
+    resolveRequiredScmBotLogin(config);
+  }
   const resolvedAnalyzeIssueWithAi =
     analyzeIssueWithAi ??
-    (isAiTriageEnabled(config)
+    (aiTriageEnabled
       ? createLazyAnalyzeIssueWithAi(resolvedGovernanceGateway, logger, questionResponseMetrics, config, {
           scmProvider,
         })

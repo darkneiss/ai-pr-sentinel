@@ -196,7 +196,9 @@ describe('App (Composition Root)', () => {
 
   it('should lazy-load and run AI triage when AI_TRIAGE_ENABLED is true', async () => {
     const currentAiTriageEnabled = process.env.AI_TRIAGE_ENABLED;
+    const currentScmBotLogin = process.env.SCM_BOT_LOGIN;
     process.env.AI_TRIAGE_ENABLED = 'true';
+    process.env.SCM_BOT_LOGIN = 'ai-pr-sentinel[bot]';
     const app = createApp();
 
     try {
@@ -211,6 +213,7 @@ describe('App (Composition Root)', () => {
       expect(analyzeIssueWithAiRunnerMock).toHaveBeenCalledTimes(2);
     } finally {
       process.env.AI_TRIAGE_ENABLED = currentAiTriageEnabled;
+      process.env.SCM_BOT_LOGIN = currentScmBotLogin;
     }
   });
 });
