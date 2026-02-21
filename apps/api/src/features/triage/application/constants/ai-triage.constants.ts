@@ -65,6 +65,7 @@ export const resolveAiTimeoutMs = (config?: ConfigPort): number => {
 
 export const AI_TRIAGE_DUPLICATE_LABEL = 'triage/duplicate';
 export const AI_TRIAGE_MONITOR_LABEL = 'triage/monitor';
+export const AI_TRIAGE_DEFERRED_LABEL = 'triage/ai-deferred';
 export const AI_KIND_BUG_LABEL = 'kind/bug';
 export const AI_KIND_FEATURE_LABEL = 'kind/feature';
 export const AI_KIND_QUESTION_LABEL = 'kind/question';
@@ -195,6 +196,12 @@ export const resolveAiTemperature = (config?: ConfigPort): number => {
 };
 
 export const AI_DUPLICATE_COMMENT_PREFIX = 'AI Triage: Possible duplicate of #';
+export const AI_TRIAGE_DEFERRED_COMMENT_PREFIX = 'AI Triage: Deferred due to provider limits';
+export const AI_TRIAGE_DEFERRED_COMMENT_BODY = [
+  'AI triage has been deferred because the LLM provider rate limit or quota was exceeded.',
+  '',
+  'Please edit or reopen this issue later to trigger a retry.',
+].join('\n');
 export const AI_QUESTION_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested';
 export const AI_QUESTION_AI_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested guidance';
 export const AI_QUESTION_FALLBACK_REPLY_COMMENT_PREFIX = 'AI Triage: Suggested setup checklist';
