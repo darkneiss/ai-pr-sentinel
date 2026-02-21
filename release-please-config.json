@@ -5,11 +5,11 @@
     "apps/api": {
       "release-type": "simple",
       "component": "ai-pr-sentinel-api",
-      "changelog-path": "apps/api/CHANGELOG.md",
+      "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
           "type": "json",
-          "path": "apps/api/package.json",
+          "path": "package.json",
           "jsonpath": "$.version"
         }
       ]

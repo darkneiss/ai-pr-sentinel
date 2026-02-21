@@ -1,6 +1,6 @@
 # OWASP Top 10 (2025) - Security Assessment
 
-Date: 2026-02-19
+Date: 2026-02-21
 Scope: `apps/api`, runtime edge (`infrastructure/deploy/runtime`), CI/CD workflows.
 
 This document tracks security posture against OWASP Top 10 (2025), with concrete repository evidence and open gaps.
@@ -57,6 +57,8 @@ This document tracks security posture against OWASP Top 10 (2025), with concrete
 - Actions pinned by commit SHA across workflows.
 - Image vulnerability scan (Trivy) in publish pipeline:
   - `.github/workflows/publish-image.yml`
+- CI production dependency audit gate:
+  - `.github/workflows/ci.yml` (`dependency_audit` job)
 
 ### Remaining gap
 - Repository still reports unresolved dependency vulnerabilities; they must be fixed before claiming full compliance.
@@ -144,6 +146,6 @@ This document tracks security posture against OWASP Top 10 (2025), with concrete
 ## Immediate Next Actions (High Impact)
 
 1. Close unresolved dependency vulnerabilities (Dependabot security alerts).
-2. Add CI dependency audit gate for `apps/api` (`pnpm audit --prod --audit-level=high`).
+2. Harden CI dependency audit handling for transient registry/network failures (for example `EAI_AGAIN`) while preserving hard-fail for real vulnerabilities.
 3. Add key rotation procedure for webhook secret and deploy credentials.
 4. Add alerting rules for repeated webhook auth failures and runtime health degradation.

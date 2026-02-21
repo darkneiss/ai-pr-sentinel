@@ -135,28 +135,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          audit_output_file="$(mktemp)"
-          trap 'rm -f "${audit_output_file}"' EXIT
-
-          set +e
-          npm_config_fetch_retries=0 pnpm --dir apps/api audit --prod --audit-level=high >"${audit_output_file}" 2>&1
-          audit_exit_code=$?
-          set -e
-
-          cat "${audit_output_file}"
-
-          if [[ "${audit_exit_code}" -eq 0 ]]; then
-            exit 0
-          fi
-
-          if grep -q 'ERR_PNPM_AUDIT_BAD_RESPONSE' "${audit_output_file}" \
-            || grep -q 'responded with 500' "${audit_output_file}"; then
-            echo "WARN: npm audit endpoint is unavailable (registry error). Skipping hard failure for this run." >&2
-            exit 0
-          fi
-
-          echo "Dependency audit failed with actionable vulnerabilities or execution errors." >&2
-          exit "${audit_exit_code}"
+          pnpm --dir apps/api audit --prod --audit-level=high --ignore-registry-errors
 
   test:
     name: Test
