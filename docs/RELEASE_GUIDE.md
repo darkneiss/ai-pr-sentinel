@@ -95,7 +95,8 @@ Steps:
    * `Issues: Read and write`
    * `Pull requests: Read and write`
    * `Metadata: Read-only` (default)
-3. In `Settings -> Actions -> General -> Workflow permissions`, set `Read and write permissions` so workflow `GITHUB_TOKEN` can dispatch chained workflows.
+3. In `Settings -> Actions -> General -> Workflow permissions`, set `Read and write permissions`.
+   The release workflow uses the default `GITHUB_TOKEN` to call the repository dispatch API (`POST /repos/{owner}/{repo}/dispatches`) and trigger `publish-image.yml`.
 
 ## Prerequisites
 

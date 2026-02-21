@@ -87,7 +87,7 @@ After the stack is healthy, configure the target repository webhook:
 2. Set `Payload URL` to `https://<SERVER_NAME>/webhooks/github`.
 3. Set `Content type` to `application/json`.
 4. Set `Secret` to the same value used in runtime `.env` (`SCM_WEBHOOK_SECRET`).
-5. Select event type `Issues` (or your intended event set).
+5. Select event type `Issues` (only Issues are currently supported for triage).
 6. Save and trigger a test delivery (new issue, issue edit, or redelivery from webhook history).
 
 Expected result: deliveries return `2xx` and the API container logs a processed issue workflow.
