@@ -11,7 +11,7 @@
 
 ## 📋 Overview
 
-**AI-PR-Sentinel** acts as an intelligent gatekeeper for software projects. It listens to GitHub events (Issues, PRs) and enforces governance policies automatically.
+**AI-PR-Sentinel** acts as an intelligent gatekeeper for software projects. It listens to GitHub Issue events and enforces governance policies automatically.
 
 Unlike standard linters, this system understands **context** and **business rules**, applying "Governance as Code" principles to ensure repository hygiene before a human ever needs to intervene.
 
