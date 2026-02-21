@@ -11,3 +11,4 @@
 - [ADR-009: Release Automation with Release Please](./ADR-009-release-automation-with-release-please.md)
 - [ADR-010: Terraform Foundation for AWS Lightsail Deployment](./ADR-010-terraform-lightsail-foundation.md)
 - [ADR-011: DDD Control Score Gate](./ADR-011-ddd-control-score-gate.md)
+- [ADR-012: AI Triage Deferred Feedback on Provider Capacity Errors](./ADR-012-ai-triage-deferred-feedback-on-capacity-errors.md)

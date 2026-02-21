@@ -1,4 +1,6 @@
 import {
+  AI_TRIAGE_DEFERRED_COMMENT_BODY,
+  AI_TRIAGE_DEFERRED_COMMENT_PREFIX,
   resolveAiDecisionThresholds,
   resolveAiTemperature,
   resolveAiCurationConfidenceThresholds,
@@ -362,5 +364,17 @@ describe('ai-triage.constants', () => {
 
     // Assert
     expect(result).toBe(0.1);
+  });
+
+  it('should start deferred comment body with deferred comment prefix', () => {
+    // Arrange
+    const deferredCommentBody = AI_TRIAGE_DEFERRED_COMMENT_BODY;
+    const deferredCommentPrefix = AI_TRIAGE_DEFERRED_COMMENT_PREFIX;
+
+    // Act
+    const doesBodyStartWithPrefix = deferredCommentBody.startsWith(deferredCommentPrefix);
+
+    // Assert
+    expect(doesBodyStartWithPrefix).toBe(true);
   });
 });

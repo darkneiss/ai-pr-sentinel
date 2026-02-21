@@ -4,6 +4,9 @@ import {
   AI_TRIAGE_LOG_EVENT_FAILED,
   AI_TRIAGE_LOG_STATUS_FAILED,
   AI_TRIAGE_LOG_STEPS,
+  AI_TRIAGE_DEFERRED_COMMENT_BODY,
+  AI_TRIAGE_DEFERRED_COMMENT_PREFIX,
+  AI_TRIAGE_DEFERRED_LABEL,
   AI_TRIAGE_LOG_UNKNOWN_VALUE,
   DEFAULT_LLM_PROVIDER,
   LLM_LOG_RAW_RESPONSE_ENV_VAR,
@@ -108,6 +111,97 @@ const logAiTriageFailures = (
   });
 };
 
+const AI_PROVIDER_CAPACITY_ERROR_PATTERNS = [
+  /\bstatus\s*429\b/i,
+  /\brate[\s_-]*limit(?:ed)?\b/i,
+  /\bquota(?:\s+exceeded)?\b/i,
+  /\binsufficient[_\s-]*quota\b/i,
+  /\btoo\s+many\s+requests\b/i,
+  /\bresource[_\s-]*exhausted\b/i,
+] as const;
+
+const resolveErrorMessage = (error: unknown): string | null => {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const { message } = error as { message?: unknown };
+    if (typeof message === 'string') {
+      return message;
+    }
+  }
+
+  return null;
+};
+
+const isAiProviderCapacityError = (error: unknown): boolean => {
+  const errorMessage = resolveErrorMessage(error);
+  if (!errorMessage) {
+    return false;
+  }
+
+  return AI_PROVIDER_CAPACITY_ERROR_PATTERNS.some((pattern) => pattern.test(errorMessage));
+};
+
+interface DeferredTriageMarkerInput {
+  input: AnalyzeIssueWithAiInput;
+  issueHistoryGateway: IssueHistoryGateway;
+  governanceGateway: GovernanceGateway;
+  botLogin?: string;
+}
+
+const markIssueAsAiTriageDeferred = async ({
+  input,
+  issueHistoryGateway,
+  governanceGateway,
+  botLogin,
+}: DeferredTriageMarkerInput): Promise<void> => {
+  if (!input.issue.labels.includes(AI_TRIAGE_DEFERRED_LABEL)) {
+    await governanceGateway.addLabels({
+      repositoryFullName: input.repositoryFullName,
+      issueNumber: input.issue.number,
+      labels: [AI_TRIAGE_DEFERRED_LABEL],
+    });
+  }
+
+  const hasDeferredComment = await issueHistoryGateway.hasIssueCommentWithPrefix({
+    repositoryFullName: input.repositoryFullName,
+    issueNumber: input.issue.number,
+    bodyPrefix: AI_TRIAGE_DEFERRED_COMMENT_PREFIX,
+    authorLogin: botLogin,
+  });
+
+  if (hasDeferredComment) {
+    return;
+  }
+
+  await governanceGateway.createComment({
+    repositoryFullName: input.repositoryFullName,
+    issueNumber: input.issue.number,
+    body: AI_TRIAGE_DEFERRED_COMMENT_BODY,
+  });
+};
+
+const clearAiTriageDeferredLabelIfPresent = async (
+  input: AnalyzeIssueWithAiInput,
+  governanceGateway: GovernanceGateway,
+): Promise<void> => {
+  if (!input.issue.labels.includes(AI_TRIAGE_DEFERRED_LABEL)) {
+    return;
+  }
+
+  await governanceGateway.removeLabel({
+    repositoryFullName: input.repositoryFullName,
+    issueNumber: input.issue.number,
+    label: AI_TRIAGE_DEFERRED_LABEL,
+  });
+};
+
 export const analyzeIssueWithAi =
   ({
     llmGateway,
@@ -175,13 +269,42 @@ export const analyzeIssueWithAi =
       const temperature = resolvedPrompt?.config?.temperature ?? resolveAiTemperature(config);
       const timeoutMs = resolveAiTimeoutMs(config);
 
-      const llmResult = await llmGateway.generateJson({
-        systemPrompt,
-        userPrompt,
-        maxTokens,
-        timeoutMs,
-        temperature,
-      });
+      let llmResult: Awaited<ReturnType<LLMGateway['generateJson']>>;
+      try {
+        llmResult = await llmGateway.generateJson({
+          systemPrompt,
+          userPrompt,
+          maxTokens,
+          timeoutMs,
+          temperature,
+        });
+      } catch (error: unknown) {
+        logAiTriageFailures(logger, input, Date.now() - triageStartedAt, provider, model);
+        logger.error('AnalyzeIssueWithAiUseCase failed. Applying fail-open policy.', {
+          repositoryFullName: input.repositoryFullName,
+          issueNumber: input.issue.number,
+          error,
+        });
+
+        if (isAiProviderCapacityError(error)) {
+          try {
+            await markIssueAsAiTriageDeferred({
+              input,
+              issueHistoryGateway,
+              governanceGateway,
+              botLogin,
+            });
+          } catch (deferredMarkerError: unknown) {
+            logger.error('AnalyzeIssueWithAiUseCase failed marking deferred AI triage state.', {
+              repositoryFullName: input.repositoryFullName,
+              issueNumber: input.issue.number,
+              error: deferredMarkerError,
+            });
+          }
+        }
+
+        return decideIssueAiTriageWorkflowOnUnhandledFailure();
+      }
 
       const workflowAfterLlmDecision = decideIssueAiTriageWorkflowFromRawText(
         llmResult.rawText,
@@ -234,6 +357,8 @@ export const analyzeIssueWithAi =
         llmModel: model,
         logger,
       });
+
+      await clearAiTriageDeferredLabelIfPresent(input, governanceGateway);
 
       return workflowAfterLlmDecision.result;
     } catch (error: unknown) {

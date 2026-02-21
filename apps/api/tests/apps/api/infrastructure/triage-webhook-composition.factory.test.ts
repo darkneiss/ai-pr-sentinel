@@ -44,7 +44,7 @@ describe('TriageWebhookCompositionFactory', () => {
         error: jest.fn(),
       },
       config: {
-        get: jest.fn(),
+        get: jest.fn((key: string) => (key === 'SCM_BOT_LOGIN' ? 'ai-pr-sentinel[bot]' : undefined)),
         getBoolean: jest.fn(),
       },
       questionResponseMetrics: {
@@ -57,5 +57,42 @@ describe('TriageWebhookCompositionFactory', () => {
     expect(result.governanceGateway).toBe(governanceGateway);
     expect(result.analyzeIssueWithAi).toBe(analyzeIssueWithAi);
     expect(result.webhookSecret).toBe('secret');
+  });
+
+  it('should fail fast when ai triage is enabled and scm bot login is missing', () => {
+    // Arrange
+    const governanceGateway = {
+      addLabels: jest.fn(),
+      removeLabel: jest.fn(),
+      createComment: jest.fn(),
+      logValidatedIssue: jest.fn(),
+    } as unknown as GovernanceGateway;
+    createLazyGovernanceGatewayMock.mockReturnValue(governanceGateway);
+    isAiTriageEnabledMock.mockReturnValue(true);
+    resolveWebhookSignatureConfigMock.mockReturnValue({
+      verifyWebhookSignature: false,
+      webhookSecret: undefined,
+    });
+
+    // Act + Assert
+    expect(() =>
+      createTriageWebhookComposition({
+        logger: {
+          debug: jest.fn(),
+          info: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+        },
+        config: {
+          get: jest.fn(() => undefined),
+          getBoolean: jest.fn(),
+        },
+        questionResponseMetrics: {
+          increment: jest.fn(),
+          snapshot: jest.fn(),
+        },
+      }),
+    ).toThrow('Missing SCM_BOT_LOGIN');
+    expect(createLazyAnalyzeIssueWithAiMock).not.toHaveBeenCalled();
   });
 });
