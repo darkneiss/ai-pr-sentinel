@@ -122,7 +122,7 @@ jobs:
 
       - name: Step 7 - Generate image tags and labels
         id: metadata
-        uses: docker/metadata-action@b13d25e5fcf2e04305d8aedc9a6c28ebe258e934 # v5
+        uses: docker/metadata-action@11079342065fb7d2c3b37cb799ab6ecc01ad1bb2 # v5
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
